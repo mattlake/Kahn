@@ -5,9 +5,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func initializeInputs() (textinput.Model, textinput.Model) {
+func initializeProjectInputs() (textinput.Model, textinput.Model) {
 	name := textinput.New()
-	name.Placeholder = "Task name"
+	name.Placeholder = "Project name"
 	name.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(ColorSubtext0))
 	name.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(ColorText))
 	name.Cursor.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(ColorMauve))
@@ -16,28 +16,28 @@ func initializeInputs() (textinput.Model, textinput.Model) {
 	name.Width = 40
 
 	desc := textinput.New()
-	desc.Placeholder = "Task description"
+	desc.Placeholder = "Project description"
 	desc.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(ColorSubtext0))
 	desc.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(ColorText))
 	desc.Cursor.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(ColorMauve))
-	desc.CharLimit = 100
+	desc.CharLimit = 200
 	desc.Width = 40
 
 	return name, desc
 }
 
-func (m Model) renderForm() string {
+func (m Model) renderProjectForm() string {
 	formTitle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(ColorMauve)).
 		Bold(true).
 		Align(lipgloss.Center).
 		Width(50).
-		Render("Add New Task")
+		Render("New Project")
 
 	nameLabel := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(ColorText)).
 		Bold(true).
-		Render("Task Name:")
+		Render("Project Name:")
 
 	descLabel := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(ColorText)).
@@ -48,13 +48,13 @@ func (m Model) renderForm() string {
 		Foreground(lipgloss.Color(ColorSubtext1)).
 		Align(lipgloss.Center).
 		Width(50).
-		Render("Tab: Switch fields | Enter: Submit | Esc: Cancel")
+		Render("Tab: Switch fields • Enter: Create • Esc: Cancel")
 
 	// Highlight focused input
-	nameField := m.nameInput.View()
-	descField := m.descInput.View()
+	nameField := m.projNameInput.View()
+	descField := m.projDescInput.View()
 
-	if m.focusedInput == 0 {
+	if m.focusedProjInput == 0 {
 		nameField = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color(ColorMauve)).

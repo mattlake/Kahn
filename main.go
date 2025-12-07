@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	m := NewKahnModel()
+	m := NewModel()
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)

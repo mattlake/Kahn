@@ -6,17 +6,33 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-type KahnModel struct {
-	Tasks           []list.Model
-	activeListIndex Status
-	showForm        bool
-	nameInput       textinput.Model
-	descInput       textinput.Model
-	focusedInput    int // 0 for name, 1 for desc
-	width           int
-	height          int
+type Model struct {
+	Projects          []Project
+	ActiveProjectID   string
+	Tasks             []list.Model
+	activeListIndex   Status
+	showForm          bool
+	showProjectSwitch bool
+	showProjectForm   bool
+	nameInput         textinput.Model
+	descInput         textinput.Model
+	projNameInput     textinput.Model
+	projDescInput     textinput.Model
+	focusedInput      int // 0 for name, 1 for desc
+	focusedProjInput  int // 0 for name, 1 for desc
+	width             int
+	height            int
 }
 
-func (m KahnModel) Init() tea.Cmd {
+func (m Model) Init() tea.Cmd {
+	return nil
+}
+
+func (m *Model) GetActiveProject() *Project {
+	for _, proj := range m.Projects {
+		if proj.ID == m.ActiveProjectID {
+			return &proj
+		}
+	}
 	return nil
 }
