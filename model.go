@@ -29,9 +29,9 @@ func (m Model) Init() tea.Cmd {
 }
 
 func (m *Model) GetActiveProject() *Project {
-	for _, proj := range m.Projects {
+	for i, proj := range m.Projects {
 		if proj.ID == m.ActiveProjectID {
-			return &proj
+			return &m.Projects[i]
 		}
 	}
 	return nil

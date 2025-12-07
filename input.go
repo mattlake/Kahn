@@ -214,14 +214,6 @@ func (m *Model) updateTaskLists() {
 		return
 	}
 
-	// Update the project in the Projects slice
-	for i, proj := range m.Projects {
-		if proj.ID == activeProj.ID {
-			m.Projects[i] = *activeProj
-			break
-		}
-	}
-
 	// Update task lists with active project tasks
 	m.Tasks[NotStarted].SetItems(convertTasksToListItems(activeProj.GetTasksByStatus(NotStarted)))
 	m.Tasks[InProgress].SetItems(convertTasksToListItems(activeProj.GetTasksByStatus(InProgress)))
