@@ -77,9 +77,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.WindowSizeMsg:
 		h, v := defaultStyle.GetFrameSize()
-		m.Tasks[NotStarted].SetSize(msg.Width-h, msg.Height-v)
-		m.Tasks[InProgress].SetSize(msg.Width-h, msg.Height-v)
-		m.Tasks[Done].SetSize(msg.Width-h, msg.Height-v)
+		// Calculate equal column width (1/3 of terminal width)
+		columnWidth := (msg.Width - (h * 3)) / 3
+		if columnWidth < 20 {
+			columnWidth = 20 // Minimum width
+		}
+		m.Tasks[NotStarted].SetSize(columnWidth, msg.Height-v)
+		m.Tasks[InProgress].SetSize(columnWidth, msg.Height-v)
+		m.Tasks[Done].SetSize(columnWidth, msg.Height-v)
 	}
 
 	var cmd tea.Cmd
@@ -88,27 +93,39 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
+	// Get the current width of the first list to use as column width
+	columnWidth := m.Tasks[0].Width()
+
+	// Apply width constraints to ensure equal columns
+	notStartedView := defaultStyle.Width(columnWidth).Render(m.Tasks[NotStarted].View())
+	inProgressView := defaultStyle.Width(columnWidth).Render(m.Tasks[InProgress].View())
+	doneView := defaultStyle.Width(columnWidth).Render(m.Tasks[Done].View())
+
+	focusedNotStartedView := focusedStyle.Width(columnWidth).Render(m.Tasks[NotStarted].View())
+	focusedInProgressView := focusedStyle.Width(columnWidth).Render(m.Tasks[InProgress].View())
+	focusedDoneView := focusedStyle.Width(columnWidth).Render(m.Tasks[Done].View())
+
 	switch m.activeListIndex {
 	case InProgress:
 		return lipgloss.JoinHorizontal(
 			lipgloss.Left,
-			defaultStyle.Render(m.Tasks[NotStarted].View()),
-			focusedStyle.Render(m.Tasks[InProgress].View()),
-			defaultStyle.Render(m.Tasks[Done].View()),
+			notStartedView,
+			focusedInProgressView,
+			doneView,
 		)
 	case Done:
 		return lipgloss.JoinHorizontal(
 			lipgloss.Left,
-			defaultStyle.Render(m.Tasks[NotStarted].View()),
-			defaultStyle.Render(m.Tasks[InProgress].View()),
-			focusedStyle.Render(m.Tasks[Done].View()),
+			notStartedView,
+			inProgressView,
+			focusedDoneView,
 		)
 	default:
 		return lipgloss.JoinHorizontal(
 			lipgloss.Left,
-			focusedStyle.Render(m.Tasks[NotStarted].View()),
-			defaultStyle.Render(m.Tasks[InProgress].View()),
-			defaultStyle.Render(m.Tasks[Done].View()),
+			focusedNotStartedView,
+			inProgressView,
+			doneView,
 		)
 	}
 }
