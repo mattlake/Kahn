@@ -6,7 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-type Model struct {
+type KahnModel struct {
 	Tasks           []list.Model
 	activeListIndex Status
 	showForm        bool
@@ -17,6 +17,6 @@ type Model struct {
 	height          int
 }
 
-func (m Model) Init() tea.Cmd {
+func (m KahnModel) Init() tea.Cmd {
 	return nil
 }

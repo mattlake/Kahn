@@ -4,7 +4,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if m.showForm {
@@ -94,7 +94,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m *Model) NextList() {
+func (m *KahnModel) NextList() {
 	if m.activeListIndex == Done {
 		m.activeListIndex = NotStarted
 	} else {
@@ -102,7 +102,7 @@ func (m *Model) NextList() {
 	}
 }
 
-func (m *Model) Prevlist() {
+func (m *KahnModel) Prevlist() {
 	if m.activeListIndex == NotStarted {
 		m.activeListIndex = Done
 	} else {

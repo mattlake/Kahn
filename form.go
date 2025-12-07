@@ -26,7 +26,7 @@ func initializeInputs() (textinput.Model, textinput.Model) {
 	return name, desc
 }
 
-func (m Model) renderForm() string {
+func (m KahnModel) renderForm() string {
 	formTitle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(ColorMauve)).
 		Bold(true).

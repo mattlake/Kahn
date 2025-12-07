@@ -5,7 +5,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func NewModel() *Model {
+func NewKahnModel() *KahnModel {
 	defaultList := list.New([]list.Item{}, list.NewDefaultDelegate(), 100, 0)
 	defaultList.SetShowHelp(false)
 	taskLists := []list.Model{defaultList, defaultList, defaultList}
@@ -45,7 +45,7 @@ func NewModel() *Model {
 		Bold(true).
 		Align(lipgloss.Center)
 
-	return &Model{
+	return &KahnModel{
 		Tasks:     taskLists,
 		nameInput: nameInput,
 		descInput: descInput,
@@ -54,7 +54,7 @@ func NewModel() *Model {
 	}
 }
 
-func (m Model) View() string {
+func (m KahnModel) View() string {
 	if m.showForm {
 		return m.renderForm()
 	}
