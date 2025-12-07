@@ -59,6 +59,18 @@ func (p *Project) GetTasksByStatus(status Status) []Task {
 	return tasks
 }
 
+func (p *Project) UpdateTaskStatus(taskID string, newStatus Status) bool {
+	for i, task := range p.Tasks {
+		if task.ID == taskID {
+			p.Tasks[i].Status = newStatus
+			p.Tasks[i].UpdatedAt = time.Now()
+			p.UpdatedAt = time.Now()
+			return true
+		}
+	}
+	return false
+}
+
 func (p *Project) Validate() error {
 	if p.Name == "" {
 		return fmt.Errorf("project name is required")

@@ -170,6 +170,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "p":
 				m.showProjectSwitch = true
 				return m, nil
+			case "enter":
+				// Handle task selection - move to next status
+				if selectedItem := m.Tasks[m.activeListIndex].SelectedItem(); selectedItem != nil {
+					if task, ok := selectedItem.(Task); ok {
+						m.moveTaskToNextStatus(task)
+					}
+				}
+				return m, nil
+			case "backspace":
+				// Handle task selection - move to previous status
+				if selectedItem := m.Tasks[m.activeListIndex].SelectedItem(); selectedItem != nil {
+					if task, ok := selectedItem.(Task); ok {
+						m.moveTaskToPreviousStatus(task)
+					}
+				}
+				return m, nil
 			}
 		}
 	case tea.WindowSizeMsg:
@@ -218,4 +234,50 @@ func (m *Model) updateTaskLists() {
 	m.Tasks[NotStarted].SetItems(convertTasksToListItems(activeProj.GetTasksByStatus(NotStarted)))
 	m.Tasks[InProgress].SetItems(convertTasksToListItems(activeProj.GetTasksByStatus(InProgress)))
 	m.Tasks[Done].SetItems(convertTasksToListItems(activeProj.GetTasksByStatus(Done)))
+}
+
+func (m *Model) moveTaskToNextStatus(task Task) {
+	activeProj := m.GetActiveProject()
+	if activeProj == nil {
+		return
+	}
+
+	// Determine next status
+	var nextStatus Status
+	switch task.Status {
+	case NotStarted:
+		nextStatus = InProgress
+	case InProgress:
+		nextStatus = Done
+	case Done:
+		// Cycle back to NotStarted
+		nextStatus = NotStarted
+	}
+
+	// Update task status
+	activeProj.UpdateTaskStatus(task.ID, nextStatus)
+	m.updateTaskLists()
+}
+
+func (m *Model) moveTaskToPreviousStatus(task Task) {
+	activeProj := m.GetActiveProject()
+	if activeProj == nil {
+		return
+	}
+
+	// Determine previous status
+	var prevStatus Status
+	switch task.Status {
+	case NotStarted:
+		// Cycle back to Done
+		prevStatus = Done
+	case InProgress:
+		prevStatus = NotStarted
+	case Done:
+		prevStatus = InProgress
+	}
+
+	// Update task status
+	activeProj.UpdateTaskStatus(task.ID, prevStatus)
+	m.updateTaskLists()
 }
