@@ -5,7 +5,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func NewModel() *Model {
+func NewModel(database *Database) *Model {
 	defaultList := list.New([]list.Item{}, list.NewDefaultDelegate(), 100, 0)
 	defaultList.SetShowHelp(false)
 	taskLists := []list.Model{defaultList, defaultList, defaultList}
@@ -13,39 +13,48 @@ func NewModel() *Model {
 	nameInput, descInput := initializeInputs()
 	projNameInput, projDescInput := initializeProjectInputs()
 
-	// Create default project with sample tasks
-	defaultProject := NewProject("Default Project", "A default project for your tasks", ColorBlue)
-	defaultProject.Tasks = []Task{
-		*NewTask("Task1", "Task1 Description", defaultProject.ID),
-		*NewTask("Task2", "Task2 Description", defaultProject.ID),
-		*NewTask("Task3", "Task3 Description", defaultProject.ID),
+	projectDAO := NewProjectDAO(database.GetDB())
+	projects, err := projectDAO.GetAll()
+	if err != nil {
+		projects = []Project{}
 	}
 
-	// Create another sample project
-	workProject := NewProject("Work Project", "Work-related tasks", ColorGreen)
-	workProject.Tasks = []Task{
-		*NewTask("Task1", "Task1 Description", workProject.ID),
+	if len(projects) == 0 {
+		newProject := NewProject("Default Project", "A default project for your tasks", ColorBlue)
+		if err := projectDAO.Create(newProject); err != nil {
+			projects = []Project{}
+		} else {
+			projects = []Project{*newProject}
+		}
 	}
 
-	projects := []Project{*defaultProject, *workProject}
+	var activeProjectID string
+	if len(projects) > 0 {
+		activeProjectID = projects[0].ID
+	}
 
-	// Initialize task lists with default project tasks
 	taskLists[NotStarted].Title = NotStarted.ToString()
-	taskLists[NotStarted].SetItems(convertTasksToListItems(defaultProject.GetTasksByStatus(NotStarted)))
+	if len(projects) > 0 {
+		taskLists[NotStarted].SetItems(convertTasksToListItems(projects[0].GetTasksByStatus(NotStarted)))
+	}
 	taskLists[NotStarted].Styles.Title = lipgloss.NewStyle().
 		Foreground(lipgloss.Color(ColorBlue)).
 		Bold(true).
 		Align(lipgloss.Center)
 
 	taskLists[InProgress].Title = InProgress.ToString()
-	taskLists[InProgress].SetItems(convertTasksToListItems(defaultProject.GetTasksByStatus(InProgress)))
+	if len(projects) > 0 {
+		taskLists[InProgress].SetItems(convertTasksToListItems(projects[0].GetTasksByStatus(InProgress)))
+	}
 	taskLists[InProgress].Styles.Title = lipgloss.NewStyle().
 		Foreground(lipgloss.Color(ColorYellow)).
 		Bold(true).
 		Align(lipgloss.Center)
 
 	taskLists[Done].Title = Done.ToString()
-	taskLists[Done].SetItems(convertTasksToListItems(defaultProject.GetTasksByStatus(Done)))
+	if len(projects) > 0 {
+		taskLists[Done].SetItems(convertTasksToListItems(projects[0].GetTasksByStatus(Done)))
+	}
 	taskLists[Done].Styles.Title = lipgloss.NewStyle().
 		Foreground(lipgloss.Color(ColorGreen)).
 		Bold(true).
@@ -53,14 +62,17 @@ func NewModel() *Model {
 
 	return &Model{
 		Projects:        projects,
-		ActiveProjectID: defaultProject.ID,
+		ActiveProjectID: activeProjectID,
 		Tasks:           taskLists,
 		nameInput:       nameInput,
 		descInput:       descInput,
 		projNameInput:   projNameInput,
 		projDescInput:   projDescInput,
-		width:           80, // default
-		height:          24, // default
+		width:           80,
+		height:          24,
+		database:        database,
+		projectDAO:      NewProjectDAO(database.GetDB()),
+		taskDAO:         NewTaskDAO(database.GetDB()),
 	}
 }
 
@@ -70,45 +82,6 @@ func convertTasksToListItems(tasks []Task) []list.Item {
 		items[i] = task
 	}
 	return items
-}
-
-func (m Model) renderProjectHeader() string {
-	activeProj := m.GetActiveProject()
-	if activeProj == nil {
-		return ""
-	}
-
-	// Create a more prominent project indicator
-	projectLabel := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorSubtext1)).
-		Render("Project:")
-
-	projectNameText := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(activeProj.Color)).
-		Bold(true).
-		Render(activeProj.Name)
-
-	helpText := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorSubtext1)).
-		Render("[p] Switch • [a] Add Task • [q] Quit")
-
-	// Create a more prominent header with better visual hierarchy
-	headerContent := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		projectLabel,
-		lipgloss.NewStyle().Render(" "),
-		projectNameText,
-		lipgloss.NewStyle().Width(m.width-len(activeProj.Name)-len("Project: ")-25).Render(""),
-		helpText,
-	)
-
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(activeProj.Color)).
-		Padding(0, 1).
-		Background(lipgloss.Color(ColorSurface0)).
-		Width(m.width).
-		Render(headerContent)
 }
 
 func (m Model) View() string {
@@ -122,13 +95,8 @@ func (m Model) View() string {
 		return m.renderProjectForm()
 	}
 
-	// Render project header
-	projectHeader := m.renderProjectHeader()
-
-	// Get current width of first list to use as column width
 	columnWidth := m.Tasks[0].Width()
 
-	// Apply width constraints to ensure equal columns
 	notStartedView := defaultStyle.Width(columnWidth).Render(m.Tasks[NotStarted].View())
 	inProgressView := defaultStyle.Width(columnWidth).Render(m.Tasks[InProgress].View())
 	doneView := defaultStyle.Width(columnWidth).Render(m.Tasks[Done].View())
@@ -161,10 +129,5 @@ func (m Model) View() string {
 			doneView,
 		)
 	}
-
-	return lipgloss.JoinVertical(
-		lipgloss.Top,
-		projectHeader,
-		boardContent,
-	)
+	return boardContent
 }

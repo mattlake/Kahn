@@ -31,14 +31,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Create new task and add to active project
 					newTask := NewTask(m.nameInput.Value(), m.descInput.Value(), m.ActiveProjectID)
 
-					// Add to active project
+					// Save to database
+					if err := m.taskDAO.Create(newTask); err != nil {
+						// If database save fails, don't add to model
+						return m, nil
+					}
+
+					// Add to active project in memory
 					activeProj := m.GetActiveProject()
 					if activeProj != nil {
 						activeProj.AddTask(*newTask)
 						m.updateTaskLists()
-					} else {
-						// Debug: No active project found
-						return m, nil
 					}
 
 					// Reset form
@@ -131,6 +134,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					newProject := NewProject(m.projNameInput.Value(), m.projDescInput.Value(), ColorBlue)
 
 					if err := newProject.Validate(); err == nil {
+						// Save to database
+						if err := m.projectDAO.Create(newProject); err != nil {
+							// If database save fails, don't add to model
+							return m, nil
+						}
+
 						m.Projects = append(m.Projects, *newProject)
 						m.ActiveProjectID = newProject.ID
 						m.updateTaskLists()
@@ -254,7 +263,12 @@ func (m *Model) moveTaskToNextStatus(task Task) {
 		nextStatus = NotStarted
 	}
 
-	// Update task status
+	// Update task status in database
+	if err := m.taskDAO.UpdateStatus(task.ID, nextStatus); err != nil {
+		return // If database update fails, don't update model
+	}
+
+	// Update task status in memory
 	activeProj.UpdateTaskStatus(task.ID, nextStatus)
 	m.updateTaskLists()
 }
@@ -277,7 +291,12 @@ func (m *Model) moveTaskToPreviousStatus(task Task) {
 		prevStatus = InProgress
 	}
 
-	// Update task status
+	// Update task status in database
+	if err := m.taskDAO.UpdateStatus(task.ID, prevStatus); err != nil {
+		return // If database update fails, don't update model
+	}
+
+	// Update task status in memory
 	activeProj.UpdateTaskStatus(task.ID, prevStatus)
 	m.updateTaskLists()
 }

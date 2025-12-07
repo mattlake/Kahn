@@ -22,6 +22,9 @@ type Model struct {
 	focusedProjInput  int // 0 for name, 1 for desc
 	width             int
 	height            int
+	database          *Database
+	projectDAO        *ProjectDAO
+	taskDAO           *TaskDAO
 }
 
 func (m Model) Init() tea.Cmd {
