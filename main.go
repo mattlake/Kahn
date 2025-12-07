@@ -8,41 +8,56 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-const divisor = 4
+type Status int
+
+const (
+	NotStarted Status = iota
+	InProgress
+	Done
+)
+
+func main() {
+	m := NewModel()
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	if _, err := p.Run(); err != nil {
+		log.Fatal(err)
+	}
+}
 
 type Model struct {
-	focused taskStatus
-	lists   []list.Model
-	err     error
-	loaded  bool
+	Tasks           []list.Model
+	activeListIndex Status
 }
 
-func New() *Model {
-	return &Model{}
-}
-
-func (m *Model) initLists(width, height int) {
-	defaultList := list.New([]list.Item{}, list.NewDefaultDelegate(), width/divisor, height)
+func NewModel() *Model {
+	defaultList := list.New([]list.Item{}, list.NewDefaultDelegate(), 100, 0)
 	defaultList.SetShowHelp(false)
-	m.lists = []list.Model{defaultList, defaultList, defaultList} // todo update later
+	taskLists := []list.Model{defaultList, defaultList, defaultList}
 
-	m.lists[todo].Title = "To Do"
-	m.lists[todo].SetItems([]list.Item{
-		Task{status: todo, title: "eat", description: "all of the food"},
-		Task{status: todo, title: "sleep", description: "all night"},
-		Task{status: todo, title: "repeat", description: "all the time"},
-	})
+	taskLists[NotStarted].Title = NotStarted.ToString()
+	taskLists[NotStarted].SetItems(
+		[]list.Item{
+			Task{Name: "Task1", Desc: "Task1 Description", Status: NotStarted},
+			Task{Name: "Task2", Desc: "Task2 Description", Status: NotStarted},
+			Task{Name: "Task3", Desc: "Task3 Description", Status: NotStarted},
+		})
 
-	m.lists[inProgress].Title = "In Progress"
-	m.lists[inProgress].SetItems([]list.Item{
-		Task{status: inProgress, title: "write code", description: "will this work"},
-	})
+	taskLists[InProgress].Title = InProgress.ToString()
+	taskLists[InProgress].SetItems(
+		[]list.Item{
+			Task{Name: "Task1", Desc: "Task1 Description", Status: InProgress},
+		})
 
-	m.lists[done].Title = "Done"
-	m.lists[done].SetItems([]list.Item{
-		Task{status: done, title: "this", description: "all of the food"},
-		Task{status: done, title: "that", description: "all night"},
-	})
+	taskLists[Done].Title = Done.ToString()
+	taskLists[Done].SetItems(
+		[]list.Item{
+			Task{Name: "Task1", Desc: "Task1 Description", Status: Done},
+			Task{Name: "Task2", Desc: "Task2 Description", Status: Done},
+		})
+
+	return &Model{
+		Tasks: taskLists,
+	}
 }
 
 func (m Model) Init() tea.Cmd {
@@ -51,35 +66,90 @@ func (m Model) Init() tea.Cmd {
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		if !m.loaded {
-			m.initLists(msg.Width, msg.Height)
-			m.loaded = true
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "q":
+			return m, tea.Quit
+		case "l":
+			m.NextList()
+		case "h":
+			m.Prevlist()
 		}
+	case tea.WindowSizeMsg:
+		h, v := defaultStyle.GetFrameSize()
+		m.Tasks[NotStarted].SetSize(msg.Width-h, msg.Height-v)
+		m.Tasks[InProgress].SetSize(msg.Width-h, msg.Height-v)
+		m.Tasks[Done].SetSize(msg.Width-h, msg.Height-v)
 	}
 
 	var cmd tea.Cmd
-	m.lists[m.focused], cmd = m.lists[m.focused].Update(msg)
+	m.Tasks[m.activeListIndex], cmd = m.Tasks[m.activeListIndex].Update(msg)
 	return m, cmd
 }
 
 func (m Model) View() string {
-	if m.loaded {
+	switch m.activeListIndex {
+	case InProgress:
 		return lipgloss.JoinHorizontal(
 			lipgloss.Left,
-			m.lists[todo].View(),
-			m.lists[inProgress].View(),
-			m.lists[done].View(),
+			defaultStyle.Render(m.Tasks[NotStarted].View()),
+			focusedStyle.Render(m.Tasks[InProgress].View()),
+			defaultStyle.Render(m.Tasks[Done].View()),
 		)
-	} else {
-		return "loading..."
+	case Done:
+		return lipgloss.JoinHorizontal(
+			lipgloss.Left,
+			defaultStyle.Render(m.Tasks[NotStarted].View()),
+			defaultStyle.Render(m.Tasks[InProgress].View()),
+			focusedStyle.Render(m.Tasks[Done].View()),
+		)
+	default:
+		return lipgloss.JoinHorizontal(
+			lipgloss.Left,
+			focusedStyle.Render(m.Tasks[NotStarted].View()),
+			defaultStyle.Render(m.Tasks[InProgress].View()),
+			defaultStyle.Render(m.Tasks[Done].View()),
+		)
 	}
 }
 
-func main() {
-	m := New()
-	p := tea.NewProgram(m)
-	if _, err := p.Run(); err != nil {
-		log.Fatal(err)
+func (m *Model) NextList() {
+	if m.activeListIndex == Done {
+		m.activeListIndex = NotStarted
+	} else {
+		m.activeListIndex++
 	}
 }
+
+func (m *Model) Prevlist() {
+	if m.activeListIndex == NotStarted {
+		m.activeListIndex = Done
+	} else {
+		m.activeListIndex--
+	}
+}
+
+func (s Status) ToString() string {
+	switch s {
+	case NotStarted:
+		return "Not Started"
+	case InProgress:
+		return "In Progress"
+	case Done:
+		return "Done"
+	default:
+		return "Placeholder"
+	}
+}
+
+// Lipgloss
+var defaultStyle = lipgloss.NewStyle().
+	Margin(1, 2).
+	Border(lipgloss.HiddenBorder()).
+	Padding(1, 2)
+
+var focusedStyle = lipgloss.NewStyle().
+	Margin(1, 2).
+	Border(lipgloss.NormalBorder()).
+	BorderForeground(lipgloss.Color("21")).
+	Padding(1, 2)
