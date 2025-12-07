@@ -6,6 +6,11 @@ import (
 )
 
 func (m Model) renderProjectSwitcher() string {
+	// Show confirmation dialog if active
+	if m.showProjectDeleteConfirm {
+		return m.renderProjectDeleteConfirm()
+	}
+
 	if len(m.Projects) == 0 {
 		return m.renderNoProjectsMessage()
 	}
@@ -119,6 +124,81 @@ func (m Model) renderNoProjectsMessage() string {
 		BorderForeground(lipgloss.Color(ColorMauve)).
 		Padding(2, 3).
 		Width(60).
+		Height(12).
+		Render(content)
+
+	return lipgloss.Place(
+		m.width, m.height,
+		lipgloss.Center, lipgloss.Center,
+		form,
+	)
+}
+
+func (m Model) renderProjectDeleteConfirm() string {
+	// Find the project to delete
+	var projectToDelete *Project
+	for _, proj := range m.Projects {
+		if proj.ID == m.projectToDelete {
+			projectToDelete = &proj
+			break
+		}
+	}
+
+	if projectToDelete == nil {
+		// Fallback to active project if somehow projectToDelete is not set
+		projectToDelete = m.GetActiveProject()
+		if projectToDelete == nil {
+			return m.renderProjectSwitcher() // Fallback to normal switcher
+		}
+	}
+
+	title := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(ColorRed)).
+		Bold(true).
+		Align(lipgloss.Center).
+		Width(60).
+		Render("⚠️  Delete Project")
+
+	projectName := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(projectToDelete.Color)).
+		Bold(true).
+		Render(projectToDelete.Name)
+
+	warningMessage := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(ColorText)).
+		Align(lipgloss.Center).
+		Width(60).
+		Render(fmt.Sprintf("Delete project \"%s\" and ALL its tasks?", projectName))
+
+	subWarning := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(ColorSubtext1)).
+		Align(lipgloss.Center).
+		Width(60).
+		Render("This action cannot be undone.")
+
+	instructions := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(ColorSubtext1)).
+		Align(lipgloss.Center).
+		Width(60).
+		Render("[y] Yes, Delete • [n] No, Cancel")
+
+	content := lipgloss.JoinVertical(
+		lipgloss.Left,
+		"",
+		title,
+		"",
+		warningMessage,
+		"",
+		subWarning,
+		"",
+		instructions,
+	)
+
+	form := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(ColorRed)).
+		Padding(2, 3).
+		Width(70).
 		Height(12).
 		Render(content)
 

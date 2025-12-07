@@ -84,6 +84,45 @@ func convertTasksToListItems(tasks []Task) []list.Item {
 	return items
 }
 
+func (m Model) renderProjectHeader() string {
+	activeProj := m.GetActiveProject()
+	if activeProj == nil {
+		return ""
+	}
+
+	// Create a more prominent project indicator
+	projectLabel := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(ColorSubtext1)).
+		Render("Project:")
+
+	projectNameText := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(activeProj.Color)).
+		Bold(true).
+		Render(activeProj.Name)
+
+	helpText := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(ColorSubtext1)).
+		Render("[p] Switch • [a] Add Task • [q] Quit")
+
+	// Create a more prominent header with better visual hierarchy
+	headerContent := lipgloss.JoinHorizontal(
+		lipgloss.Left,
+		projectLabel,
+		lipgloss.NewStyle().Render(" "),
+		projectNameText,
+		lipgloss.NewStyle().Width(m.width-len(activeProj.Name)-len("Project: ")-25).Render(""),
+		helpText,
+	)
+
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(activeProj.Color)).
+		Padding(0, 1).
+		Background(lipgloss.Color(ColorSurface0)).
+		Width(m.width).
+		Render(headerContent)
+}
+
 func (m Model) View() string {
 	if m.showForm {
 		return m.renderForm()
@@ -94,6 +133,14 @@ func (m Model) View() string {
 	if m.showProjectForm {
 		return m.renderProjectForm()
 	}
+
+	// Handle case when there are no projects
+	if len(m.Projects) == 0 {
+		return m.renderNoProjectsBoard()
+	}
+
+	// Render project header
+	projectHeader := m.renderProjectHeader()
 
 	columnWidth := m.Tasks[0].Width()
 
@@ -129,5 +176,55 @@ func (m Model) View() string {
 			doneView,
 		)
 	}
-	return boardContent
+
+	return lipgloss.JoinVertical(
+		lipgloss.Top,
+		projectHeader,
+		boardContent,
+	)
+}
+
+func (m Model) renderNoProjectsBoard() string {
+	title := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(ColorMauve)).
+		Bold(true).
+		Align(lipgloss.Center).
+		Width(60).
+		Render("No Projects")
+
+	message := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(ColorText)).
+		Align(lipgloss.Center).
+		Width(60).
+		Render("Create your first project to get started")
+
+	instructions := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(ColorSubtext1)).
+		Align(lipgloss.Center).
+		Width(60).
+		Render("[p] Create Project • [q] Quit")
+
+	content := lipgloss.JoinVertical(
+		lipgloss.Left,
+		"",
+		title,
+		"",
+		message,
+		"",
+		instructions,
+	)
+
+	form := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(ColorMauve)).
+		Padding(2, 3).
+		Width(70).
+		Height(12).
+		Render(content)
+
+	return lipgloss.Place(
+		m.width, m.height,
+		lipgloss.Center, lipgloss.Center,
+		form,
+	)
 }

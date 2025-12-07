@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -60,11 +61,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.descInput, _ = m.descInput.Update(msg)
 			}
-		} else if m.showProjectSwitch {
+		} else if m.showProjectSwitch || m.showProjectDeleteConfirm {
+			// Handle confirmation dialog if active
+			if m.showProjectDeleteConfirm {
+				switch msg.String() {
+				case "y", "Y":
+					return m.executeProjectDeletion(), nil
+				case "n", "N", "esc":
+					m.showProjectDeleteConfirm = false
+					m.projectToDelete = ""
+					return m, nil
+				}
+				return m, nil
+			}
+
 			// Project switcher mode key handling
 			switch msg.String() {
 			case "esc":
 				m.showProjectSwitch = false
+				return m, nil
+			case "d":
+				// Trigger project deletion confirmation
+				if len(m.Projects) > 0 {
+					m.showProjectDeleteConfirm = true
+					m.projectToDelete = m.ActiveProjectID
+				}
 				return m, nil
 			case "n":
 				m.showProjectSwitch = false
@@ -299,4 +320,54 @@ func (m *Model) moveTaskToPreviousStatus(task Task) {
 	// Update task status in memory
 	activeProj.UpdateTaskStatus(task.ID, prevStatus)
 	m.updateTaskLists()
+}
+
+func (m *Model) executeProjectDeletion() *Model {
+	if m.projectToDelete == "" {
+		m.showProjectDeleteConfirm = false
+		return m
+	}
+
+	// Delete project from database
+	if err := m.projectDAO.Delete(m.projectToDelete); err != nil {
+		// If database deletion fails, cancel the operation
+		m.showProjectDeleteConfirm = false
+		m.projectToDelete = ""
+		return m
+	}
+
+	// Handle edge case: deleting last project
+	if len(m.Projects) == 1 {
+		m.Projects = []Project{}
+		m.ActiveProjectID = ""
+		// Clear task lists
+		m.Tasks[NotStarted].SetItems([]list.Item{})
+		m.Tasks[InProgress].SetItems([]list.Item{})
+		m.Tasks[Done].SetItems([]list.Item{})
+	} else {
+		// Find and remove the project from the slice
+		var newProjects []Project
+		var wasActiveProject bool
+		for _, proj := range m.Projects {
+			if proj.ID != m.projectToDelete {
+				newProjects = append(newProjects, proj)
+			} else {
+				wasActiveProject = (proj.ID == m.ActiveProjectID)
+			}
+		}
+		m.Projects = newProjects
+
+		// If we deleted the active project, switch to the next one
+		if wasActiveProject && len(m.Projects) > 0 {
+			// Switch to the first remaining project
+			m.ActiveProjectID = m.Projects[0].ID
+			m.updateTaskLists()
+		}
+	}
+
+	// Reset confirmation state
+	m.showProjectDeleteConfirm = false
+	m.projectToDelete = ""
+
+	return m
 }

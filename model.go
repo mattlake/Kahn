@@ -7,24 +7,26 @@ import (
 )
 
 type Model struct {
-	Projects          []Project
-	ActiveProjectID   string
-	Tasks             []list.Model
-	activeListIndex   Status
-	showForm          bool
-	showProjectSwitch bool
-	showProjectForm   bool
-	nameInput         textinput.Model
-	descInput         textinput.Model
-	projNameInput     textinput.Model
-	projDescInput     textinput.Model
-	focusedInput      int // 0 for name, 1 for desc
-	focusedProjInput  int // 0 for name, 1 for desc
-	width             int
-	height            int
-	database          *Database
-	projectDAO        *ProjectDAO
-	taskDAO           *TaskDAO
+	Projects                 []Project
+	ActiveProjectID          string
+	Tasks                    []list.Model
+	activeListIndex          Status
+	showForm                 bool
+	showProjectSwitch        bool
+	showProjectForm          bool
+	showProjectDeleteConfirm bool
+	projectToDelete          string
+	nameInput                textinput.Model
+	descInput                textinput.Model
+	projNameInput            textinput.Model
+	projDescInput            textinput.Model
+	focusedInput             int // 0 for name, 1 for desc
+	focusedProjInput         int // 0 for name, 1 for desc
+	width                    int
+	height                   int
+	database                 *Database
+	projectDAO               *ProjectDAO
+	taskDAO                  *TaskDAO
 }
 
 func (m Model) Init() tea.Cmd {
