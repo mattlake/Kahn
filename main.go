@@ -62,6 +62,8 @@ type Model struct {
 	nameInput       textinput.Model
 	descInput       textinput.Model
 	focusedInput    int // 0 for name, 1 for desc
+	width           int
+	height          int
 }
 
 func initializeInputs() (textinput.Model, textinput.Model) {
@@ -129,6 +131,8 @@ func NewModel() *Model {
 		Tasks:     taskLists,
 		nameInput: nameInput,
 		descInput: descInput,
+		width:     80, // default
+		height:    24, // default
 	}
 }
 
@@ -204,6 +208,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case tea.WindowSizeMsg:
+		// Store terminal dimensions
+		m.width = msg.Width
+		m.height = msg.Height
+
 		h, v := defaultStyle.GetFrameSize()
 		// Calculate equal column width (1/3 of terminal width)
 		columnWidth := (msg.Width - (h * 3)) / 3
@@ -339,7 +347,7 @@ func (m Model) renderForm() string {
 		Render(formContent)
 
 	return lipgloss.Place(
-		50, 20,
+		m.width, m.height,
 		lipgloss.Center, lipgloss.Center,
 		form,
 	)
