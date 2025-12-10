@@ -145,6 +145,11 @@ cache_size = 10000
 foreign_keys = true
 `
 
+	// Check if file already exists
+	if _, err := os.Stat(configPath); err == nil {
+		return fmt.Errorf("config file already exists: %s", configPath)
+	}
+
 	// Ensure directory exists
 	configDir := filepath.Dir(configPath)
 	if err := os.MkdirAll(configDir, 0755); err != nil {

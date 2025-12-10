@@ -1,0 +1,164 @@
+package main
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestLoadConfig_DefaultValues(t *testing.T) {
+	// Clear any existing environment variables that might interfere
+	os.Unsetenv("KAHN_DATABASE_PATH")
+	os.Unsetenv("KAHN_DATABASE_BUSY_TIMEOUT")
+	os.Unsetenv("KAHN_DATABASE_JOURNAL_MODE")
+	os.Unsetenv("KAHN_DATABASE_CACHE_SIZE")
+	os.Unsetenv("KAHN_DATABASE_FOREIGN_KEYS")
+
+	config, err := LoadConfig()
+	require.NoError(t, err, "LoadConfig should not return error with defaults")
+	require.NotNil(t, config, "Config should not be nil")
+
+	// Test default values (path gets expanded)
+	expectedPath := filepath.Join(os.Getenv("HOME"), ".kahn", "kahn.db")
+	assert.Equal(t, expectedPath, config.Database.Path, "Default database path should match expanded version")
+	assert.Equal(t, 5000, config.Database.BusyTimeout, "Default busy timeout should match")
+	assert.Equal(t, "WAL", config.Database.JournalMode, "Default journal mode should match")
+	assert.Equal(t, 10000, config.Database.CacheSize, "Default cache size should match")
+	assert.True(t, config.Database.ForeignKeys, "Default foreign keys should be true")
+}
+
+func TestExpandPath(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "Path with tilde",
+			input:    "~/test.db",
+			expected: os.Getenv("HOME") + "/test.db",
+		},
+		{
+			name:     "Path without tilde",
+			input:    "/tmp/test.db",
+			expected: "/tmp/test.db",
+		},
+		{
+			name:     "Empty path",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "Path with multiple tildes",
+			input:    "~/~/test.db",
+			expected: os.Getenv("HOME") + "/~/test.db",
+		},
+		{
+			name:     "Absolute path",
+			input:    "/absolute/path/test.db",
+			expected: "/absolute/path/test.db",
+		},
+		{
+			name:     "Relative path",
+			input:    "relative/path/test.db",
+			expected: "relative/path/test.db",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := expandPath(tt.input)
+			assert.Equal(t, tt.expected, result, "Path expansion should match expected")
+		})
+	}
+}
+
+func TestEnsureConfigDir(t *testing.T) {
+	tests := []struct {
+		name        string
+		configPath  string
+		expectError bool
+	}{
+		{
+			name:        "Create new directory",
+			configPath:  filepath.Join(os.TempDir(), "kahn_test_config", "test.db"),
+			expectError: false,
+		},
+		{
+			name:        "Use existing directory",
+			configPath:  filepath.Join(os.TempDir(), "kahn_test_config", "test2.db"),
+			expectError: false,
+		},
+		{
+			name:        "Root directory (should not fail)",
+			configPath:  "/tmp/test.db",
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := EnsureConfigDir(tt.configPath)
+
+			if tt.expectError {
+				assert.Error(t, err, "Should return error")
+			} else {
+				assert.NoError(t, err, "Should not return error")
+
+				// Verify directory exists
+				dir := filepath.Dir(tt.configPath)
+				if dir != "/" && dir != "." {
+					_, err := os.Stat(dir)
+					assert.NoError(t, err, "Directory should exist")
+				}
+			}
+		})
+	}
+}
+
+func TestWriteDefaultConfig(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "default_config.toml")
+
+	err := WriteDefaultConfig(configPath)
+	require.NoError(t, err, "WriteDefaultConfig should not return error")
+
+	// Verify file was created
+	_, err = os.Stat(configPath)
+	assert.NoError(t, err, "Config file should exist")
+
+	// Verify file content
+	content, err := os.ReadFile(configPath)
+	require.NoError(t, err, "Should be able to read config file")
+
+	contentStr := string(content)
+	assert.Contains(t, contentStr, "[database]", "Config should contain database section")
+	assert.Contains(t, contentStr, "path", "Config should contain path setting")
+	assert.Contains(t, contentStr, "busy_timeout", "Config should contain busy_timeout setting")
+	assert.Contains(t, contentStr, "journal_mode", "Config should contain journal_mode setting")
+	assert.Contains(t, contentStr, "cache_size", "Config should contain cache_size setting")
+	assert.Contains(t, contentStr, "foreign_keys", "Config should contain foreign_keys setting")
+}
+
+func TestWriteDefaultConfig_ExistingFile(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "existing_config.toml")
+
+	// Create existing file
+	existingContent := "# Existing config"
+	err := os.WriteFile(configPath, []byte(existingContent), 0644)
+	require.NoError(t, err, "Should be able to create existing file")
+
+	// Try to write default config (should not overwrite)
+	err = WriteDefaultConfig(configPath)
+	assert.Error(t, err, "WriteDefaultConfig should return error for existing file")
+	assert.Contains(t, err.Error(), "already exists", "Error should mention file exists")
+
+	// Verify original content is unchanged
+	content, err := os.ReadFile(configPath)
+	require.NoError(t, err, "Should be able to read config file")
+	assert.Equal(t, existingContent, string(content), "Original content should be unchanged")
+}
