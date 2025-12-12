@@ -18,6 +18,8 @@ type Model struct {
 	projectToDelete          string
 	showTaskDeleteConfirm    bool
 	taskToDelete             string
+	showTaskEditForm         bool
+	editingTaskID            string
 	nameInput                textinput.Model
 	descInput                textinput.Model
 	projNameInput            textinput.Model

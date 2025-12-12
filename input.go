@@ -61,6 +61,53 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.descInput, _ = m.descInput.Update(msg)
 			}
+		} else if m.showTaskEditForm {
+			// Task edit form mode key handling
+			switch msg.String() {
+			case "esc":
+				m.showTaskEditForm = false
+				m.editingTaskID = ""
+				m.nameInput.Reset()
+				m.descInput.Reset()
+				m.focusedInput = 0
+				m.nameInput.Focus()
+				return m, nil
+			case "tab":
+				if m.focusedInput == 0 {
+					m.focusedInput = 1
+					m.nameInput.Blur()
+					m.descInput.Focus()
+				} else {
+					m.focusedInput = 0
+					m.descInput.Blur()
+					m.nameInput.Focus()
+				}
+				return m, nil
+			case "enter":
+				if m.nameInput.Value() != "" {
+					// Update existing task
+					if err := m.updateTask(); err != nil {
+						// If database update fails, don't update model
+						return m, nil
+					}
+
+					// Reset form
+					m.showTaskEditForm = false
+					m.editingTaskID = ""
+					m.nameInput.Reset()
+					m.descInput.Reset()
+					m.focusedInput = 0
+					m.nameInput.Focus()
+				}
+				return m, nil
+			}
+
+			// Update the focused input
+			if m.focusedInput == 0 {
+				m.nameInput, _ = m.nameInput.Update(msg)
+			} else {
+				m.descInput, _ = m.descInput.Update(msg)
+			}
 		} else if m.showProjectSwitch || m.showProjectDeleteConfirm {
 			// Handle confirmation dialog if active
 			if m.showProjectDeleteConfirm {
@@ -211,6 +258,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "p":
 				m.showProjectSwitch = true
 				return m, nil
+			case "e":
+				// Handle task editing - show edit form
+				if selectedItem := m.Tasks[m.activeListIndex].SelectedItem(); selectedItem != nil {
+					if task, ok := selectedItem.(Task); ok {
+						m.enterEditMode(task)
+					}
+				}
+				return m, nil
 			case "d":
 				// Handle task deletion - show confirmation dialog
 				if selectedItem := m.Tasks[m.activeListIndex].SelectedItem(); selectedItem != nil {
@@ -252,7 +307,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
-	if !m.showForm && !m.showProjectSwitch && !m.showProjectForm && !m.showTaskDeleteConfirm {
+	if !m.showForm && !m.showProjectSwitch && !m.showProjectForm && !m.showTaskDeleteConfirm && !m.showTaskEditForm {
 		m.Tasks[m.activeListIndex], cmd = m.Tasks[m.activeListIndex].Update(msg)
 	}
 	return m, cmd
@@ -418,4 +473,47 @@ func (m *Model) executeTaskDeletion() *Model {
 	m.taskToDelete = ""
 
 	return m
+}
+
+func (m *Model) enterEditMode(task Task) {
+	m.showTaskEditForm = true
+	m.editingTaskID = task.ID
+	m.nameInput.SetValue(task.Name)
+	m.descInput.SetValue(task.Desc)
+	m.focusedInput = 0
+	m.nameInput.Focus()
+	m.descInput.Blur()
+}
+
+func (m *Model) updateTask() error {
+	// Get the current task from the database
+	task, err := m.taskDAO.GetByID(m.editingTaskID)
+	if err != nil {
+		return err
+	}
+
+	// Update task fields
+	task.Name = m.nameInput.Value()
+	task.Desc = m.descInput.Value()
+
+	// Save to database
+	if err := m.taskDAO.Update(task); err != nil {
+		return err
+	}
+
+	// Update task in memory
+	activeProj := m.GetActiveProject()
+	if activeProj != nil {
+		for i, t := range activeProj.Tasks {
+			if t.ID == m.editingTaskID {
+				activeProj.Tasks[i].Name = task.Name
+				activeProj.Tasks[i].Desc = task.Desc
+				activeProj.Tasks[i].UpdatedAt = task.UpdatedAt
+				break
+			}
+		}
+		m.updateTaskLists()
+	}
+
+	return nil
 }

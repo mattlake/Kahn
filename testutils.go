@@ -164,7 +164,25 @@ func createTestModelWithTasks(t *testing.T, taskNames []string, statuses []Statu
 
 // simulateKeyPress simulates a key press on the model
 func simulateKeyPress(t *testing.T, model *Model, key string) *Model {
-	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{rune(key[0])}}
+	var keyMsg tea.KeyMsg
+
+	// Handle special keys
+	switch key {
+	case "tab":
+		keyMsg = tea.KeyMsg{Type: tea.KeyTab}
+	case "enter":
+		keyMsg = tea.KeyMsg{Type: tea.KeyEnter}
+	case "esc":
+		keyMsg = tea.KeyMsg{Type: tea.KeyEsc}
+	case "backspace":
+		keyMsg = tea.KeyMsg{Type: tea.KeyBackspace}
+	default:
+		// Handle regular character keys
+		if len(key) > 0 {
+			keyMsg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{rune(key[0])}}
+		}
+	}
+
 	newModel, cmd := model.Update(keyMsg)
 	require.Nil(t, cmd, "Command should be nil for simple key press")
 

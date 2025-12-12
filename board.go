@@ -103,7 +103,7 @@ func (m Model) renderProjectHeader() string {
 
 	helpText := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(ColorSubtext1)).
-		Render("[p] Switch • [n] Add Task • [d] Delete Task • [q] Quit")
+		Render("[p] Switch • [n] Add Task • [e] Edit Task • [d] Delete Task • [q] Quit")
 
 	// Create a more prominent header with better visual hierarchy
 	headerContent := lipgloss.JoinHorizontal(
@@ -136,6 +136,9 @@ func (m Model) View() string {
 	}
 	if m.showTaskDeleteConfirm {
 		return m.renderTaskDeleteConfirm()
+	}
+	if m.showTaskEditForm {
+		return m.renderTaskEditForm()
 	}
 
 	// Handle case when there are no projects

@@ -210,3 +210,247 @@ func TestTask_DeleteEdgeCases(t *testing.T) {
 	task3 := NewTask(longName, "Description", "proj_123")
 	assert.NotNil(t, task3, "Task with long name should be valid for deletion")
 }
+
+// Task Editing Tests
+
+func TestTaskEdit_EnterEditMode(t *testing.T) {
+	model := createTestModelWithTasks(t, []string{"Test Task"}, []Status{NotStarted})
+
+	// Initially should not be in edit mode
+	assert.False(t, model.showTaskEditForm, "Should not be in edit mode initially")
+	assert.Empty(t, model.editingTaskID, "Editing task ID should be empty initially")
+
+	// Press 'e' to enter edit mode
+	model = simulateKeyPress(t, model, "e")
+
+	// Should enter edit mode
+	assert.True(t, model.showTaskEditForm, "Should enter edit mode when 'e' is pressed")
+	assert.NotEmpty(t, model.editingTaskID, "Should have editing task ID set")
+	assert.Equal(t, "Test Task", model.nameInput.Value(), "Form should be populated with task name")
+	assert.Equal(t, "Test description", model.descInput.Value(), "Form should be populated with task description")
+}
+
+func TestTaskEdit_CancelEditMode(t *testing.T) {
+	model := createTestModelWithTasks(t, []string{"Test Task"}, []Status{NotStarted})
+
+	// Enter edit mode first
+	model = simulateKeyPress(t, model, "e")
+	assert.True(t, model.showTaskEditForm, "Should be in edit mode")
+
+	// Press 'esc' to cancel edit
+	model = simulateKeyPress(t, model, "esc")
+
+	// Should exit edit mode
+	assert.False(t, model.showTaskEditForm, "Should exit edit mode when 'esc' is pressed")
+	assert.Empty(t, model.editingTaskID, "Editing task ID should be cleared")
+	assert.Empty(t, model.nameInput.Value(), "Name input should be cleared")
+	assert.Empty(t, model.descInput.Value(), "Description input should be cleared")
+}
+
+func TestTaskEdit_UpdateTaskName(t *testing.T) {
+	model := createTestModelWithTasks(t, []string{"Original Task"}, []Status{NotStarted})
+
+	// Get the task ID for verification later
+	var taskID string
+	activeProj := model.GetActiveProject()
+	require.NotNil(t, activeProj, "Should have active project")
+	require.Len(t, activeProj.Tasks, 1, "Should have one task")
+	taskID = activeProj.Tasks[0].ID
+
+	// Enter edit mode
+	model = simulateKeyPress(t, model, "e")
+
+	// Update the name field
+	model.nameInput.SetValue("Updated Task Name")
+
+	// Submit the form
+	model = simulateKeyPress(t, model, "enter")
+
+	// Should exit edit mode
+	assert.False(t, model.showTaskEditForm, "Should exit edit mode after submission")
+
+	// Verify task was updated in memory
+	activeProj = model.GetActiveProject()
+	require.NotNil(t, activeProj, "Should still have active project")
+	require.Len(t, activeProj.Tasks, 1, "Should still have one task")
+	assert.Equal(t, "Updated Task Name", activeProj.Tasks[0].Name, "Task name should be updated")
+	assert.Equal(t, "Test description", activeProj.Tasks[0].Desc, "Description should remain unchanged")
+	assert.Equal(t, taskID, activeProj.Tasks[0].ID, "Task ID should remain unchanged")
+}
+
+func TestTaskEdit_UpdateTaskDescription(t *testing.T) {
+	model := createTestModelWithTasks(t, []string{"Test Task"}, []Status{NotStarted})
+
+	// Get the task ID for verification later
+	var taskID string
+	activeProj := model.GetActiveProject()
+	require.NotNil(t, activeProj, "Should have active project")
+	require.Len(t, activeProj.Tasks, 1, "Should have one task")
+	taskID = activeProj.Tasks[0].ID
+
+	// Enter edit mode
+	model = simulateKeyPress(t, model, "e")
+
+	// Update the description field
+	model.descInput.SetValue("Updated description text")
+
+	// Submit the form
+	model = simulateKeyPress(t, model, "enter")
+
+	// Should exit edit mode
+	assert.False(t, model.showTaskEditForm, "Should exit edit mode after submission")
+
+	// Verify task was updated in memory
+	activeProj = model.GetActiveProject()
+	require.NotNil(t, activeProj, "Should still have active project")
+	require.Len(t, activeProj.Tasks, 1, "Should still have one task")
+	assert.Equal(t, "Test Task", activeProj.Tasks[0].Name, "Name should remain unchanged")
+	assert.Equal(t, "Updated description text", activeProj.Tasks[0].Desc, "Description should be updated")
+	assert.Equal(t, taskID, activeProj.Tasks[0].ID, "Task ID should remain unchanged")
+}
+
+func TestTaskEdit_UpdateBothNameAndDescription(t *testing.T) {
+	model := createTestModelWithTasks(t, []string{"Original Task"}, []Status{NotStarted})
+
+	// Get the task for verification later
+	activeProj := model.GetActiveProject()
+	require.NotNil(t, activeProj, "Should have active project")
+	require.Len(t, activeProj.Tasks, 1, "Should have one task")
+	originalTask := activeProj.Tasks[0]
+
+	// Enter edit mode
+	model = simulateKeyPress(t, model, "e")
+
+	// Update both fields
+	model.nameInput.SetValue("Completely New Name")
+	model.descInput.SetValue("Completely new description")
+
+	// Submit the form
+	model = simulateKeyPress(t, model, "enter")
+
+	// Should exit edit mode
+	assert.False(t, model.showTaskEditForm, "Should exit edit mode after submission")
+
+	// Verify task was updated in memory
+	activeProj = model.GetActiveProject()
+	require.NotNil(t, activeProj, "Should still have active project")
+	require.Len(t, activeProj.Tasks, 1, "Should still have one task")
+	updatedTask := activeProj.Tasks[0]
+
+	assert.Equal(t, "Completely New Name", updatedTask.Name, "Task name should be updated")
+	assert.Equal(t, "Completely new description", updatedTask.Desc, "Description should be updated")
+	assert.Equal(t, originalTask.ID, updatedTask.ID, "Task ID should remain unchanged")
+	assert.Equal(t, originalTask.Status, updatedTask.Status, "Status should remain unchanged")
+	assert.Equal(t, originalTask.Priority, updatedTask.Priority, "Priority should remain unchanged")
+	assert.Equal(t, originalTask.ProjectID, updatedTask.ProjectID, "Project ID should remain unchanged")
+	assert.True(t, updatedTask.UpdatedAt.After(originalTask.UpdatedAt), "UpdatedAt should be updated")
+}
+
+func TestTaskEdit_EmptyNameValidation(t *testing.T) {
+	model := createTestModelWithTasks(t, []string{"Test Task"}, []Status{NotStarted})
+
+	// Get original task for verification
+	activeProj := model.GetActiveProject()
+	require.NotNil(t, activeProj, "Should have active project")
+	originalName := activeProj.Tasks[0].Name
+
+	// Enter edit mode
+	model = simulateKeyPress(t, model, "e")
+
+	// Clear the name field (invalid)
+	model.nameInput.SetValue("")
+
+	// Submit the form
+	model = simulateKeyPress(t, model, "enter")
+
+	// Should remain in edit mode due to validation error
+	assert.True(t, model.showTaskEditForm, "Should remain in edit mode when name is empty")
+
+	// Verify task was not updated
+	activeProj = model.GetActiveProject()
+	require.NotNil(t, activeProj, "Should still have active project")
+	assert.Equal(t, originalName, activeProj.Tasks[0].Name, "Task name should remain unchanged")
+}
+
+func TestTaskEdit_EditDifferentStatusTasks(t *testing.T) {
+	testCases := []struct {
+		name   string
+		status Status
+	}{
+		{"Edit NotStarted task", NotStarted},
+		{"Edit InProgress task", InProgress},
+		{"Edit Done task", Done},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			model := createTestModelWithTasks(t, []string{"Test Task"}, []Status{tc.status})
+
+			// Navigate to the correct status column if needed
+			for i := 0; i < int(tc.status); i++ {
+				model = simulateKeyPress(t, model, "l") // Move right
+			}
+
+			// Enter edit mode
+			model = simulateKeyPress(t, model, "e")
+
+			// Should enter edit mode regardless of status
+			assert.True(t, model.showTaskEditForm, "Should enter edit mode for task in status %s", tc.status.ToString())
+			assert.Equal(t, "Test Task", model.nameInput.Value(), "Form should be populated with task name")
+
+			// Cancel edit mode
+			model = simulateKeyPress(t, model, "esc")
+			assert.False(t, model.showTaskEditForm, "Should exit edit mode")
+		})
+	}
+}
+
+func TestTaskEdit_EditWithoutSelectedTask(t *testing.T) {
+	model := createTestModelWithTasks(t, []string{}, []Status{}) // Empty model
+
+	// Try to enter edit mode
+	model = simulateKeyPress(t, model, "e")
+
+	// Should not enter edit mode when no task is selected
+	assert.False(t, model.showTaskEditForm, "Should not enter edit mode when no task is selected")
+	assert.Empty(t, model.editingTaskID, "Editing task ID should remain empty")
+}
+
+func TestTaskEdit_FieldSwitching(t *testing.T) {
+	model := createTestModelWithTasks(t, []string{"Test Task"}, []Status{NotStarted})
+
+	// Enter edit mode
+	model = simulateKeyPress(t, model, "e")
+
+	// Initially should be focused on name input (focusedInput = 0)
+	assert.Equal(t, 0, model.focusedInput, "Should start with name input focused")
+
+	// Press tab to switch to description input
+	model = simulateKeyPress(t, model, "tab")
+	assert.Equal(t, 1, model.focusedInput, "Should switch to description input")
+
+	// Press tab again to switch back to name input
+	model = simulateKeyPress(t, model, "tab")
+	assert.Equal(t, 0, model.focusedInput, "Should switch back to name input")
+}
+
+func TestTaskEdit_DatabasePersistence(t *testing.T) {
+	// Create a model with database
+	model := createTestModelWithTasks(t, []string{"Original Task"}, []Status{NotStarted})
+
+	// Get the task ID
+	activeProj := model.GetActiveProject()
+	require.NotNil(t, activeProj, "Should have active project")
+	require.Len(t, activeProj.Tasks, 1, "Should have one task")
+	taskID := activeProj.Tasks[0].ID
+
+	// Enter edit mode and update
+	model = simulateKeyPress(t, model, "e")
+	model.nameInput.SetValue("Database Updated Task")
+	model = simulateKeyPress(t, model, "enter")
+
+	// Verify task was updated in database
+	retrievedTask, err := model.taskDAO.GetByID(taskID)
+	require.NoError(t, err, "Should be able to retrieve task from database")
+	assert.Equal(t, "Database Updated Task", retrievedTask.Name, "Task should be updated in database")
+}
