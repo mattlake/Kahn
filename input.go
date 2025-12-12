@@ -182,6 +182,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.projDescInput, _ = m.projDescInput.Update(msg)
 			}
+		} else if m.showTaskDeleteConfirm {
+			// Handle task deletion confirmation dialog
+			switch msg.String() {
+			case "y", "Y":
+				return m.executeTaskDeletion(), nil
+			case "n", "N", "esc":
+				m.showTaskDeleteConfirm = false
+				m.taskToDelete = ""
+				return m, nil
+			}
+			return m, nil
 		} else {
 			// Normal mode key handling
 			switch msg.String() {
@@ -199,6 +210,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case "p":
 				m.showProjectSwitch = true
+				return m, nil
+			case "d":
+				// Handle task deletion - show confirmation dialog
+				if selectedItem := m.Tasks[m.activeListIndex].SelectedItem(); selectedItem != nil {
+					if task, ok := selectedItem.(Task); ok {
+						m.showTaskDeleteConfirm = true
+						m.taskToDelete = task.ID
+					}
+				}
 				return m, nil
 			case "enter":
 				// Handle task selection - move to next status
@@ -232,7 +252,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
-	if !m.showForm && !m.showProjectSwitch && !m.showProjectForm {
+	if !m.showForm && !m.showProjectSwitch && !m.showProjectForm && !m.showTaskDeleteConfirm {
 		m.Tasks[m.activeListIndex], cmd = m.Tasks[m.activeListIndex].Update(msg)
 	}
 	return m, cmd
@@ -368,6 +388,34 @@ func (m *Model) executeProjectDeletion() *Model {
 	// Reset confirmation state
 	m.showProjectDeleteConfirm = false
 	m.projectToDelete = ""
+
+	return m
+}
+
+func (m *Model) executeTaskDeletion() *Model {
+	if m.taskToDelete == "" {
+		m.showTaskDeleteConfirm = false
+		return m
+	}
+
+	// Delete task from database
+	if err := m.taskDAO.Delete(m.taskToDelete); err != nil {
+		// If database deletion fails, cancel the operation
+		m.showTaskDeleteConfirm = false
+		m.taskToDelete = ""
+		return m
+	}
+
+	// Remove task from active project in memory
+	activeProj := m.GetActiveProject()
+	if activeProj != nil {
+		activeProj.RemoveTask(m.taskToDelete)
+		m.updateTaskLists()
+	}
+
+	// Reset confirmation state
+	m.showTaskDeleteConfirm = false
+	m.taskToDelete = ""
 
 	return m
 }

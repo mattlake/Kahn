@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -102,7 +103,7 @@ func (m Model) renderProjectHeader() string {
 
 	helpText := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(ColorSubtext1)).
-		Render("[p] Switch • [a] Add Task • [q] Quit")
+		Render("[p] Switch • [n] Add Task • [d] Delete Task • [q] Quit")
 
 	// Create a more prominent header with better visual hierarchy
 	headerContent := lipgloss.JoinHorizontal(
@@ -132,6 +133,9 @@ func (m Model) View() string {
 	}
 	if m.showProjectForm {
 		return m.renderProjectForm()
+	}
+	if m.showTaskDeleteConfirm {
+		return m.renderTaskDeleteConfirm()
 	}
 
 	// Handle case when there are no projects
@@ -217,6 +221,88 @@ func (m Model) renderNoProjectsBoard() string {
 	form := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(ColorMauve)).
+		Padding(2, 3).
+		Width(70).
+		Height(12).
+		Render(content)
+
+	return lipgloss.Place(
+		m.width, m.height,
+		lipgloss.Center, lipgloss.Center,
+		form,
+	)
+}
+
+func (m Model) renderTaskDeleteConfirm() string {
+	// Find the task to delete
+	var taskToDelete *Task
+	activeProj := m.GetActiveProject()
+	if activeProj != nil {
+		for _, task := range activeProj.Tasks {
+			if task.ID == m.taskToDelete {
+				taskToDelete = &task
+				break
+			}
+		}
+	}
+
+	if taskToDelete == nil {
+		// Fallback to selected task if somehow taskToDelete is not set
+		if selectedItem := m.Tasks[m.activeListIndex].SelectedItem(); selectedItem != nil {
+			if task, ok := selectedItem.(Task); ok {
+				taskToDelete = &task
+			}
+		}
+		if taskToDelete == nil {
+			return m.View() // Fallback to normal view
+		}
+	}
+
+	title := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(ColorRed)).
+		Bold(true).
+		Align(lipgloss.Center).
+		Width(60).
+		Render("⚠️  Delete Task")
+
+	taskName := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(ColorText)).
+		Bold(true).
+		Render(taskToDelete.Name)
+
+	warningMessage := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(ColorText)).
+		Align(lipgloss.Center).
+		Width(60).
+		Render(fmt.Sprintf("Delete task \"%s\"?", taskName))
+
+	subWarning := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(ColorSubtext1)).
+		Align(lipgloss.Center).
+		Width(60).
+		Render("This action cannot be undone.")
+
+	instructions := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(ColorSubtext1)).
+		Align(lipgloss.Center).
+		Width(60).
+		Render("[y] Yes, Delete • [n] No, Cancel")
+
+	content := lipgloss.JoinVertical(
+		lipgloss.Left,
+		"",
+		title,
+		"",
+		warningMessage,
+		"",
+		subWarning,
+		"",
+		instructions,
+	)
+
+	form := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(ColorRed)).
 		Padding(2, 3).
 		Width(70).
 		Height(12).

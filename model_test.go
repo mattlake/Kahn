@@ -3,6 +3,7 @@ package main
 import (
 	"testing"
 
+	"github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -97,4 +98,159 @@ func TestConvertTasksToListItems_Nil(t *testing.T) {
 	items := convertTasksToListItems(nil)
 
 	assert.Len(t, items, 0, "Should return empty list for nil tasks")
+}
+
+func TestModel_TaskDeletionKeyHandling(t *testing.T) {
+	model := createTestModelWithTasks(t, []string{"Task 1", "Task 2"}, []Status{NotStarted, InProgress})
+
+	// Test d key when task is selected
+	model.Tasks[NotStarted].Select(0) // Select first task
+	model = simulateKeyPress(t, model, "d")
+
+	// Get the actual task ID that was set for deletion
+	activeProj := model.GetActiveProject()
+	expectedTaskID := activeProj.Tasks[0].ID
+	assertTaskDeletionState(t, model, true, expectedTaskID)
+}
+
+func TestModel_TaskDeletionKeyHandling_NoTaskSelected(t *testing.T) {
+	model := createTestModelWithTasks(t, []string{}, []Status{}) // Create model with no tasks
+
+	// Test d key when no tasks exist
+	model = simulateKeyPress(t, model, "d")
+
+	// Should not be in deletion state since no tasks exist
+	assertTaskDeletionState(t, model, false, "")
+}
+
+func TestModel_TaskDeletionConfirmation_Yes(t *testing.T) {
+	model := createTestModelWithTasks(t, []string{"Task 1"}, []Status{NotStarted})
+
+	// Setup deletion state
+	taskID := model.GetActiveProject().Tasks[0].ID
+	model.showTaskDeleteConfirm = true
+	model.taskToDelete = taskID
+
+	// Confirm deletion by calling executeTaskDeletion directly
+	model = model.executeTaskDeletion()
+
+	// Verify task is deleted
+	assertTaskDeletionState(t, model, false, "")
+	assertTaskNotInLists(t, model, taskID)
+}
+
+func TestModel_TaskDeletionConfirmation_No(t *testing.T) {
+	model := createTestModelWithTasks(t, []string{"Task 1"}, []Status{NotStarted})
+
+	// Setup deletion state
+	taskID := model.GetActiveProject().Tasks[0].ID
+	model.showTaskDeleteConfirm = true
+	model.taskToDelete = taskID
+
+	// Cancel deletion by simulating 'n' key
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}}
+	newModel, _ := model.Update(keyMsg)
+	resultModel := newModel.(Model)
+	model = &resultModel
+
+	// Verify task is not deleted
+	assertTaskDeletionState(t, model, false, "")
+	assertTaskInList(t, model, taskID, NotStarted)
+}
+
+func TestModel_TaskDeletionConfirmation_Escape(t *testing.T) {
+	model := createTestModelWithTasks(t, []string{"Task 1"}, []Status{NotStarted})
+
+	// Setup deletion state
+	taskID := model.GetActiveProject().Tasks[0].ID
+	model.showTaskDeleteConfirm = true
+	model.taskToDelete = taskID
+
+	// Cancel deletion with escape
+	escapeKey := tea.KeyMsg{Type: tea.KeyEsc}
+	newModel, _ := model.Update(escapeKey)
+	resultModel := newModel.(Model)
+	model = &resultModel
+
+	// Verify task is not deleted
+	assertTaskDeletionState(t, model, false, "")
+	assertTaskInList(t, model, taskID, NotStarted)
+}
+
+func TestModel_TaskDeletionExecution(t *testing.T) {
+	model := createTestModelWithTasks(t, []string{"Task 1", "Task 2"}, []Status{NotStarted, InProgress})
+
+	// Get task to delete
+	taskToDelete := model.GetActiveProject().Tasks[0]
+	taskID := taskToDelete.ID
+
+	// Execute deletion
+	model.showTaskDeleteConfirm = true
+	model.taskToDelete = taskID
+	model = model.executeTaskDeletion()
+
+	// Verify task is deleted from database and memory
+	assertTaskDeletionState(t, model, false, "")
+	assertTaskNotInLists(t, model, taskID)
+
+	// Verify other task is still there
+	otherTask := model.GetActiveProject().Tasks[0]
+	assert.NotEqual(t, taskID, otherTask.ID, "Other task should still exist")
+}
+
+func TestModel_TaskDeletionExecution_DatabaseError(t *testing.T) {
+	model := createTestModelWithTasks(t, []string{"Task 1"}, []Status{NotStarted})
+
+	// Get task to delete
+	taskID := model.GetActiveProject().Tasks[0].ID
+
+	// Setup deletion state with invalid task ID (will cause database error)
+	model.showTaskDeleteConfirm = true
+	model.taskToDelete = "invalid_task_id"
+	model = model.executeTaskDeletion()
+
+	// Verify state is reset on error
+	assertTaskDeletionState(t, model, false, "")
+
+	// Verify original task is still there
+	assertTaskInList(t, model, taskID, NotStarted)
+}
+
+func TestModel_TaskDeletionEdgeCases(t *testing.T) {
+	// Test deletion when taskToDelete is empty
+	model := createTestModelWithTasks(t, []string{"Task 1"}, []Status{NotStarted})
+	model.showTaskDeleteConfirm = true
+	model.taskToDelete = ""
+	model = model.executeTaskDeletion()
+
+	assertTaskDeletionState(t, model, false, "")
+}
+
+func TestModel_TaskDeletionFromDifferentStatuses(t *testing.T) {
+	testCases := []struct {
+		name     string
+		status   Status
+		taskName string
+	}{
+		{"Delete from NotStarted", NotStarted, "NotStarted Task"},
+		{"Delete from InProgress", InProgress, "InProgress Task"},
+		{"Delete from Done", Done, "Done Task"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			model := createTestModelWithTasks(t, []string{tc.taskName}, []Status{tc.status})
+
+			// Get task to delete
+			taskID := model.GetActiveProject().Tasks[0].ID
+
+			// Execute deletion
+			model.showTaskDeleteConfirm = true
+			model.taskToDelete = taskID
+			model = model.executeTaskDeletion()
+
+			// Verify task is deleted
+			assertTaskNotInLists(t, model, taskID)
+		})
+	}
 }

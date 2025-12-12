@@ -5,7 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/bubbletea"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -126,4 +128,88 @@ func countTableRows(t *testing.T, db *sql.DB, tableName string) int {
 	err := db.QueryRow(query).Scan(&count)
 	require.NoError(t, err, "Failed to count rows in table %s", tableName)
 	return count
+}
+
+// createTestModelWithTasks creates a model with predefined tasks for testing
+func createTestModelWithTasks(t *testing.T, taskNames []string, statuses []Status) *Model {
+	config := createTestConfig()
+	database, err := NewDatabase(config)
+	require.NoError(t, err, "Failed to create test database")
+
+	model := NewModel(database)
+	require.NotNil(t, model, "NewModel should not return nil")
+
+	// Create tasks for testing
+	if len(taskNames) == len(statuses) && len(taskNames) > 0 {
+		activeProj := model.GetActiveProject()
+		require.NotNil(t, activeProj, "Should have active project")
+
+		for i, taskName := range taskNames {
+			task := NewTask(taskName, "Test description", activeProj.ID)
+			task.Status = statuses[i]
+
+			// Save to database
+			err := model.taskDAO.Create(task)
+			require.NoError(t, err, "Failed to create test task")
+
+			// Add to project in memory
+			activeProj.AddTask(*task)
+		}
+
+		model.updateTaskLists()
+	}
+
+	return model
+}
+
+// simulateKeyPress simulates a key press on the model
+func simulateKeyPress(t *testing.T, model *Model, key string) *Model {
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{rune(key[0])}}
+	newModel, cmd := model.Update(keyMsg)
+	require.Nil(t, cmd, "Command should be nil for simple key press")
+
+	// Type assertion to convert tea.Model back to Model (not *Model)
+	resultModel, ok := newModel.(Model)
+	require.True(t, ok, "Model should be of type Model")
+
+	// Return pointer to the new model
+	return &resultModel
+}
+
+// assertTaskDeletionState asserts the model is in correct deletion state
+func assertTaskDeletionState(t *testing.T, model *Model, inConfirmation bool, taskID string) {
+	assert.Equal(t, inConfirmation, model.showTaskDeleteConfirm, "Task deletion confirmation state should match")
+	if inConfirmation {
+		assert.Equal(t, taskID, model.taskToDelete, "Task to delete should match")
+	} else {
+		assert.Equal(t, "", model.taskToDelete, "Task to delete should be empty when not in confirmation")
+	}
+}
+
+// assertTaskNotInLists asserts a task is not present in any task list
+func assertTaskNotInLists(t *testing.T, model *Model, taskID string) {
+	// Check all three status lists
+	for status := NotStarted; status <= Done; status++ {
+		items := model.Tasks[status].Items()
+		for _, item := range items {
+			if task, ok := item.(Task); ok {
+				assert.NotEqual(t, taskID, task.ID, "Task should not be found in %s list", status.ToString())
+			}
+		}
+	}
+}
+
+// assertTaskInList asserts a task is present in a specific status list
+func assertTaskInList(t *testing.T, model *Model, taskID string, status Status) {
+	items := model.Tasks[status].Items()
+	found := false
+	for _, item := range items {
+		if task, ok := item.(Task); ok {
+			if task.ID == taskID {
+				found = true
+				break
+			}
+		}
+	}
+	assert.True(t, found, "Task should be found in %s list", status.ToString())
 }

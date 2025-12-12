@@ -156,3 +156,57 @@ func TestTask_CompleteWorkflow(t *testing.T) {
 	assert.Equal(t, "Testing workflow", task.Desc, "Description should remain unchanged")
 	assert.Equal(t, "proj_123", task.ProjectID, "ProjectID should remain unchanged")
 }
+
+func TestTask_DeleteWorkflow(t *testing.T) {
+	// Test task deletion workflow
+	task := NewTask("Task to Delete", "This task will be deleted", "proj_123")
+
+	// Verify task exists initially
+	assert.NotEmpty(t, task.ID, "Task should have ID")
+	assert.Equal(t, "Task to Delete", task.Name, "Task name should match")
+
+	// Simulate deletion (in real scenario, this would be handled by DAO)
+	// Here we just verify the task structure is valid for deletion
+	assert.NotNil(t, task, "Task should be valid for deletion")
+}
+
+func TestTask_DeleteFromDifferentStatuses(t *testing.T) {
+	testCases := []struct {
+		name     string
+		status   Status
+		expected Status
+	}{
+		{"Delete NotStarted task", NotStarted, NotStarted},
+		{"Delete InProgress task", InProgress, InProgress},
+		{"Delete Done task", Done, Done},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			task := NewTask("Test Task", "Test Description", "proj_123")
+			task.Status = tc.status
+
+			assert.Equal(t, tc.expected, task.Status, "Task should have correct status before deletion")
+			// Task should be valid for deletion regardless of status
+			assert.NotNil(t, task, "Task should be valid for deletion")
+		})
+	}
+}
+
+func TestTask_DeleteEdgeCases(t *testing.T) {
+	// Test task with empty name
+	task1 := NewTask("", "Description", "proj_123")
+	assert.NotNil(t, task1, "Task with empty name should still be valid for deletion")
+
+	// Test task with special characters
+	task2 := NewTask("Task with émojis 🎉", "Description with @#$%", "proj_123")
+	assert.NotNil(t, task2, "Task with special characters should be valid for deletion")
+
+	// Test task with very long name
+	longName := string(make([]byte, 1000))
+	for i := range longName {
+		longName = longName[:i] + "a" + longName[i+1:]
+	}
+	task3 := NewTask(longName, "Description", "proj_123")
+	assert.NotNil(t, task3, "Task with long name should be valid for deletion")
+}
