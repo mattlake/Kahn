@@ -191,7 +191,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.NextList()
 			case "h":
 				m.Prevlist()
-			case "a":
+			case "n":
 				m.showForm = true
 				m.focusedInput = 0
 				m.nameInput.Focus()
