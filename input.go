@@ -1,13 +1,13 @@
 package main
 
 import (
-	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Handle form modes first
 		if m.showForm {
 			// Task form mode key handling
 			switch msg.String() {
@@ -53,13 +53,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.nameInput.Focus()
 				}
 				return m, nil
-			}
-
-			// Update the focused input
-			if m.focusedInput == 0 {
-				m.nameInput, _ = m.nameInput.Update(msg)
-			} else {
-				m.descInput, _ = m.descInput.Update(msg)
+			default:
+				// Update the focused input
+				if m.focusedInput == 0 {
+					m.nameInput, _ = m.nameInput.Update(msg)
+				} else {
+					m.descInput, _ = m.descInput.Update(msg)
+				}
+				return m, nil
 			}
 		} else if m.showTaskEditForm {
 			// Task edit form mode key handling
@@ -86,7 +87,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter":
 				if m.nameInput.Value() != "" {
 					// Update existing task
-					if err := m.updateTask(); err != nil {
+					if err := m.UpdateTask(m.editingTaskID, m.nameInput.Value(), m.descInput.Value()); err != nil {
 						// If database update fails, don't update model
 						return m, nil
 					}
@@ -100,13 +101,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.nameInput.Focus()
 				}
 				return m, nil
-			}
-
-			// Update the focused input
-			if m.focusedInput == 0 {
-				m.nameInput, _ = m.nameInput.Update(msg)
-			} else {
-				m.descInput, _ = m.descInput.Update(msg)
+			default:
+				// Update the focused input
+				if m.focusedInput == 0 {
+					m.nameInput, _ = m.nameInput.Update(msg)
+				} else {
+					m.descInput, _ = m.descInput.Update(msg)
+				}
+				return m, nil
 			}
 		} else if m.showProjectSwitch || m.showProjectDeleteConfirm {
 			// Handle confirmation dialog if active
@@ -199,7 +201,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter":
 				if m.projNameInput.Value() != "" {
 					// Create new project
-					newProject := NewProject(m.projNameInput.Value(), m.projDescInput.Value(), ColorBlue)
+					newProject := NewProject(m.projNameInput.Value(), m.projDescInput.Value(), "#89b4fa") // Blue color
 
 					if err := newProject.Validate(); err == nil {
 						// Save to database
@@ -221,13 +223,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 				return m, nil
-			}
-
-			// Update the focused input
-			if m.focusedProjInput == 0 {
-				m.projNameInput, _ = m.projNameInput.Update(msg)
-			} else {
-				m.projDescInput, _ = m.projDescInput.Update(msg)
+			default:
+				// Update the focused input
+				if m.focusedProjInput == 0 {
+					m.projNameInput, _ = m.projNameInput.Update(msg)
+				} else {
+					m.projDescInput, _ = m.projDescInput.Update(msg)
+				}
+				return m, nil
 			}
 		} else if m.showTaskDeleteConfirm {
 			// Handle task deletion confirmation dialog
@@ -241,14 +244,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		} else {
-			// Normal mode key handling
+			// Normal mode - handle navigation keys
+			result := m.inputHandler.HandleKeyMsg(msg, &m)
+
+			// Handle special keys through input handler
+			if result.Handled && result.Cmd != nil {
+				return m, result.Cmd
+			}
+
+			// Handle task progression directly
 			switch msg.String() {
 			case "q":
 				return m, tea.Quit
 			case "l":
 				m.NextList()
 			case "h":
-				m.Prevlist()
+				m.PrevList()
 			case "n":
 				m.showForm = true
 				m.focusedInput = 0
@@ -262,7 +273,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Handle task editing - show edit form
 				if selectedItem := m.Tasks[m.activeListIndex].SelectedItem(); selectedItem != nil {
 					if task, ok := selectedItem.(Task); ok {
-						m.enterEditMode(task)
+						m.ShowTaskEditForm(task.ID, task.Name, task.Desc)
+						m.showTaskEditForm = true
+						m.editingTaskID = task.ID
+						m.nameInput.SetValue(task.Name)
+						m.descInput.SetValue(task.Desc)
+						m.focusedInput = 0
+						m.nameInput.Focus()
+						m.descInput.Blur()
 					}
 				}
 				return m, nil
@@ -279,7 +297,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Handle task selection - move to next status
 				if selectedItem := m.Tasks[m.activeListIndex].SelectedItem(); selectedItem != nil {
 					if task, ok := selectedItem.(Task); ok {
-						m.moveTaskToNextStatus(task)
+						m.MoveTaskToNextStatus(task.ID)
 					}
 				}
 				return m, nil
@@ -287,7 +305,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Handle task selection - move to previous status
 				if selectedItem := m.Tasks[m.activeListIndex].SelectedItem(); selectedItem != nil {
 					if task, ok := selectedItem.(Task); ok {
-						m.moveTaskToPreviousStatus(task)
+						m.MoveTaskToPreviousStatus(task.ID)
 					}
 				}
 				return m, nil
@@ -306,214 +324,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Tasks[Done].SetSize(columnWidth, msg.Height-v)
 	}
 
+	// Always update the active list if not in a form mode
 	var cmd tea.Cmd
 	if !m.showForm && !m.showProjectSwitch && !m.showProjectForm && !m.showTaskDeleteConfirm && !m.showTaskEditForm {
 		m.Tasks[m.activeListIndex], cmd = m.Tasks[m.activeListIndex].Update(msg)
 	}
 	return m, cmd
-}
-
-func (m *Model) NextList() {
-	if m.activeListIndex == Done {
-		m.activeListIndex = NotStarted
-	} else {
-		m.activeListIndex++
-	}
-}
-
-func (m *Model) Prevlist() {
-	if m.activeListIndex == NotStarted {
-		m.activeListIndex = Done
-	} else {
-		m.activeListIndex--
-	}
-}
-
-func (m *Model) updateTaskLists() {
-	activeProj := m.GetActiveProject()
-	if activeProj == nil {
-		return
-	}
-
-	// Update task lists with active project tasks
-	m.Tasks[NotStarted].SetItems(convertTasksToListItems(activeProj.GetTasksByStatus(NotStarted)))
-	m.Tasks[InProgress].SetItems(convertTasksToListItems(activeProj.GetTasksByStatus(InProgress)))
-	m.Tasks[Done].SetItems(convertTasksToListItems(activeProj.GetTasksByStatus(Done)))
-}
-
-func (m *Model) moveTaskToNextStatus(task Task) {
-	activeProj := m.GetActiveProject()
-	if activeProj == nil {
-		return
-	}
-
-	// Determine next status
-	var nextStatus Status
-	switch task.Status {
-	case NotStarted:
-		nextStatus = InProgress
-	case InProgress:
-		nextStatus = Done
-	case Done:
-		// Cycle back to NotStarted
-		nextStatus = NotStarted
-	}
-
-	// Update task status in database
-	if err := m.taskDAO.UpdateStatus(task.ID, nextStatus); err != nil {
-		return // If database update fails, don't update model
-	}
-
-	// Update task status in memory
-	activeProj.UpdateTaskStatus(task.ID, nextStatus)
-	m.updateTaskLists()
-}
-
-func (m *Model) moveTaskToPreviousStatus(task Task) {
-	activeProj := m.GetActiveProject()
-	if activeProj == nil {
-		return
-	}
-
-	// Determine previous status
-	var prevStatus Status
-	switch task.Status {
-	case NotStarted:
-		// Cycle back to Done
-		prevStatus = Done
-	case InProgress:
-		prevStatus = NotStarted
-	case Done:
-		prevStatus = InProgress
-	}
-
-	// Update task status in database
-	if err := m.taskDAO.UpdateStatus(task.ID, prevStatus); err != nil {
-		return // If database update fails, don't update model
-	}
-
-	// Update task status in memory
-	activeProj.UpdateTaskStatus(task.ID, prevStatus)
-	m.updateTaskLists()
-}
-
-func (m *Model) executeProjectDeletion() *Model {
-	if m.projectToDelete == "" {
-		m.showProjectDeleteConfirm = false
-		return m
-	}
-
-	// Delete project from database
-	if err := m.projectDAO.Delete(m.projectToDelete); err != nil {
-		// If database deletion fails, cancel the operation
-		m.showProjectDeleteConfirm = false
-		m.projectToDelete = ""
-		return m
-	}
-
-	// Handle edge case: deleting last project
-	if len(m.Projects) == 1 {
-		m.Projects = []Project{}
-		m.ActiveProjectID = ""
-		// Clear task lists
-		m.Tasks[NotStarted].SetItems([]list.Item{})
-		m.Tasks[InProgress].SetItems([]list.Item{})
-		m.Tasks[Done].SetItems([]list.Item{})
-	} else {
-		// Find and remove the project from the slice
-		var newProjects []Project
-		var wasActiveProject bool
-		for _, proj := range m.Projects {
-			if proj.ID != m.projectToDelete {
-				newProjects = append(newProjects, proj)
-			} else {
-				wasActiveProject = (proj.ID == m.ActiveProjectID)
-			}
-		}
-		m.Projects = newProjects
-
-		// If we deleted the active project, switch to the next one
-		if wasActiveProject && len(m.Projects) > 0 {
-			// Switch to the first remaining project
-			m.ActiveProjectID = m.Projects[0].ID
-			m.updateTaskLists()
-		}
-	}
-
-	// Reset confirmation state
-	m.showProjectDeleteConfirm = false
-	m.projectToDelete = ""
-
-	return m
-}
-
-func (m *Model) executeTaskDeletion() *Model {
-	if m.taskToDelete == "" {
-		m.showTaskDeleteConfirm = false
-		return m
-	}
-
-	// Delete task from database
-	if err := m.taskDAO.Delete(m.taskToDelete); err != nil {
-		// If database deletion fails, cancel the operation
-		m.showTaskDeleteConfirm = false
-		m.taskToDelete = ""
-		return m
-	}
-
-	// Remove task from active project in memory
-	activeProj := m.GetActiveProject()
-	if activeProj != nil {
-		activeProj.RemoveTask(m.taskToDelete)
-		m.updateTaskLists()
-	}
-
-	// Reset confirmation state
-	m.showTaskDeleteConfirm = false
-	m.taskToDelete = ""
-
-	return m
-}
-
-func (m *Model) enterEditMode(task Task) {
-	m.showTaskEditForm = true
-	m.editingTaskID = task.ID
-	m.nameInput.SetValue(task.Name)
-	m.descInput.SetValue(task.Desc)
-	m.focusedInput = 0
-	m.nameInput.Focus()
-	m.descInput.Blur()
-}
-
-func (m *Model) updateTask() error {
-	// Get the current task from the database
-	task, err := m.taskDAO.GetByID(m.editingTaskID)
-	if err != nil {
-		return err
-	}
-
-	// Update task fields
-	task.Name = m.nameInput.Value()
-	task.Desc = m.descInput.Value()
-
-	// Save to database
-	if err := m.taskDAO.Update(task); err != nil {
-		return err
-	}
-
-	// Update task in memory
-	activeProj := m.GetActiveProject()
-	if activeProj != nil {
-		for i, t := range activeProj.Tasks {
-			if t.ID == m.editingTaskID {
-				activeProj.Tasks[i].Name = task.Name
-				activeProj.Tasks[i].Desc = task.Desc
-				activeProj.Tasks[i].UpdatedAt = task.UpdatedAt
-				break
-			}
-		}
-		m.updateTaskLists()
-	}
-
-	return nil
 }

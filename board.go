@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
+	"kahn/pkg/colors"
+	"kahn/pkg/input"
 )
 
 func NewModel(database *Database) *Model {
@@ -21,7 +23,7 @@ func NewModel(database *Database) *Model {
 	}
 
 	if len(projects) == 0 {
-		newProject := NewProject("Default Project", "A default project for your tasks", ColorBlue)
+		newProject := NewProject("Default Project", "A default project for your tasks", colors.Blue)
 		if err := projectDAO.Create(newProject); err != nil {
 			projects = []Project{}
 		} else {
@@ -39,7 +41,7 @@ func NewModel(database *Database) *Model {
 		taskLists[NotStarted].SetItems(convertTasksToListItems(projects[0].GetTasksByStatus(NotStarted)))
 	}
 	taskLists[NotStarted].Styles.Title = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorBlue)).
+		Foreground(lipgloss.Color(colors.Blue)).
 		Bold(true).
 		Align(lipgloss.Center)
 
@@ -48,7 +50,7 @@ func NewModel(database *Database) *Model {
 		taskLists[InProgress].SetItems(convertTasksToListItems(projects[0].GetTasksByStatus(InProgress)))
 	}
 	taskLists[InProgress].Styles.Title = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorYellow)).
+		Foreground(lipgloss.Color(colors.Yellow)).
 		Bold(true).
 		Align(lipgloss.Center)
 
@@ -57,7 +59,7 @@ func NewModel(database *Database) *Model {
 		taskLists[Done].SetItems(convertTasksToListItems(projects[0].GetTasksByStatus(Done)))
 	}
 	taskLists[Done].Styles.Title = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorGreen)).
+		Foreground(lipgloss.Color(colors.Green)).
 		Bold(true).
 		Align(lipgloss.Center)
 
@@ -74,6 +76,7 @@ func NewModel(database *Database) *Model {
 		database:        database,
 		projectDAO:      NewProjectDAO(database.GetDB()),
 		taskDAO:         NewTaskDAO(database.GetDB()),
+		inputHandler:    input.NewHandler(),
 	}
 }
 
@@ -93,7 +96,7 @@ func (m Model) renderProjectHeader() string {
 
 	// Create a more prominent project indicator
 	projectLabel := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorSubtext1)).
+		Foreground(lipgloss.Color(colors.Subtext1)).
 		Render("Project:")
 
 	projectNameText := lipgloss.NewStyle().
@@ -102,7 +105,7 @@ func (m Model) renderProjectHeader() string {
 		Render(activeProj.Name)
 
 	helpText := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorSubtext1)).
+		Foreground(lipgloss.Color(colors.Subtext1)).
 		Render("[p] Switch • [n] Add Task • [e] Edit Task • [d] Delete Task • [q] Quit")
 
 	// Create a more prominent header with better visual hierarchy
@@ -119,7 +122,7 @@ func (m Model) renderProjectHeader() string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(activeProj.Color)).
 		Padding(0, 1).
-		Background(lipgloss.Color(ColorSurface0)).
+		Background(lipgloss.Color(colors.Surface0)).
 		Width(m.width).
 		Render(headerContent)
 }
@@ -193,20 +196,20 @@ func (m Model) View() string {
 
 func (m Model) renderNoProjectsBoard() string {
 	title := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorMauve)).
+		Foreground(lipgloss.Color(colors.Mauve)).
 		Bold(true).
 		Align(lipgloss.Center).
 		Width(60).
 		Render("No Projects")
 
 	message := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorText)).
+		Foreground(lipgloss.Color(colors.Text)).
 		Align(lipgloss.Center).
 		Width(60).
 		Render("Create your first project to get started")
 
 	instructions := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorSubtext1)).
+		Foreground(lipgloss.Color(colors.Subtext1)).
 		Align(lipgloss.Center).
 		Width(60).
 		Render("[p] Create Project • [q] Quit")
@@ -223,7 +226,7 @@ func (m Model) renderNoProjectsBoard() string {
 
 	form := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(ColorMauve)).
+		BorderForeground(lipgloss.Color(colors.Mauve)).
 		Padding(2, 3).
 		Width(70).
 		Height(12).
@@ -262,31 +265,31 @@ func (m Model) renderTaskDeleteConfirm() string {
 	}
 
 	title := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorRed)).
+		Foreground(lipgloss.Color(colors.Red)).
 		Bold(true).
 		Align(lipgloss.Center).
 		Width(60).
 		Render("⚠️  Delete Task")
 
 	taskName := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorText)).
+		Foreground(lipgloss.Color(colors.Text)).
 		Bold(true).
 		Render(taskToDelete.Name)
 
 	warningMessage := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorText)).
+		Foreground(lipgloss.Color(colors.Text)).
 		Align(lipgloss.Center).
 		Width(60).
 		Render(fmt.Sprintf("Delete task \"%s\"?", taskName))
 
 	subWarning := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorSubtext1)).
+		Foreground(lipgloss.Color(colors.Subtext1)).
 		Align(lipgloss.Center).
 		Width(60).
 		Render("This action cannot be undone.")
 
 	instructions := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorSubtext1)).
+		Foreground(lipgloss.Color(colors.Subtext1)).
 		Align(lipgloss.Center).
 		Width(60).
 		Render("[y] Yes, Delete • [n] No, Cancel")
@@ -305,7 +308,7 @@ func (m Model) renderTaskDeleteConfirm() string {
 
 	form := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(ColorRed)).
+		BorderForeground(lipgloss.Color(colors.Red)).
 		Padding(2, 3).
 		Width(70).
 		Height(12).

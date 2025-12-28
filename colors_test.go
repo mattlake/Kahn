@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"kahn/pkg/colors"
 )
 
 func TestColorConstants(t *testing.T) {
@@ -12,31 +13,31 @@ func TestColorConstants(t *testing.T) {
 		color string
 	}{
 		// Primary colors
-		{"ColorMauve", ColorMauve},
-		{"ColorBlue", ColorBlue},
-		{"ColorLavender", ColorLavender},
-		{"ColorSapphire", ColorSapphire},
+		{"ColorMauve", colors.Mauve},
+		{"ColorBlue", colors.Blue},
+		{"ColorLavender", colors.Lavender},
+		{"ColorSapphire", colors.Sapphire},
 
 		// Text colors
-		{"ColorText", ColorText},
-		{"ColorSubtext1", ColorSubtext1},
-		{"ColorSubtext0", ColorSubtext0},
+		{"ColorText", colors.Text},
+		{"ColorSubtext1", colors.Subtext1},
+		{"ColorSubtext0", colors.Subtext0},
 
 		// Surface colors
-		{"ColorSurface0", ColorSurface0},
-		{"ColorSurface1", ColorSurface1},
-		{"ColorSurface2", ColorSurface2},
-		{"ColorBase", ColorBase},
+		{"ColorSurface0", colors.Surface0},
+		{"ColorSurface1", colors.Surface1},
+		{"ColorSurface2", colors.Surface2},
+		{"ColorBase", colors.Base},
 
 		// Border colors
-		{"ColorOverlay2", ColorOverlay2},
-		{"ColorOverlay1", ColorOverlay1},
-		{"ColorOverlay0", ColorOverlay0},
+		{"ColorOverlay2", colors.Overlay2},
+		{"ColorOverlay1", colors.Overlay1},
+		{"ColorOverlay0", colors.Overlay0},
 
 		// Status colors
-		{"ColorGreen", ColorGreen},
-		{"ColorYellow", ColorYellow},
-		{"ColorRed", ColorRed},
+		{"ColorGreen", colors.Green},
+		{"ColorYellow", colors.Yellow},
+		{"ColorRed", colors.Red},
 	}
 
 	for _, tt := range tests {
@@ -59,11 +60,11 @@ func TestColorConstants(t *testing.T) {
 func TestColorPalette_Consistency(t *testing.T) {
 	// Test that all colors follow the same format
 	colors := []string{
-		ColorMauve, ColorBlue, ColorLavender, ColorSapphire,
-		ColorText, ColorSubtext1, ColorSubtext0,
-		ColorSurface0, ColorSurface1, ColorSurface2, ColorBase,
-		ColorOverlay2, ColorOverlay1, ColorOverlay0,
-		ColorGreen, ColorYellow, ColorRed,
+		colors.Mauve, colors.Blue, colors.Lavender, colors.Sapphire,
+		colors.Text, colors.Subtext1, colors.Subtext0,
+		colors.Surface0, colors.Surface1, colors.Surface2, colors.Base,
+		colors.Overlay2, colors.Overlay1, colors.Overlay0,
+		colors.Green, colors.Yellow, colors.Red,
 	}
 
 	for _, color := range colors {
@@ -95,23 +96,23 @@ func TestColorPalette_CatppuccinTheme(t *testing.T) {
 	}
 
 	actualColors := map[string]string{
-		"ColorMauve":    ColorMauve,
-		"ColorBlue":     ColorBlue,
-		"ColorLavender": ColorLavender,
-		"ColorSapphire": ColorSapphire,
-		"ColorText":     ColorText,
-		"ColorSubtext1": ColorSubtext1,
-		"ColorSubtext0": ColorSubtext0,
-		"ColorSurface0": ColorSurface0,
-		"ColorSurface1": ColorSurface1,
-		"ColorSurface2": ColorSurface2,
-		"ColorBase":     ColorBase,
-		"ColorOverlay2": ColorOverlay2,
-		"ColorOverlay1": ColorOverlay1,
-		"ColorOverlay0": ColorOverlay0,
-		"ColorGreen":    ColorGreen,
-		"ColorYellow":   ColorYellow,
-		"ColorRed":      ColorRed,
+		"ColorMauve":    colors.Mauve,
+		"ColorBlue":     colors.Blue,
+		"ColorLavender": colors.Lavender,
+		"ColorSapphire": colors.Sapphire,
+		"ColorText":     colors.Text,
+		"ColorSubtext1": colors.Subtext1,
+		"ColorSubtext0": colors.Subtext0,
+		"ColorSurface0": colors.Surface0,
+		"ColorSurface1": colors.Surface1,
+		"ColorSurface2": colors.Surface2,
+		"ColorBase":     colors.Base,
+		"ColorOverlay2": colors.Overlay2,
+		"ColorOverlay1": colors.Overlay1,
+		"ColorOverlay0": colors.Overlay0,
+		"ColorGreen":    colors.Green,
+		"ColorYellow":   colors.Yellow,
+		"ColorRed":      colors.Red,
 	}
 
 	for name, expected := range expectedColors {
