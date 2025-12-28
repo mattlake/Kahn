@@ -1,6 +1,8 @@
 package main
 
 import (
+	"kahn/internal/config"
+	"kahn/internal/database"
 	"log"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -8,13 +10,13 @@ import (
 
 func main() {
 	// Load configuration
-	config, err := LoadConfig()
+	config, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
 	// Initialize database
-	database, err := NewDatabase(config)
+	database, err := database.NewDatabase(config)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}

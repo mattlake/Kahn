@@ -1,6 +1,7 @@
 package main
 
 import (
+	"kahn/internal/database"
 	"kahn/internal/domain"
 	"testing"
 
@@ -12,7 +13,7 @@ import (
 func TestNewModel(t *testing.T) {
 	// Create test database
 	config := createTestConfig()
-	database, err := NewDatabase(config)
+	database, err := database.NewDatabase(config)
 	require.NoError(t, err, "NewDatabase should not return error")
 	defer database.Close()
 
@@ -34,7 +35,7 @@ func TestNewModel(t *testing.T) {
 func TestModel_GetActiveProject(t *testing.T) {
 	// Create test database
 	config := createTestConfig()
-	database, err := NewDatabase(config)
+	database, err := database.NewDatabase(config)
 	require.NoError(t, err, "NewDatabase should not return error")
 	defer database.Close()
 

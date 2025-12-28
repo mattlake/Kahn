@@ -1,4 +1,4 @@
-package main
+package database
 
 type Migration struct {
 	name string

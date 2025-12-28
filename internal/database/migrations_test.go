@@ -1,4 +1,4 @@
-package main
+package database
 
 import (
 	"database/sql"
@@ -41,8 +41,8 @@ func TestRunMigrations(t *testing.T) {
 	assert.Error(t, err, "Migrations table should not exist initially")
 
 	// Run migrations
-	database := &Database{db: db}
-	err = database.runMigrations()
+	database := &Database{Db: db}
+	err = database.RunMigrations()
 	assert.NoError(t, err, "runMigrations should not return error")
 
 	// Test that migrations table exists and has records
@@ -58,7 +58,7 @@ func TestRunMigrations(t *testing.T) {
 	}
 
 	// Test that running migrations again doesn't cause errors (idempotency)
-	err = database.runMigrations()
+	err = database.RunMigrations()
 	assert.NoError(t, err, "Running migrations again should not return error")
 
 	// Test that migration count is still 5 (no duplicates)
@@ -132,4 +132,23 @@ func TestMigration_Indexes(t *testing.T) {
 		assert.NoError(t, err, "Should be able to query index %s", indexName)
 		assert.Equal(t, 1, count, "Index %s should exist", indexName)
 	}
+}
+func setupTestDB(t *testing.T) *sql.DB {
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err, "Failed to open in-memory database")
+
+	// Test the connection
+	err = db.Ping()
+	require.NoError(t, err, "Failed to ping test database")
+
+	// Run migrations on the test database
+	database := &Database{Db: db}
+	err = database.RunMigrations()
+	require.NoError(t, err, "Failed to run migrations on test database")
+
+	return db
+}
+func cleanupTestDB(t *testing.T, db *sql.DB) {
+	err := db.Close()
+	require.NoError(t, err, "Failed to close test database")
 }

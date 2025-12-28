@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"kahn/internal/database"
 	"kahn/internal/domain"
 	"kahn/pkg/input"
 
@@ -30,7 +31,7 @@ type Model struct {
 	formErrorField         string // which field has error
 	width                  int
 	height                 int
-	database               *Database
+	database               *database.Database
 	inputHandler           *input.Handler
 	taskService            *TaskService
 	projectService         *ProjectService

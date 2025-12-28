@@ -2,7 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"kahn/internal/config"
+	"kahn/internal/database"
 	"kahn/internal/domain"
+	repo "kahn/internal/repository"
 	"testing"
 	"time"
 
@@ -22,8 +25,8 @@ func setupTestDB(t *testing.T) *sql.DB {
 	require.NoError(t, err, "Failed to ping test database")
 
 	// Run migrations on the test database
-	database := &Database{db: db}
-	err = database.runMigrations()
+	database := &database.Database{Db: db}
+	err = database.RunMigrations()
 	require.NoError(t, err, "Failed to run migrations on test database")
 
 	return db
@@ -60,8 +63,8 @@ func createTestTask(name, description, projectID string, status domain.Status) *
 }
 
 // createTestConfig creates a test configuration with in-memory database
-func createTestConfig() *Config {
-	config := &Config{}
+func createTestConfig() *config.Config {
+	config := &config.Config{}
 	config.Database.Path = ":memory:"
 	config.Database.BusyTimeout = 5000
 	config.Database.JournalMode = "WAL"
@@ -108,7 +111,7 @@ func assertTaskEqual(t *testing.T, expected, actual *domain.Task) {
 
 // insertTestProject inserts a test project into the database and returns it
 func insertTestProject(t *testing.T, db *sql.DB, project *domain.Project) *domain.Project {
-	projectRepo := NewSQLiteProjectRepository(db)
+	projectRepo := repo.NewSQLiteProjectRepository(db)
 	err := projectRepo.Create(project)
 	require.NoError(t, err, "Failed to insert test project")
 	return project
@@ -116,7 +119,7 @@ func insertTestProject(t *testing.T, db *sql.DB, project *domain.Project) *domai
 
 // insertTestTask inserts a test task into the database and returns it
 func insertTestTask(t *testing.T, db *sql.DB, task *domain.Task) *domain.Task {
-	taskRepo := NewSQLiteTaskRepository(db)
+	taskRepo := repo.NewSQLiteTaskRepository(db)
 	err := taskRepo.Create(task)
 	require.NoError(t, err, "Failed to insert test task")
 	return task
@@ -134,7 +137,7 @@ func countTableRows(t *testing.T, db *sql.DB, tableName string) int {
 // createTestModelWithTasks creates a model with predefined tasks for testing
 func createTestModelWithTasks(t *testing.T, taskNames []string, statuses []domain.Status) *Model {
 	config := createTestConfig()
-	database, err := NewDatabase(config)
+	database, err := database.NewDatabase(config)
 	require.NoError(t, err, "Failed to create test database")
 
 	model := NewModel(database)

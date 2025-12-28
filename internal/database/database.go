@@ -1,8 +1,9 @@
-package main
+package database
 
 import (
 	"database/sql"
 	"fmt"
+	"kahn/internal/config"
 	"log"
 	"os"
 	"path/filepath"
@@ -11,11 +12,11 @@ import (
 )
 
 type Database struct {
-	db *sql.DB
+	Db *sql.DB
 }
 
 // NewDatabase creates a new database connection with optimized settings
-func NewDatabase(config *Config) (*Database, error) {
+func NewDatabase(config *config.Config) (*Database, error) {
 	// Ensure database directory exists
 	dbDir := filepath.Dir(config.Database.Path)
 	if err := os.MkdirAll(dbDir, 0755); err != nil {
@@ -47,10 +48,10 @@ func NewDatabase(config *Config) (*Database, error) {
 		return nil, fmt.Errorf("failed to set database pragmas: %w", err)
 	}
 
-	database := &Database{db: db}
+	database := &Database{Db: db}
 
 	// Run migrations
-	if err := database.runMigrations(); err != nil {
+	if err := database.RunMigrations(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
@@ -164,26 +165,26 @@ func containsMiddle(s, substr string) bool {
 
 // Close closes the database connection
 func (d *Database) Close() error {
-	if d.db != nil {
-		return d.db.Close()
+	if d.Db != nil {
+		return d.Db.Close()
 	}
 	return nil
 }
 
 // GetDB returns the underlying database connection
 func (d *Database) GetDB() *sql.DB {
-	return d.db
+	return d.Db
 }
 
 // BeginTransaction starts a new database transaction
 func (d *Database) BeginTransaction() (*sql.Tx, error) {
-	return d.db.Begin()
+	return d.Db.Begin()
 }
 
 // runMigrations runs all pending database migrations
-func (d *Database) runMigrations() error {
+func (d *Database) RunMigrations() error {
 	// Create migrations table if it doesn't exist
-	_, err := d.db.Exec(`
+	_, err := d.Db.Exec(`
 		CREATE TABLE IF NOT EXISTS migrations (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL UNIQUE,
@@ -199,7 +200,7 @@ func (d *Database) runMigrations() error {
 	for _, migration := range migrations {
 		// Check if migration already ran
 		var count int
-		err := d.db.QueryRow("SELECT COUNT(*) FROM migrations WHERE name = ?", migration.name).Scan(&count)
+		err := d.Db.QueryRow("SELECT COUNT(*) FROM migrations WHERE name = ?", migration.name).Scan(&count)
 		if err != nil {
 			return fmt.Errorf("failed to check migration %s: %w", migration.name, err)
 		}
@@ -209,13 +210,13 @@ func (d *Database) runMigrations() error {
 		}
 
 		// Execute migration
-		_, err = d.db.Exec(migration.sql)
+		_, err = d.Db.Exec(migration.sql)
 		if err != nil {
 			return fmt.Errorf("failed to execute migration %s: %w", migration.name, err)
 		}
 
 		// Record migration
-		_, err = d.db.Exec("INSERT INTO migrations (name) VALUES (?)", migration.name)
+		_, err = d.Db.Exec("INSERT INTO migrations (name) VALUES (?)", migration.name)
 		if err != nil {
 			return fmt.Errorf("failed to record migration %s: %w", migration.name, err)
 		}

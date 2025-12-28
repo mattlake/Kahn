@@ -1,6 +1,7 @@
-package main
+package database
 
 import (
+	"kahn/internal/config"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,7 +30,7 @@ func TestNewDatabase(t *testing.T) {
 
 func TestNewDatabase_InvalidPath(t *testing.T) {
 	// Create config with invalid database path
-	config := &Config{}
+	config := &config.Config{}
 	config.Database.Path = "/invalid/path/that/does/not/exist/kahn.db"
 	config.Database.BusyTimeout = 5000
 	config.Database.JournalMode = "WAL"
@@ -90,4 +91,14 @@ func TestDatabase_Close_NilDB(t *testing.T) {
 
 	err := database.Close()
 	assert.NoError(t, err, "Close with nil DB should not return error")
+}
+
+func createTestConfig() *config.Config {
+	config := &config.Config{}
+	config.Database.Path = ":memory:"
+	config.Database.BusyTimeout = 5000
+	config.Database.JournalMode = "WAL"
+	config.Database.CacheSize = 10000
+	config.Database.ForeignKeys = true
+	return config
 }

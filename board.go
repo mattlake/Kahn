@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
+	"kahn/internal/database"
 	"kahn/internal/domain"
+	repo "kahn/internal/repository"
 	"kahn/pkg/colors"
 	"kahn/pkg/input"
 )
 
-func NewModel(database *Database) *Model {
+func NewModel(database *database.Database) *Model {
 	defaultList := list.New([]list.Item{}, list.NewDefaultDelegate(), 100, 0)
 	defaultList.SetShowHelp(false)
 	taskLists := []list.Model{defaultList, defaultList, defaultList}
@@ -18,8 +20,8 @@ func NewModel(database *Database) *Model {
 	projectInputComponents := &input.InputComponents{}
 
 	// Create repositories
-	taskRepo := NewSQLiteTaskRepository(database.GetDB())
-	projectRepo := NewSQLiteProjectRepository(database.GetDB())
+	taskRepo := repo.NewSQLiteTaskRepository(database.GetDB())
+	projectRepo := repo.NewSQLiteProjectRepository(database.GetDB())
 
 	// Create services
 	taskService := NewTaskService(taskRepo, projectRepo)
