@@ -16,15 +16,32 @@ func NewModel(database *Database) *Model {
 	nameInput, descInput := initializeInputs()
 	projNameInput, projDescInput := initializeProjectInputs()
 
-	projectDAO := NewProjectDAO(database.GetDB())
-	projects, err := projectDAO.GetAll()
+	// Create repositories
+	taskRepo := NewSQLiteTaskRepository(database.GetDB())
+	projectRepo := NewSQLiteProjectRepository(database.GetDB())
+
+	// Create services
+	taskService := NewTaskService(taskRepo, projectRepo)
+	projectService := NewProjectService(projectRepo, taskRepo)
+
+	projects, err := projectService.GetAllProjects()
 	if err != nil {
 		projects = []Project{}
 	}
 
+	// CRITICAL: Load tasks for each project to ensure they're populated
+	for i := range projects {
+		tasks, err := taskService.GetTasksByProject(projects[i].ID)
+		if err != nil {
+			projects[i].Tasks = []Task{}
+		} else {
+			projects[i].Tasks = tasks
+		}
+	}
+
 	if len(projects) == 0 {
-		newProject := NewProject("Default Project", "A default project for your tasks", colors.Blue)
-		if err := projectDAO.Create(newProject); err != nil {
+		newProject, err := projectService.CreateProject("Default Project", "A default project for your tasks")
+		if err != nil {
 			projects = []Project{}
 		} else {
 			projects = []Project{*newProject}
@@ -74,8 +91,8 @@ func NewModel(database *Database) *Model {
 		width:           80,
 		height:          24,
 		database:        database,
-		projectDAO:      NewProjectDAO(database.GetDB()),
-		taskDAO:         NewTaskDAO(database.GetDB()),
+		taskService:     taskService,
+		projectService:  projectService,
 		inputHandler:    input.NewHandler(),
 	}
 }

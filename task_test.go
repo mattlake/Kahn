@@ -450,7 +450,7 @@ func TestTaskEdit_DatabasePersistence(t *testing.T) {
 	model = simulateKeyPress(t, model, "enter")
 
 	// Verify task was updated in database
-	retrievedTask, err := model.taskDAO.GetByID(taskID)
+	retrievedTask, err := model.taskService.GetTask(taskID)
 	require.NoError(t, err, "Should be able to retrieve task from database")
 	assert.Equal(t, "Database Updated Task", retrievedTask.Name, "Task should be updated in database")
 }

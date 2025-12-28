@@ -2,6 +2,7 @@ package main
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"kahn/pkg/input"
 )
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -9,6 +10,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// Handle form modes first
 		if m.showForm {
+			// Ensure input handler mode is synchronized with UI state
+			if m.inputHandler.GetMode() != input.TaskFormMode {
+				m.inputHandler.SetMode(input.TaskFormMode)
+			}
+
 			// Task form mode key handling
 			switch msg.String() {
 			case "esc":
@@ -29,12 +35,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case "enter":
 				if m.nameInput.Value() != "" {
-					// Create new task and add to active project
-					newTask := NewTask(m.nameInput.Value(), m.descInput.Value(), m.ActiveProjectID)
-
-					// Save to database
-					if err := m.taskDAO.Create(newTask); err != nil {
-						// If database save fails, don't add to model
+					// Use service layer for task creation
+					newTask, err := m.taskService.CreateTask(m.nameInput.Value(), m.descInput.Value(), m.ActiveProjectID)
+					if err != nil {
+						// If service layer save fails, don't add to model
 						return m, nil
 					}
 
@@ -63,6 +67,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		} else if m.showTaskEditForm {
+			// Ensure input handler mode is synchronized with UI state
+			if m.inputHandler.GetMode() != input.TaskEditFormMode {
+				m.inputHandler.SetMode(input.TaskEditFormMode)
+			}
+
 			// Task edit form mode key handling
 			switch msg.String() {
 			case "esc":
@@ -111,6 +120,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		} else if m.showProjectSwitch || m.showProjectDeleteConfirm {
+			// Ensure input handler mode is synchronized with UI state
+			if m.showProjectSwitch && m.inputHandler.GetMode() != input.ProjectSwitchMode {
+				m.inputHandler.SetMode(input.ProjectSwitchMode)
+			}
+			if m.showProjectDeleteConfirm && m.inputHandler.GetMode() != input.ProjectDeleteConfirmMode {
+				m.inputHandler.SetMode(input.ProjectDeleteConfirmMode)
+			}
+
 			// Handle confirmation dialog if active
 			if m.showProjectDeleteConfirm {
 				switch msg.String() {
@@ -180,6 +197,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		} else if m.showProjectForm {
+			// Ensure input handler mode is synchronized with UI state
+			if m.inputHandler.GetMode() != input.ProjectFormMode {
+				m.inputHandler.SetMode(input.ProjectFormMode)
+			}
+
 			// Project form mode key handling
 			switch msg.String() {
 			case "esc":
@@ -200,27 +222,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case "enter":
 				if m.projNameInput.Value() != "" {
-					// Create new project
-					newProject := NewProject(m.projNameInput.Value(), m.projDescInput.Value(), "#89b4fa") // Blue color
-
-					if err := newProject.Validate(); err == nil {
-						// Save to database
-						if err := m.projectDAO.Create(newProject); err != nil {
-							// If database save fails, don't add to model
-							return m, nil
-						}
-
-						m.Projects = append(m.Projects, *newProject)
-						m.ActiveProjectID = newProject.ID
-						m.updateTaskLists()
-
-						// Reset form
-						m.showProjectForm = false
-						m.projNameInput.Reset()
-						m.projDescInput.Reset()
-						m.focusedProjInput = 0
-						m.projNameInput.Focus()
+					// Use service layer for project creation
+					newProject, err := m.projectService.CreateProject(m.projNameInput.Value(), m.projDescInput.Value())
+					if err != nil {
+						// If service layer save fails, don't add to model
+						return m, nil
 					}
+
+					m.Projects = append(m.Projects, *newProject)
+					m.ActiveProjectID = newProject.ID
+					m.updateTaskLists()
+
+					// Reset form
+					m.showProjectForm = false
+					m.projNameInput.Reset()
+					m.projDescInput.Reset()
+					m.focusedProjInput = 0
+					m.projNameInput.Focus()
 				}
 				return m, nil
 			default:
@@ -233,6 +251,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		} else if m.showTaskDeleteConfirm {
+			// Ensure input handler mode is synchronized with UI state
+			if m.inputHandler.GetMode() != input.TaskDeleteConfirmMode {
+				m.inputHandler.SetMode(input.TaskDeleteConfirmMode)
+			}
+
 			// Handle task deletion confirmation dialog
 			switch msg.String() {
 			case "y", "Y":
@@ -245,6 +268,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		} else {
 			// Normal mode - handle navigation keys
+
+			// Ensure input handler mode is synchronized with UI state
+			if m.inputHandler.GetMode() != input.NormalMode {
+				m.inputHandler.SetMode(input.NormalMode)
+			}
+
 			result := m.inputHandler.HandleKeyMsg(msg, &m)
 
 			// Handle special keys through input handler
@@ -256,10 +285,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.String() {
 			case "q":
 				return m, tea.Quit
-			case "l":
-				m.NextList()
-			case "h":
-				m.PrevList()
 			case "n":
 				m.showForm = true
 				m.focusedInput = 0

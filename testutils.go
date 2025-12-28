@@ -107,16 +107,16 @@ func assertTaskEqual(t *testing.T, expected, actual *Task) {
 
 // insertTestProject inserts a test project into the database and returns it
 func insertTestProject(t *testing.T, db *sql.DB, project *Project) *Project {
-	dao := NewProjectDAO(db)
-	err := dao.Create(project)
+	projectRepo := NewSQLiteProjectRepository(db)
+	err := projectRepo.Create(project)
 	require.NoError(t, err, "Failed to insert test project")
 	return project
 }
 
 // insertTestTask inserts a test task into the database and returns it
 func insertTestTask(t *testing.T, db *sql.DB, task *Task) *Task {
-	dao := NewTaskDAO(db)
-	err := dao.Create(task)
+	taskRepo := NewSQLiteTaskRepository(db)
+	err := taskRepo.Create(task)
 	require.NoError(t, err, "Failed to insert test task")
 	return task
 }
@@ -145,15 +145,19 @@ func createTestModelWithTasks(t *testing.T, taskNames []string, statuses []Statu
 		require.NotNil(t, activeProj, "Should have active project")
 
 		for i, taskName := range taskNames {
-			task := NewTask(taskName, "Test description", activeProj.ID)
-			task.Status = statuses[i]
-
-			// Save to database
-			err := model.taskDAO.Create(task)
+			// Save to database first to get the correct task
+			createdTask, err := model.taskService.CreateTask(taskName, "Test description", activeProj.ID)
 			require.NoError(t, err, "Failed to create test task")
 
-			// Add to project in memory
-			activeProj.AddTask(*task)
+			// Set the status for the created task
+			createdTask.Status = statuses[i]
+
+			// Update status in database
+			err = model.taskService.taskRepo.UpdateStatus(createdTask.ID, statuses[i])
+			require.NoError(t, err, "Failed to update task status in database")
+
+			// Add to project in memory using the database task
+			activeProj.AddTask(*createdTask)
 		}
 
 		model.updateTaskLists()

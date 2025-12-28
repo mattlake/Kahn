@@ -30,9 +30,9 @@ type Model struct {
 	width                    int
 	height                   int
 	database                 *Database
-	projectDAO               *ProjectDAO
-	taskDAO                  *TaskDAO
 	inputHandler             *input.Handler
+	taskService              *TaskService
+	projectService           *ProjectService
 }
 
 func (m Model) Init() tea.Cmd {
@@ -60,10 +60,9 @@ func (m *Model) CreateTask(name, description string) error {
 		return nil // No active project
 	}
 
-	newTask := NewTask(name, description, m.ActiveProjectID)
-
-	// Save to database
-	if err := m.taskDAO.Create(newTask); err != nil {
+	// Use service layer for business logic
+	newTask, err := m.taskService.CreateTask(name, description, m.ActiveProjectID)
+	if err != nil {
 		return err
 	}
 
@@ -75,15 +74,9 @@ func (m *Model) CreateTask(name, description string) error {
 }
 
 func (m *Model) UpdateTask(id, name, description string) error {
-	task, err := m.taskDAO.GetByID(id)
+	// Use service layer for business logic
+	task, err := m.taskService.UpdateTask(id, name, description)
 	if err != nil {
-		return err
-	}
-
-	task.Name = name
-	task.Desc = description
-
-	if err := m.taskDAO.Update(task); err != nil {
 		return err
 	}
 
@@ -105,8 +98,8 @@ func (m *Model) UpdateTask(id, name, description string) error {
 }
 
 func (m *Model) DeleteTask(id string) error {
-	// Delete from database
-	if err := m.taskDAO.Delete(id); err != nil {
+	// Use service layer for business logic
+	if err := m.taskService.DeleteTask(id); err != nil {
 		return err
 	}
 
@@ -126,26 +119,13 @@ func (m *Model) MoveTaskToNextStatus(id string) error {
 		return nil
 	}
 
-	var nextStatus Status
-	for _, task := range activeProj.Tasks {
-		if task.ID == id {
-			switch task.Status {
-			case NotStarted:
-				nextStatus = InProgress
-			case InProgress:
-				nextStatus = Done
-			case Done:
-				nextStatus = NotStarted
-			}
-			break
-		}
-	}
-
-	if err := m.taskDAO.UpdateStatus(id, nextStatus); err != nil {
+	// Use service layer for business logic
+	task, err := m.taskService.MoveTaskToNextStatus(id)
+	if err != nil {
 		return err
 	}
 
-	activeProj.UpdateTaskStatus(id, nextStatus)
+	activeProj.UpdateTaskStatus(id, task.Status)
 	m.updateTaskLists()
 	return nil
 }
@@ -156,26 +136,13 @@ func (m *Model) MoveTaskToPreviousStatus(id string) error {
 		return nil
 	}
 
-	var prevStatus Status
-	for _, task := range activeProj.Tasks {
-		if task.ID == id {
-			switch task.Status {
-			case NotStarted:
-				prevStatus = Done
-			case InProgress:
-				prevStatus = NotStarted
-			case Done:
-				prevStatus = InProgress
-			}
-			break
-		}
-	}
-
-	if err := m.taskDAO.UpdateStatus(id, prevStatus); err != nil {
+	// Use service layer for business logic
+	task, err := m.taskService.MoveTaskToPreviousStatus(id)
+	if err != nil {
 		return err
 	}
 
-	activeProj.UpdateTaskStatus(id, prevStatus)
+	activeProj.UpdateTaskStatus(id, task.Status)
 	m.updateTaskLists()
 	return nil
 }
@@ -203,13 +170,9 @@ func (m *Model) GetProjects() []input.ProjectInterface {
 }
 
 func (m *Model) CreateProject(name, description string) error {
-	newProject := NewProject(name, description, "#89b4fa") // Blue color
-
-	if err := newProject.Validate(); err != nil {
-		return err
-	}
-
-	if err := m.projectDAO.Create(newProject); err != nil {
+	// Use service layer for business logic
+	newProject, err := m.projectService.CreateProject(name, description)
+	if err != nil {
 		return err
 	}
 
@@ -221,7 +184,8 @@ func (m *Model) CreateProject(name, description string) error {
 }
 
 func (m *Model) DeleteProject(id string) error {
-	if err := m.projectDAO.Delete(id); err != nil {
+	// Use service layer for business logic
+	if err := m.projectService.DeleteProject(id); err != nil {
 		return err
 	}
 
@@ -344,9 +308,9 @@ func (m *Model) executeTaskDeletion() *Model {
 		return m
 	}
 
-	// Delete task from database
-	if err := m.taskDAO.Delete(m.taskToDelete); err != nil {
-		// If database deletion fails, cancel the operation
+	// Use service layer for business logic
+	if err := m.taskService.DeleteTask(m.taskToDelete); err != nil {
+		// If deletion fails, cancel the operation
 		m.showTaskDeleteConfirm = false
 		m.taskToDelete = ""
 		return m
@@ -372,9 +336,9 @@ func (m *Model) executeProjectDeletion() *Model {
 		return m
 	}
 
-	// Delete project from database
-	if err := m.projectDAO.Delete(m.projectToDelete); err != nil {
-		// If database deletion fails, cancel the operation
+	// Use service layer for business logic
+	if err := m.projectService.DeleteProject(m.projectToDelete); err != nil {
+		// If deletion fails, cancel the operation
 		m.showProjectDeleteConfirm = false
 		m.projectToDelete = ""
 		return m
