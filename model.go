@@ -7,6 +7,7 @@ import (
 	"kahn/internal/database"
 	"kahn/internal/domain"
 	"kahn/internal/services"
+	"kahn/internal/ui/components"
 	"kahn/pkg/input"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -36,6 +37,7 @@ type Model struct {
 	inputHandler           *input.Handler
 	taskService            *services.TaskService
 	projectService         *services.ProjectService
+	board                  *components.Board
 }
 
 func (m Model) Init() tea.Cmd {

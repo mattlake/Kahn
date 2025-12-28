@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/charmbracelet/lipgloss"
 	"kahn/internal/domain"
+	"kahn/internal/ui/styles"
 	"kahn/pkg/colors"
 )
 
@@ -17,12 +18,8 @@ func (m Model) renderProjectSwitcher() string {
 		return m.renderNoProjectsMessage()
 	}
 
-	title := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colors.Mauve)).
-		Bold(true).
-		Align(lipgloss.Center).
-		Width(50).
-		Render("Select Project")
+	dialogStyles := styles.GetDialogStyles()
+	title := dialogStyles.Title.Width(50).Render("Select Project")
 
 	var projectItems []string
 	for i, proj := range m.Projects {
@@ -36,11 +33,13 @@ func (m Model) renderProjectSwitcher() string {
 			color = colors.Blue
 		}
 
-		itemStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color(color))
+		itemStyles := styles.GetProjectItemStyle(color)
 
+		var itemStyle lipgloss.Style
 		if proj.ID == m.ActiveProjectID {
-			itemStyle = itemStyle.Background(lipgloss.Color(colors.Surface1))
+			itemStyle = itemStyles.Active
+		} else {
+			itemStyle = itemStyles.Normal
 		}
 
 		item := itemStyle.Render(fmt.Sprintf("%s %d. %s", prefix, i+1, proj.Name))
@@ -48,11 +47,7 @@ func (m Model) renderProjectSwitcher() string {
 		projectItems = append(projectItems, item)
 	}
 
-	instructions := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colors.Subtext1)).
-		Align(lipgloss.Center).
-		Width(50).
-		Render("[↑/↓] Navigate • [Enter] Select • [n] New • [d] Delete • [esc] Cancel")
+	instructions := dialogStyles.Instruction.Width(50).Render("[↑/↓] Navigate • [Enter] Select • [n] New • [d] Delete • [esc] Cancel")
 
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
@@ -76,10 +71,7 @@ func (m Model) renderProjectSwitcher() string {
 		instructions,
 	)
 
-	form := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(colors.Mauve)).
-		Padding(2, 3).
+	form := dialogStyles.Form.
 		Width(60).
 		Height(min(20, len(projectItems)+8)).
 		Render(content)
@@ -92,24 +84,11 @@ func (m Model) renderProjectSwitcher() string {
 }
 
 func (m Model) renderNoProjectsMessage() string {
-	title := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colors.Mauve)).
-		Bold(true).
-		Align(lipgloss.Center).
-		Width(50).
-		Render("No Projects")
+	dialogStyles := styles.GetDialogStyles()
 
-	message := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colors.Text)).
-		Align(lipgloss.Center).
-		Width(50).
-		Render("Create your first project to get started")
-
-	instructions := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colors.Subtext1)).
-		Align(lipgloss.Center).
-		Width(50).
-		Render("[n] New Project • [esc] Cancel")
+	title := dialogStyles.Title.Width(50).Render("No Projects")
+	message := dialogStyles.Message.Width(50).Render("Create your first project to get started")
+	instructions := dialogStyles.Instruction.Width(50).Render("[n] New Project • [esc] Cancel")
 
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
@@ -121,10 +100,7 @@ func (m Model) renderNoProjectsMessage() string {
 		instructions,
 	)
 
-	form := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(colors.Mauve)).
-		Padding(2, 3).
+	form := dialogStyles.Form.
 		Width(60).
 		Height(12).
 		Render(content)
@@ -154,35 +130,19 @@ func (m Model) renderProjectDeleteConfirm() string {
 		}
 	}
 
-	title := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colors.Red)).
-		Bold(true).
-		Align(lipgloss.Center).
-		Width(60).
-		Render("⚠️  Delete Project")
+	deleteStyles := styles.GetDeleteConfirmStyles()
+	dialogStyles := styles.GetDialogStyles()
 
-	projectName := lipgloss.NewStyle().
+	title := deleteStyles.Title.Width(60).Render("⚠️  Delete Project")
+
+	projectName := dialogStyles.Message.
 		Foreground(lipgloss.Color(projectToDelete.Color)).
 		Bold(true).
 		Render(projectToDelete.Name)
 
-	warningMessage := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colors.Text)).
-		Align(lipgloss.Center).
-		Width(60).
-		Render(fmt.Sprintf("Delete project \"%s\" and ALL its tasks?", projectName))
-
-	subWarning := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colors.Subtext1)).
-		Align(lipgloss.Center).
-		Width(60).
-		Render("This action cannot be undone.")
-
-	instructions := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colors.Subtext1)).
-		Align(lipgloss.Center).
-		Width(60).
-		Render("[y] Yes, Delete • [n] No, Cancel")
+	warningMessage := deleteStyles.Message.Width(60).Render(fmt.Sprintf("Delete project \"%s\" and ALL its tasks?", projectName))
+	subWarning := deleteStyles.Message.Width(60).Render("This action cannot be undone.")
+	instructions := deleteStyles.Message.Width(60).Render("[y] Yes, Delete • [n] No, Cancel")
 
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
@@ -196,10 +156,7 @@ func (m Model) renderProjectDeleteConfirm() string {
 		instructions,
 	)
 
-	form := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(colors.Red)).
-		Padding(2, 3).
+	form := deleteStyles.Form.
 		Width(70).
 		Height(12).
 		Render(content)

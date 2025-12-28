@@ -1,4 +1,4 @@
-package main
+package styles
 
 import (
 	"github.com/charmbracelet/lipgloss"
@@ -6,12 +6,12 @@ import (
 )
 
 // Lipgloss styles with Catppuccin colors
-var defaultStyle = lipgloss.NewStyle().
+var DefaultStyle = lipgloss.NewStyle().
 	Margin(1, 2).
 	Border(lipgloss.HiddenBorder()).
 	Padding(1, 2)
 
-var focusedStyle = lipgloss.NewStyle().
+var FocusedStyle = lipgloss.NewStyle().
 	Margin(1, 2).
 	Border(lipgloss.NormalBorder()).
 	BorderForeground(lipgloss.Color(colors.Mauve)).

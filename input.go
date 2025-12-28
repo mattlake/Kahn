@@ -3,6 +3,7 @@ package main
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"kahn/internal/domain"
+	"kahn/internal/ui/styles"
 	"kahn/pkg/input"
 )
 
@@ -186,7 +187,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 
-		h, v := defaultStyle.GetFrameSize()
+		h, v := styles.DefaultStyle.GetFrameSize()
 		// Calculate equal column width (1/3 of terminal width)
 		columnWidth := max(20, (msg.Width-(h*3))/3)
 		m.Tasks[domain.NotStarted].SetSize(columnWidth, msg.Height-v)
