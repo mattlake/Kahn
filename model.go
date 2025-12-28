@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"kahn/pkg/input"
 )
@@ -14,25 +16,22 @@ type Model struct {
 	activeListIndex          Status
 	showForm                 bool
 	showProjectSwitch        bool
-	showProjectForm          bool
 	showProjectDeleteConfirm bool
 	projectToDelete          string
 	showTaskDeleteConfirm    bool
 	taskToDelete             string
-	showTaskEditForm         bool
-	editingTaskID            string
-	nameInput                textinput.Model
-	descInput                textinput.Model
-	projNameInput            textinput.Model
-	projDescInput            textinput.Model
-	focusedInput             int // 0 for name, 1 for desc
-	focusedProjInput         int // 0 for name, 1 for desc
-	width                    int
-	height                   int
-	database                 *Database
-	inputHandler             *input.Handler
-	taskService              *TaskService
-	projectService           *ProjectService
+	// New InputComponents system
+	taskInputComponents    *input.InputComponents
+	projectInputComponents *input.InputComponents
+	activeFormType         input.FormType
+	formError              string // validation error message
+	formErrorField         string // which field has error
+	width                  int
+	height                 int
+	database               *Database
+	inputHandler           *input.Handler
+	taskService            *TaskService
+	projectService         *ProjectService
 }
 
 func (m Model) Init() tea.Cmd {
@@ -231,28 +230,105 @@ func (m *Model) GetSelectedProjectIndex() int {
 	return 0
 }
 
+func (m *Model) setFormError(message string, field string) {
+	m.formError = message
+	m.formErrorField = field
+}
+
+func (m *Model) ClearFormError() {
+	m.formError = ""
+	m.formErrorField = ""
+}
+
+func (m *Model) GetFormError() string {
+	return m.formError
+}
+
+func (m *Model) GetFormErrorField() string {
+	return m.formErrorField
+}
+
+func (m *Model) GetActiveInputComponents() *input.InputComponents {
+	if m.activeFormType == input.TaskCreateForm || m.activeFormType == input.TaskEditForm {
+		return m.taskInputComponents
+	}
+	return m.projectInputComponents
+}
+
+func (m *Model) GetActiveFormType() input.FormType {
+	return m.activeFormType
+}
+
+func (m *Model) SubmitCurrentForm() error {
+	comps := m.GetActiveInputComponents()
+
+	// Validate at submit time
+	isValid, errorField, errorMsg := comps.ValidateForSubmit()
+	if !isValid {
+		m.setFormError(errorMsg, errorField)
+		return fmt.Errorf("validation failed: %s", errorMsg)
+	}
+
+	// Clear error and proceed with submission
+	m.ClearFormError()
+	name := strings.TrimSpace(comps.NameInput.Value())
+	desc := comps.DescInput.Value()
+
+	switch m.activeFormType {
+	case input.TaskCreateForm:
+		newTask, err := m.taskService.CreateTask(name, desc, m.ActiveProjectID)
+		if err == nil {
+			// Add to active project in memory
+			activeProj := m.GetActiveProject()
+			if activeProj != nil {
+				activeProj.AddTask(*newTask)
+				m.updateTaskLists()
+			}
+		}
+		return err
+	case input.TaskEditForm:
+		err := m.UpdateTask(comps.GetTaskID(), name, desc)
+		return err
+	case input.ProjectCreateForm:
+		newProject, err := m.projectService.CreateProject(name, desc)
+		if err == nil {
+			// Add to projects list and switch to it
+			m.Projects = append(m.Projects, *newProject)
+			m.ActiveProjectID = newProject.ID
+			m.updateTaskLists()
+		}
+		return err
+	}
+	return nil
+}
+
+func (m *Model) CancelCurrentForm() {
+	m.showForm = false
+	m.ClearFormError()
+	// Reset forms
+	m.taskInputComponents.Reset()
+	m.projectInputComponents.Reset()
+}
+
 func (m *Model) ShowTaskForm() {
+	m.taskInputComponents.SetupForTaskCreate()
+	m.activeFormType = input.TaskCreateForm
 	m.showForm = true
-	m.focusedInput = 0
-	m.nameInput.Focus()
-	m.descInput.Blur()
+	m.ClearFormError()
 }
 
 func (m *Model) ShowTaskEditForm(taskID string, name, description string) {
-	m.showTaskEditForm = true
-	m.editingTaskID = taskID
-	m.nameInput.SetValue(name)
-	m.descInput.SetValue(description)
-	m.focusedInput = 0
-	m.nameInput.Focus()
-	m.descInput.Blur()
+	m.taskInputComponents.SetupForTaskEdit(taskID, name, description)
+	m.activeFormType = input.TaskEditForm
+	m.showForm = true
+	m.ClearFormError()
 }
 
 func (m *Model) ShowProjectForm() {
-	m.showProjectForm = true
-	m.focusedProjInput = 0
-	m.projNameInput.Focus()
-	m.projDescInput.Blur()
+	m.projectInputComponents.SetupForProjectCreate()
+	m.activeFormType = input.ProjectCreateForm
+	m.showForm = true
+	m.ClearFormError()
 }
 
 func (m *Model) ShowProjectSwitcher() {
@@ -261,16 +337,12 @@ func (m *Model) ShowProjectSwitcher() {
 
 func (m *Model) HideAllForms() {
 	m.showForm = false
-	m.showTaskEditForm = false
-	m.showProjectForm = false
 	m.showProjectSwitch = false
 	m.showTaskDeleteConfirm = false
 	m.showProjectDeleteConfirm = false
-	m.nameInput.Reset()
-	m.descInput.Reset()
-	m.projNameInput.Reset()
-	m.projDescInput.Reset()
-	m.editingTaskID = ""
+	m.ClearFormError()
+	m.taskInputComponents.Reset()
+	m.projectInputComponents.Reset()
 	m.taskToDelete = ""
 	m.projectToDelete = ""
 }

@@ -10,116 +10,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// Handle form modes first
 		if m.showForm {
-			// Ensure input handler mode is synchronized with UI state
-			if m.inputHandler.GetMode() != input.TaskFormMode {
-				m.inputHandler.SetMode(input.TaskFormMode)
+			// Use InputHandler for all form key handling
+			action := m.inputHandler.HandleKeyMsg(msg, &m)
+			if action.Handled {
+				return m, action.Cmd
 			}
 
-			// Task form mode key handling
-			switch msg.String() {
-			case "esc":
-				m.showForm = false
-				m.nameInput.Reset()
-				m.descInput.Reset()
-				return m, nil
-			case "tab":
-				if m.focusedInput == 0 {
-					m.focusedInput = 1
-					m.nameInput.Blur()
-					m.descInput.Focus()
-				} else {
-					m.focusedInput = 0
-					m.descInput.Blur()
-					m.nameInput.Focus()
-				}
-				return m, nil
-			case "enter":
-				if m.nameInput.Value() != "" {
-					// Use service layer for task creation
-					newTask, err := m.taskService.CreateTask(m.nameInput.Value(), m.descInput.Value(), m.ActiveProjectID)
-					if err != nil {
-						// If service layer save fails, don't add to model
-						return m, nil
-					}
-
-					// Add to active project in memory
-					activeProj := m.GetActiveProject()
-					if activeProj != nil {
-						activeProj.AddTask(*newTask)
-						m.updateTaskLists()
-					}
-
-					// Reset form
-					m.showForm = false
-					m.nameInput.Reset()
-					m.descInput.Reset()
-					m.focusedInput = 0
-					m.nameInput.Focus()
-				}
-				return m, nil
-			default:
-				// Update the focused input
-				if m.focusedInput == 0 {
-					m.nameInput, _ = m.nameInput.Update(msg)
-				} else {
-					m.descInput, _ = m.descInput.Update(msg)
-				}
-				return m, nil
+			// Handle textinput updates for unhandled keys
+			comps := m.GetActiveInputComponents()
+			if comps.FocusedField == 0 {
+				updatedName, cmd := comps.NameInput.Update(msg)
+				comps.NameInput = updatedName
+				return m, cmd
+			} else {
+				updatedDesc, cmd := comps.DescInput.Update(msg)
+				comps.DescInput = updatedDesc
+				return m, cmd
 			}
-		} else if m.showTaskEditForm {
-			// Ensure input handler mode is synchronized with UI state
-			if m.inputHandler.GetMode() != input.TaskEditFormMode {
-				m.inputHandler.SetMode(input.TaskEditFormMode)
-			}
-
-			// Task edit form mode key handling
-			switch msg.String() {
-			case "esc":
-				m.showTaskEditForm = false
-				m.editingTaskID = ""
-				m.nameInput.Reset()
-				m.descInput.Reset()
-				m.focusedInput = 0
-				m.nameInput.Focus()
-				return m, nil
-			case "tab":
-				if m.focusedInput == 0 {
-					m.focusedInput = 1
-					m.nameInput.Blur()
-					m.descInput.Focus()
-				} else {
-					m.focusedInput = 0
-					m.descInput.Blur()
-					m.nameInput.Focus()
-				}
-				return m, nil
-			case "enter":
-				if m.nameInput.Value() != "" {
-					// Update existing task
-					if err := m.UpdateTask(m.editingTaskID, m.nameInput.Value(), m.descInput.Value()); err != nil {
-						// If database update fails, don't update model
-						return m, nil
-					}
-
-					// Reset form
-					m.showTaskEditForm = false
-					m.editingTaskID = ""
-					m.nameInput.Reset()
-					m.descInput.Reset()
-					m.focusedInput = 0
-					m.nameInput.Focus()
-				}
-				return m, nil
-			default:
-				// Update the focused input
-				if m.focusedInput == 0 {
-					m.nameInput, _ = m.nameInput.Update(msg)
-				} else {
-					m.descInput, _ = m.descInput.Update(msg)
-				}
-				return m, nil
-			}
-		} else if m.showProjectSwitch || m.showProjectDeleteConfirm {
+		}
+		if m.showProjectSwitch || m.showProjectDeleteConfirm {
 			// Ensure input handler mode is synchronized with UI state
 			if m.showProjectSwitch && m.inputHandler.GetMode() != input.ProjectSwitchMode {
 				m.inputHandler.SetMode(input.ProjectSwitchMode)
@@ -155,10 +64,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case "n":
 				m.showProjectSwitch = false
-				m.showProjectForm = true
-				m.focusedProjInput = 0
-				m.projNameInput.Focus()
-				m.projDescInput.Blur()
+				m.ShowProjectForm()
 				return m, nil
 			case "j":
 				// Move down in project list
@@ -196,60 +102,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 			}
-		} else if m.showProjectForm {
-			// Ensure input handler mode is synchronized with UI state
-			if m.inputHandler.GetMode() != input.ProjectFormMode {
-				m.inputHandler.SetMode(input.ProjectFormMode)
-			}
 
-			// Project form mode key handling
-			switch msg.String() {
-			case "esc":
-				m.showProjectForm = false
-				m.projNameInput.Reset()
-				m.projDescInput.Reset()
-				return m, nil
-			case "tab":
-				if m.focusedProjInput == 0 {
-					m.focusedProjInput = 1
-					m.projNameInput.Blur()
-					m.projDescInput.Focus()
-				} else {
-					m.focusedProjInput = 0
-					m.projDescInput.Blur()
-					m.projNameInput.Focus()
-				}
-				return m, nil
-			case "enter":
-				if m.projNameInput.Value() != "" {
-					// Use service layer for project creation
-					newProject, err := m.projectService.CreateProject(m.projNameInput.Value(), m.projDescInput.Value())
-					if err != nil {
-						// If service layer save fails, don't add to model
-						return m, nil
-					}
-
-					m.Projects = append(m.Projects, *newProject)
-					m.ActiveProjectID = newProject.ID
-					m.updateTaskLists()
-
-					// Reset form
-					m.showProjectForm = false
-					m.projNameInput.Reset()
-					m.projDescInput.Reset()
-					m.focusedProjInput = 0
-					m.projNameInput.Focus()
-				}
-				return m, nil
-			default:
-				// Update the focused input
-				if m.focusedProjInput == 0 {
-					m.projNameInput, _ = m.projNameInput.Update(msg)
-				} else {
-					m.projDescInput, _ = m.projDescInput.Update(msg)
-				}
-				return m, nil
-			}
 		} else if m.showTaskDeleteConfirm {
 			// Ensure input handler mode is synchronized with UI state
 			if m.inputHandler.GetMode() != input.TaskDeleteConfirmMode {
@@ -286,10 +139,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "q":
 				return m, tea.Quit
 			case "n":
-				m.showForm = true
-				m.focusedInput = 0
-				m.nameInput.Focus()
-				m.descInput.Blur()
+				m.ShowTaskForm()
 				return m, nil
 			case "p":
 				m.showProjectSwitch = true
@@ -299,13 +149,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if selectedItem := m.Tasks[m.activeListIndex].SelectedItem(); selectedItem != nil {
 					if task, ok := selectedItem.(Task); ok {
 						m.ShowTaskEditForm(task.ID, task.Name, task.Desc)
-						m.showTaskEditForm = true
-						m.editingTaskID = task.ID
-						m.nameInput.SetValue(task.Name)
-						m.descInput.SetValue(task.Desc)
-						m.focusedInput = 0
-						m.nameInput.Focus()
-						m.descInput.Blur()
+						m.showForm = true // Show the unified form
 					}
 				}
 				return m, nil
@@ -351,7 +195,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Always update the active list if not in a form mode
 	var cmd tea.Cmd
-	if !m.showForm && !m.showProjectSwitch && !m.showProjectForm && !m.showTaskDeleteConfirm && !m.showTaskEditForm {
+	if !m.showForm && !m.showProjectSwitch && !m.showTaskDeleteConfirm {
 		m.Tasks[m.activeListIndex], cmd = m.Tasks[m.activeListIndex].Update(msg)
 	}
 	return m, cmd

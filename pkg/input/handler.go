@@ -63,6 +63,15 @@ type ModelInterface interface {
 	// List operations
 	NextList()
 	PrevList()
+
+	// Form operations (new)
+	GetActiveInputComponents() *InputComponents
+	GetActiveFormType() FormType
+	SubmitCurrentForm() error
+	CancelCurrentForm()
+	GetFormError() string
+	GetFormErrorField() string
+	ClearFormError()
 }
 
 // TaskInterface defines the interface for a task
@@ -94,14 +103,6 @@ func NewHandler() *Handler {
 
 // HandleKeyMsg handles key messages and returns actions
 func (h *Handler) HandleKeyMsg(msg tea.KeyMsg, model ModelInterface) ActionResult {
-	switch msg.String() {
-	case "q":
-		return ActionResult{
-			Handled: true,
-			Cmd:     tea.Quit,
-		}
-	}
-
 	// Route to mode-specific handlers
 	switch h.mode {
 	case TaskFormMode:
@@ -172,80 +173,47 @@ func (h *Handler) handleTaskFormKeys(msg tea.KeyMsg, model ModelInterface) Actio
 		h.mode = NormalMode
 		return ActionResult{Handled: true, Mode: NormalMode, ExitMode: true}
 	case "tab":
-		if h.focusType == NameFocus {
-			return ActionResult{Handled: true, Mode: TaskFormMode, FocusType: DescriptionFocus}
-		}
-		return ActionResult{Handled: true, Mode: TaskFormMode, FocusType: NameFocus}
+		return h.handleTabKey(model)
 	case "enter":
-		// Handle form submission
-		if h.focusType == NameFocus {
-			// Just switch to description field if on name field
-			return ActionResult{Handled: true, Mode: TaskFormMode, FocusType: DescriptionFocus}
-		} else {
-			// Submit the form
-			return h.submitTaskForm(model)
+		// Enter always means submit - no field advancement
+		if err := model.SubmitCurrentForm(); err != nil {
+			// Validation failed - stay in form mode, show inline error
+			return ActionResult{Handled: true, ShouldUpdate: true, Mode: h.mode}
 		}
+
+		// Success - exit form mode
+		model.CancelCurrentForm()
+		h.mode = NormalMode
+		return ActionResult{Handled: true, Mode: NormalMode, ExitMode: true}
 	default:
-		// For text input, let the textinput components handle it
-		if len(msg.String()) == 1 || msg.String() == "space" || msg.String() == "backspace" ||
-			msg.String() == "delete" || msg.String() == "ctrl+w" || msg.String() == "ctrl+u" ||
-			msg.String() == "left" || msg.String() == "right" || msg.String() == "home" || msg.String() == "end" {
-			return ActionResult{Handled: false}
-		}
+		// Clear any previous errors when user types
+		model.ClearFormError()
+		return ActionResult{Handled: false} // Let textinput handle it
 	}
-	return ActionResult{Handled: false}
 }
 
 // handleTaskEditFormKeys handles keys when in task edit form mode
 func (h *Handler) handleTaskEditFormKeys(msg tea.KeyMsg, model ModelInterface) ActionResult {
-	switch msg.String() {
-	case "esc":
-		model.HideAllForms()
-		h.mode = NormalMode
-		return ActionResult{Handled: true, Mode: NormalMode, ExitMode: true}
-	case "tab":
-		if h.focusType == NameFocus {
-			return ActionResult{Handled: true, Mode: TaskEditFormMode, FocusType: DescriptionFocus}
-		}
-		return ActionResult{Handled: true, Mode: TaskEditFormMode, FocusType: NameFocus}
-	case "enter":
-		// This would be handled by the form component itself
-		return ActionResult{Handled: true}
-	default:
-		// For text input, let the textinput components handle it
-		if len(msg.String()) == 1 || msg.String() == "space" || msg.String() == "backspace" ||
-			msg.String() == "delete" || msg.String() == "ctrl+w" || msg.String() == "ctrl+u" ||
-			msg.String() == "left" || msg.String() == "right" || msg.String() == "home" || msg.String() == "end" {
-			return ActionResult{Handled: false}
-		}
+	// Use the same logic as task form - consolidated handling
+	return h.handleTaskFormKeys(msg, model)
+}
+
+func (h *Handler) handleTabKey(model ModelInterface) ActionResult {
+	comps := model.GetActiveInputComponents()
+	if comps.FocusedField == 0 {
+		comps.FocusDesc()
+		comps.BlurName()
+		return ActionResult{Handled: true, Mode: h.mode, FocusType: DescriptionFocus}
 	}
-	return ActionResult{Handled: false}
+	comps.FocusName()
+	comps.BlurDesc()
+	return ActionResult{Handled: true, Mode: h.mode, FocusType: NameFocus}
 }
 
 // handleProjectFormKeys handles keys when in project form mode
 func (h *Handler) handleProjectFormKeys(msg tea.KeyMsg, model ModelInterface) ActionResult {
-	switch msg.String() {
-	case "esc":
-		model.HideAllForms()
-		h.mode = NormalMode
-		return ActionResult{Handled: true, Mode: NormalMode, ExitMode: true}
-	case "tab":
-		if h.focusType == NameFocus {
-			return ActionResult{Handled: true, Mode: ProjectFormMode, FocusType: DescriptionFocus}
-		}
-		return ActionResult{Handled: true, Mode: ProjectFormMode, FocusType: NameFocus}
-	case "enter":
-		// This would be handled by the form component itself
-		return ActionResult{Handled: true}
-	default:
-		// For text input, let the textinput components handle it
-		if len(msg.String()) == 1 || msg.String() == "space" || msg.String() == "backspace" ||
-			msg.String() == "delete" || msg.String() == "ctrl+w" || msg.String() == "ctrl+u" ||
-			msg.String() == "left" || msg.String() == "right" || msg.String() == "home" || msg.String() == "end" {
-			return ActionResult{Handled: false}
-		}
-	}
-	return ActionResult{Handled: false}
+	// Same logic as task form - consolidated handling
+	return h.handleTaskFormKeys(msg, model)
 }
 
 // handleProjectSwitchKeys handles keys when in project switcher mode

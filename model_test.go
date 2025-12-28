@@ -27,7 +27,7 @@ func TestNewModel(t *testing.T) {
 	assert.Equal(t, NotStarted, model.activeListIndex, "Active list should be NotStarted initially")
 	assert.False(t, model.showForm, "showForm should be false initially")
 	assert.False(t, model.showProjectSwitch, "showProjectSwitch should be false initially")
-	assert.False(t, model.showProjectForm, "showProjectForm should be false initially")
+	// showProjectForm field removed, so this test is no longer relevant
 }
 
 func TestModel_GetActiveProject(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"kahn/pkg/input"
 )
 
 func TestNewTask(t *testing.T) {
@@ -217,17 +218,19 @@ func TestTaskEdit_EnterEditMode(t *testing.T) {
 	model := createTestModelWithTasks(t, []string{"Test Task"}, []Status{NotStarted})
 
 	// Initially should not be in edit mode
-	assert.False(t, model.showTaskEditForm, "Should not be in edit mode initially")
-	assert.Empty(t, model.editingTaskID, "Editing task ID should be empty initially")
+	assert.False(t, model.showForm, "Should not be in edit mode initially")
+	assert.Equal(t, input.TaskCreateForm, model.GetActiveFormType(), "Should be in task create mode initially")
 
 	// Press 'e' to enter edit mode
 	model = simulateKeyPress(t, model, "e")
 
 	// Should enter edit mode
-	assert.True(t, model.showTaskEditForm, "Should enter edit mode when 'e' is pressed")
-	assert.NotEmpty(t, model.editingTaskID, "Should have editing task ID set")
-	assert.Equal(t, "Test Task", model.nameInput.Value(), "Form should be populated with task name")
-	assert.Equal(t, "Test description", model.descInput.Value(), "Form should be populated with task description")
+	assert.True(t, model.showForm, "Should enter edit mode when 'e' is pressed")
+	assert.Equal(t, input.TaskEditForm, model.GetActiveFormType(), "Should be in task edit mode")
+
+	comps := model.GetActiveInputComponents()
+	assert.Equal(t, "Test Task", comps.NameInput.Value(), "Form should be populated with task name")
+	assert.Equal(t, "Test description", comps.DescInput.Value(), "Form should be populated with task description")
 }
 
 func TestTaskEdit_CancelEditMode(t *testing.T) {
@@ -235,16 +238,18 @@ func TestTaskEdit_CancelEditMode(t *testing.T) {
 
 	// Enter edit mode first
 	model = simulateKeyPress(t, model, "e")
-	assert.True(t, model.showTaskEditForm, "Should be in edit mode")
+	assert.True(t, model.showForm, "Should be in edit mode")
 
 	// Press 'esc' to cancel edit
 	model = simulateKeyPress(t, model, "esc")
 
 	// Should exit edit mode
-	assert.False(t, model.showTaskEditForm, "Should exit edit mode when 'esc' is pressed")
-	assert.Empty(t, model.editingTaskID, "Editing task ID should be cleared")
-	assert.Empty(t, model.nameInput.Value(), "Name input should be cleared")
-	assert.Empty(t, model.descInput.Value(), "Description input should be cleared")
+	assert.False(t, model.showForm, "Should exit edit mode when 'esc' is pressed")
+
+	comps := model.GetActiveInputComponents()
+	assert.Empty(t, comps.GetTaskID(), "Editing task ID should be cleared")
+	assert.Empty(t, comps.NameInput.Value(), "Name input should be cleared")
+	assert.Empty(t, comps.DescInput.Value(), "Description input should be cleared")
 }
 
 func TestTaskEdit_UpdateTaskName(t *testing.T) {
@@ -261,13 +266,13 @@ func TestTaskEdit_UpdateTaskName(t *testing.T) {
 	model = simulateKeyPress(t, model, "e")
 
 	// Update the name field
-	model.nameInput.SetValue("Updated Task Name")
+	model.GetActiveInputComponents().NameInput.SetValue("Updated Task Name")
 
 	// Submit the form
 	model = simulateKeyPress(t, model, "enter")
 
 	// Should exit edit mode
-	assert.False(t, model.showTaskEditForm, "Should exit edit mode after submission")
+	assert.False(t, model.showForm, "Should exit edit mode after submission")
 
 	// Verify task was updated in memory
 	activeProj = model.GetActiveProject()
@@ -292,13 +297,13 @@ func TestTaskEdit_UpdateTaskDescription(t *testing.T) {
 	model = simulateKeyPress(t, model, "e")
 
 	// Update the description field
-	model.descInput.SetValue("Updated description text")
+	model.GetActiveInputComponents().DescInput.SetValue("Updated description text")
 
 	// Submit the form
 	model = simulateKeyPress(t, model, "enter")
 
 	// Should exit edit mode
-	assert.False(t, model.showTaskEditForm, "Should exit edit mode after submission")
+	assert.False(t, model.showForm, "Should exit edit mode after submission")
 
 	// Verify task was updated in memory
 	activeProj = model.GetActiveProject()
@@ -322,14 +327,14 @@ func TestTaskEdit_UpdateBothNameAndDescription(t *testing.T) {
 	model = simulateKeyPress(t, model, "e")
 
 	// Update both fields
-	model.nameInput.SetValue("Completely New Name")
-	model.descInput.SetValue("Completely new description")
+	model.GetActiveInputComponents().NameInput.SetValue("Completely New Name")
+	model.GetActiveInputComponents().DescInput.SetValue("Completely new description")
 
 	// Submit the form
 	model = simulateKeyPress(t, model, "enter")
 
 	// Should exit edit mode
-	assert.False(t, model.showTaskEditForm, "Should exit edit mode after submission")
+	assert.False(t, model.showForm, "Should exit edit mode after submission")
 
 	// Verify task was updated in memory
 	activeProj = model.GetActiveProject()
@@ -358,13 +363,13 @@ func TestTaskEdit_EmptyNameValidation(t *testing.T) {
 	model = simulateKeyPress(t, model, "e")
 
 	// Clear the name field (invalid)
-	model.nameInput.SetValue("")
+	model.GetActiveInputComponents().NameInput.SetValue("")
 
 	// Submit the form
 	model = simulateKeyPress(t, model, "enter")
 
 	// Should remain in edit mode due to validation error
-	assert.True(t, model.showTaskEditForm, "Should remain in edit mode when name is empty")
+	assert.True(t, model.showForm, "Should remain in edit mode when name is empty")
 
 	// Verify task was not updated
 	activeProj = model.GetActiveProject()
@@ -395,12 +400,12 @@ func TestTaskEdit_EditDifferentStatusTasks(t *testing.T) {
 			model = simulateKeyPress(t, model, "e")
 
 			// Should enter edit mode regardless of status
-			assert.True(t, model.showTaskEditForm, "Should enter edit mode for task in status %s", tc.status.ToString())
-			assert.Equal(t, "Test Task", model.nameInput.Value(), "Form should be populated with task name")
+			assert.True(t, model.showForm, "Should enter edit mode for task in status %s", tc.status.ToString())
+			assert.Equal(t, "Test Task", model.GetActiveInputComponents().NameInput.Value(), "Form should be populated with task name")
 
 			// Cancel edit mode
 			model = simulateKeyPress(t, model, "esc")
-			assert.False(t, model.showTaskEditForm, "Should exit edit mode")
+			assert.False(t, model.showForm, "Should exit edit mode")
 		})
 	}
 }
@@ -412,8 +417,8 @@ func TestTaskEdit_EditWithoutSelectedTask(t *testing.T) {
 	model = simulateKeyPress(t, model, "e")
 
 	// Should not enter edit mode when no task is selected
-	assert.False(t, model.showTaskEditForm, "Should not enter edit mode when no task is selected")
-	assert.Empty(t, model.editingTaskID, "Editing task ID should remain empty")
+	assert.False(t, model.showForm, "Should not enter edit mode when no task is selected")
+	assert.Empty(t, model.GetActiveInputComponents().GetTaskID(), "Editing task ID should remain empty")
 }
 
 func TestTaskEdit_FieldSwitching(t *testing.T) {
@@ -422,16 +427,16 @@ func TestTaskEdit_FieldSwitching(t *testing.T) {
 	// Enter edit mode
 	model = simulateKeyPress(t, model, "e")
 
-	// Initially should be focused on name input (focusedInput = 0)
-	assert.Equal(t, 0, model.focusedInput, "Should start with name input focused")
+	// Initially should be focused on name input (FocusedField = 0)
+	assert.Equal(t, 0, model.GetActiveInputComponents().FocusedField, "Should start with name input focused")
 
 	// Press tab to switch to description input
 	model = simulateKeyPress(t, model, "tab")
-	assert.Equal(t, 1, model.focusedInput, "Should switch to description input")
+	assert.Equal(t, 1, model.GetActiveInputComponents().FocusedField, "Should switch to description input")
 
 	// Press tab again to switch back to name input
 	model = simulateKeyPress(t, model, "tab")
-	assert.Equal(t, 0, model.focusedInput, "Should switch back to name input")
+	assert.Equal(t, 0, model.GetActiveInputComponents().FocusedField, "Should switch back to name input")
 }
 
 func TestTaskEdit_DatabasePersistence(t *testing.T) {
@@ -446,7 +451,7 @@ func TestTaskEdit_DatabasePersistence(t *testing.T) {
 
 	// Enter edit mode and update
 	model = simulateKeyPress(t, model, "e")
-	model.nameInput.SetValue("Database Updated Task")
+	model.GetActiveInputComponents().NameInput.SetValue("Database Updated Task")
 	model = simulateKeyPress(t, model, "enter")
 
 	// Verify task was updated in database

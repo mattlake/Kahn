@@ -13,8 +13,8 @@ func NewModel(database *Database) *Model {
 	defaultList.SetShowHelp(false)
 	taskLists := []list.Model{defaultList, defaultList, defaultList}
 
-	nameInput, descInput := initializeInputs()
-	projNameInput, projDescInput := initializeProjectInputs()
+	taskInputComponents := &input.InputComponents{}
+	projectInputComponents := &input.InputComponents{}
 
 	// Create repositories
 	taskRepo := NewSQLiteTaskRepository(database.GetDB())
@@ -81,19 +81,17 @@ func NewModel(database *Database) *Model {
 		Align(lipgloss.Center)
 
 	return &Model{
-		Projects:        projects,
-		ActiveProjectID: activeProjectID,
-		Tasks:           taskLists,
-		nameInput:       nameInput,
-		descInput:       descInput,
-		projNameInput:   projNameInput,
-		projDescInput:   projDescInput,
-		width:           80,
-		height:          24,
-		database:        database,
-		taskService:     taskService,
-		projectService:  projectService,
-		inputHandler:    input.NewHandler(),
+		Projects:               projects,
+		ActiveProjectID:        activeProjectID,
+		Tasks:                  taskLists,
+		taskInputComponents:    taskInputComponents,
+		projectInputComponents: projectInputComponents,
+		width:                  80,
+		height:                 24,
+		database:               database,
+		taskService:            taskService,
+		projectService:         projectService,
+		inputHandler:           input.NewHandler(),
 	}
 }
 
@@ -146,19 +144,14 @@ func (m Model) renderProjectHeader() string {
 
 func (m Model) View() string {
 	if m.showForm {
-		return m.renderForm()
+		comps := m.GetActiveInputComponents()
+		return comps.Render(m.formError, m.formErrorField, m.width, m.height)
 	}
 	if m.showProjectSwitch {
 		return m.renderProjectSwitcher()
 	}
-	if m.showProjectForm {
-		return m.renderProjectForm()
-	}
 	if m.showTaskDeleteConfirm {
 		return m.renderTaskDeleteConfirm()
-	}
-	if m.showTaskEditForm {
-		return m.renderTaskEditForm()
 	}
 
 	// Handle case when there are no projects
