@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"kahn/internal/domain"
 	"testing"
 	"time"
 
@@ -29,23 +30,23 @@ func setupTestDB(t *testing.T) *sql.DB {
 }
 
 // createTestProject creates a test project with the given parameters
-func createTestProject(name, description, color string) *Project {
+func createTestProject(name, description, color string) *domain.Project {
 	now := time.Now()
-	return &Project{
+	return &domain.Project{
 		ID:          "test_proj_" + name,
 		Name:        name,
 		Description: description,
 		Color:       color,
 		CreatedAt:   now,
 		UpdatedAt:   now,
-		Tasks:       []Task{},
+		Tasks:       []domain.Task{},
 	}
 }
 
 // createTestTask creates a test task with the given parameters
-func createTestTask(name, description, projectID string, status Status) *Task {
+func createTestTask(name, description, projectID string, status domain.Status) *domain.Task {
 	now := time.Now()
-	return &Task{
+	return &domain.Task{
 		ID:        "test_task_" + name,
 		ProjectID: projectID,
 		Name:      name,
@@ -53,7 +54,7 @@ func createTestTask(name, description, projectID string, status Status) *Task {
 		Status:    status,
 		CreatedAt: now,
 		UpdatedAt: now,
-		Priority:  Medium,
+		Priority:  domain.Medium,
 		Tags:      []string{},
 	}
 }
@@ -76,7 +77,7 @@ func cleanupTestDB(t *testing.T, db *sql.DB) {
 }
 
 // assertProjectEqual compares two projects for equality, ignoring time differences within a threshold
-func assertProjectEqual(t *testing.T, expected, actual *Project) {
+func assertProjectEqual(t *testing.T, expected, actual *domain.Project) {
 	require.Equal(t, expected.ID, actual.ID, "Project ID should match")
 	require.Equal(t, expected.Name, actual.Name, "Project name should match")
 	require.Equal(t, expected.Description, actual.Description, "Project description should match")
@@ -85,7 +86,7 @@ func assertProjectEqual(t *testing.T, expected, actual *Project) {
 }
 
 // assertTaskEqual compares two tasks for equality, ignoring time differences within a threshold
-func assertTaskEqual(t *testing.T, expected, actual *Task) {
+func assertTaskEqual(t *testing.T, expected, actual *domain.Task) {
 	require.Equal(t, expected.ID, actual.ID, "Task ID should match")
 	require.Equal(t, expected.ProjectID, actual.ProjectID, "Task ProjectID should match")
 	require.Equal(t, expected.Name, actual.Name, "Task name should match")
@@ -106,7 +107,7 @@ func assertTaskEqual(t *testing.T, expected, actual *Task) {
 }
 
 // insertTestProject inserts a test project into the database and returns it
-func insertTestProject(t *testing.T, db *sql.DB, project *Project) *Project {
+func insertTestProject(t *testing.T, db *sql.DB, project *domain.Project) *domain.Project {
 	projectRepo := NewSQLiteProjectRepository(db)
 	err := projectRepo.Create(project)
 	require.NoError(t, err, "Failed to insert test project")
@@ -114,7 +115,7 @@ func insertTestProject(t *testing.T, db *sql.DB, project *Project) *Project {
 }
 
 // insertTestTask inserts a test task into the database and returns it
-func insertTestTask(t *testing.T, db *sql.DB, task *Task) *Task {
+func insertTestTask(t *testing.T, db *sql.DB, task *domain.Task) *domain.Task {
 	taskRepo := NewSQLiteTaskRepository(db)
 	err := taskRepo.Create(task)
 	require.NoError(t, err, "Failed to insert test task")
@@ -131,7 +132,7 @@ func countTableRows(t *testing.T, db *sql.DB, tableName string) int {
 }
 
 // createTestModelWithTasks creates a model with predefined tasks for testing
-func createTestModelWithTasks(t *testing.T, taskNames []string, statuses []Status) *Model {
+func createTestModelWithTasks(t *testing.T, taskNames []string, statuses []domain.Status) *Model {
 	config := createTestConfig()
 	database, err := NewDatabase(config)
 	require.NoError(t, err, "Failed to create test database")
@@ -211,10 +212,10 @@ func assertTaskDeletionState(t *testing.T, model *Model, inConfirmation bool, ta
 // assertTaskNotInLists asserts a task is not present in any task list
 func assertTaskNotInLists(t *testing.T, model *Model, taskID string) {
 	// Check all three status lists
-	for status := NotStarted; status <= Done; status++ {
+	for status := domain.NotStarted; status <= domain.Done; status++ {
 		items := model.Tasks[status].Items()
 		for _, item := range items {
-			if task, ok := item.(Task); ok {
+			if task, ok := item.(domain.Task); ok {
 				assert.NotEqual(t, taskID, task.ID, "Task should not be found in %s list", status.ToString())
 			}
 		}
@@ -222,11 +223,11 @@ func assertTaskNotInLists(t *testing.T, model *Model, taskID string) {
 }
 
 // assertTaskInList asserts a task is present in a specific status list
-func assertTaskInList(t *testing.T, model *Model, taskID string, status Status) {
+func assertTaskInList(t *testing.T, model *Model, taskID string, status domain.Status) {
 	items := model.Tasks[status].Items()
 	found := false
 	for _, item := range items {
-		if task, ok := item.(Task); ok {
+		if task, ok := item.(domain.Task); ok {
 			if task.ID == taskID {
 				found = true
 				break

@@ -2,6 +2,7 @@ package main
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"kahn/internal/domain"
 	"kahn/pkg/input"
 )
 
@@ -147,7 +148,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "e":
 				// Handle task editing - show edit form
 				if selectedItem := m.Tasks[m.activeListIndex].SelectedItem(); selectedItem != nil {
-					if task, ok := selectedItem.(Task); ok {
+					if task, ok := selectedItem.(domain.Task); ok {
 						m.ShowTaskEditForm(task.ID, task.Name, task.Desc)
 						m.showForm = true // Show the unified form
 					}
@@ -156,7 +157,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "d":
 				// Handle task deletion - show confirmation dialog
 				if selectedItem := m.Tasks[m.activeListIndex].SelectedItem(); selectedItem != nil {
-					if task, ok := selectedItem.(Task); ok {
+					if task, ok := selectedItem.(domain.Task); ok {
 						m.showTaskDeleteConfirm = true
 						m.taskToDelete = task.ID
 					}
@@ -165,7 +166,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter":
 				// Handle task selection - move to next status
 				if selectedItem := m.Tasks[m.activeListIndex].SelectedItem(); selectedItem != nil {
-					if task, ok := selectedItem.(Task); ok {
+					if task, ok := selectedItem.(domain.Task); ok {
 						m.MoveTaskToNextStatus(task.ID)
 					}
 				}
@@ -173,7 +174,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "backspace":
 				// Handle task selection - move to previous status
 				if selectedItem := m.Tasks[m.activeListIndex].SelectedItem(); selectedItem != nil {
-					if task, ok := selectedItem.(Task); ok {
+					if task, ok := selectedItem.(domain.Task); ok {
 						m.MoveTaskToPreviousStatus(task.ID)
 					}
 				}
@@ -188,9 +189,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		h, v := defaultStyle.GetFrameSize()
 		// Calculate equal column width (1/3 of terminal width)
 		columnWidth := max(20, (msg.Width-(h*3))/3)
-		m.Tasks[NotStarted].SetSize(columnWidth, msg.Height-v)
-		m.Tasks[InProgress].SetSize(columnWidth, msg.Height-v)
-		m.Tasks[Done].SetSize(columnWidth, msg.Height-v)
+		m.Tasks[domain.NotStarted].SetSize(columnWidth, msg.Height-v)
+		m.Tasks[domain.InProgress].SetSize(columnWidth, msg.Height-v)
+		m.Tasks[domain.Done].SetSize(columnWidth, msg.Height-v)
 	}
 
 	// Always update the active list if not in a form mode

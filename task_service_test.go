@@ -1,6 +1,7 @@
 package main
 
 import (
+	"kahn/internal/domain"
 	"testing"
 )
 
@@ -10,8 +11,8 @@ func TestTaskService_CreateTask(t *testing.T) {
 	projectRepo := &mockProjectRepository{}
 
 	// Create a test project
-	testProject := NewProject("Test Project", "Test Description", "#89b4fa")
-	projectRepo.projects = []Project{*testProject}
+	testProject := domain.NewProject("Test Project", "Test Description", "#89b4fa")
+	projectRepo.projects = []domain.Project{*testProject}
 
 	service := NewTaskService(taskRepo, projectRepo)
 
@@ -71,9 +72,9 @@ func TestTaskService_MoveTaskToNextStatus(t *testing.T) {
 	service := NewTaskService(taskRepo, projectRepo)
 
 	// Create test task
-	task := NewTask("Test Task", "Test Description", "project-123")
-	task.Status = NotStarted
-	taskRepo.tasks = []Task{*task}
+	task := domain.NewTask("Test Task", "Test Description", "project-123")
+	task.Status = domain.NotStarted
+	taskRepo.tasks = []domain.Task{*task}
 
 	t.Run("move from NotStarted to InProgress", func(t *testing.T) {
 		// Act
@@ -83,14 +84,14 @@ func TestTaskService_MoveTaskToNextStatus(t *testing.T) {
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
 		}
-		if updatedTask.Status != InProgress {
+		if updatedTask.Status != domain.InProgress {
 			t.Errorf("Expected status InProgress, got %v", updatedTask.Status)
 		}
 	})
 
 	t.Run("move from InProgress to Done", func(t *testing.T) {
 		// Setup
-		task.Status = InProgress
+		task.Status = domain.InProgress
 
 		// Act
 		updatedTask, err := service.MoveTaskToNextStatus(task.ID)
@@ -99,14 +100,14 @@ func TestTaskService_MoveTaskToNextStatus(t *testing.T) {
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
 		}
-		if updatedTask.Status != Done {
+		if updatedTask.Status != domain.Done {
 			t.Errorf("Expected status Done, got %v", updatedTask.Status)
 		}
 	})
 
 	t.Run("move from Done to NotStarted", func(t *testing.T) {
 		// Setup
-		task.Status = Done
+		task.Status = domain.Done
 
 		// Act
 		updatedTask, err := service.MoveTaskToNextStatus(task.ID)
@@ -115,7 +116,7 @@ func TestTaskService_MoveTaskToNextStatus(t *testing.T) {
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
 		}
-		if updatedTask.Status != NotStarted {
+		if updatedTask.Status != domain.NotStarted {
 			t.Errorf("Expected status NotStarted, got %v", updatedTask.Status)
 		}
 	})
@@ -123,25 +124,25 @@ func TestTaskService_MoveTaskToNextStatus(t *testing.T) {
 
 // Mock implementations for testing
 type mockTaskRepository struct {
-	tasks []Task
+	tasks []domain.Task
 }
 
-func (r *mockTaskRepository) Create(task *Task) error {
+func (r *mockTaskRepository) Create(task *domain.Task) error {
 	r.tasks = append(r.tasks, *task)
 	return nil
 }
 
-func (r *mockTaskRepository) GetByID(id string) (*Task, error) {
+func (r *mockTaskRepository) GetByID(id string) (*domain.Task, error) {
 	for i, task := range r.tasks {
 		if task.ID == id {
 			return &r.tasks[i], nil
 		}
 	}
-	return &Task{}, &RepositoryError{Operation: "get", Entity: "task", ID: id}
+	return &domain.Task{}, &domain.RepositoryError{Operation: "get", Entity: "task", ID: id}
 }
 
-func (r *mockTaskRepository) GetByProjectID(projectID string) ([]Task, error) {
-	var result []Task
+func (r *mockTaskRepository) GetByProjectID(projectID string) ([]domain.Task, error) {
+	var result []domain.Task
 	for _, task := range r.tasks {
 		if task.ProjectID == projectID {
 			result = append(result, task)
@@ -150,8 +151,8 @@ func (r *mockTaskRepository) GetByProjectID(projectID string) ([]Task, error) {
 	return result, nil
 }
 
-func (r *mockTaskRepository) GetByStatus(projectID string, status Status) ([]Task, error) {
-	var result []Task
+func (r *mockTaskRepository) GetByStatus(projectID string, status domain.Status) ([]domain.Task, error) {
+	var result []domain.Task
 	for _, task := range r.tasks {
 		if task.ProjectID == projectID && task.Status == status {
 			result = append(result, task)
@@ -160,7 +161,7 @@ func (r *mockTaskRepository) GetByStatus(projectID string, status Status) ([]Tas
 	return result, nil
 }
 
-func (r *mockTaskRepository) Update(task *Task) error {
+func (r *mockTaskRepository) Update(task *domain.Task) error {
 	for i, t := range r.tasks {
 		if t.ID == task.ID {
 			r.tasks[i] = *task
@@ -170,7 +171,7 @@ func (r *mockTaskRepository) Update(task *Task) error {
 	return nil
 }
 
-func (r *mockTaskRepository) UpdateStatus(taskID string, status Status) error {
+func (r *mockTaskRepository) UpdateStatus(taskID string, status domain.Status) error {
 	for i, task := range r.tasks {
 		if task.ID == taskID {
 			r.tasks[i].Status = status
@@ -187,32 +188,32 @@ func (r *mockTaskRepository) Delete(id string) error {
 			return nil
 		}
 	}
-	return &RepositoryError{Operation: "delete", Entity: "task", ID: id}
+	return &domain.RepositoryError{Operation: "delete", Entity: "task", ID: id}
 }
 
 type mockProjectRepository struct {
-	projects []Project
+	projects []domain.Project
 }
 
-func (r *mockProjectRepository) Create(project *Project) error {
+func (r *mockProjectRepository) Create(project *domain.Project) error {
 	r.projects = append(r.projects, *project)
 	return nil
 }
 
-func (r *mockProjectRepository) GetByID(id string) (*Project, error) {
+func (r *mockProjectRepository) GetByID(id string) (*domain.Project, error) {
 	for i, project := range r.projects {
 		if project.ID == id {
 			return &r.projects[i], nil
 		}
 	}
-	return &Project{}, &RepositoryError{Operation: "get", Entity: "project", ID: id}
+	return &domain.Project{}, &domain.RepositoryError{Operation: "get", Entity: "project", ID: id}
 }
 
-func (r *mockProjectRepository) GetAll() ([]Project, error) {
+func (r *mockProjectRepository) GetAll() ([]domain.Project, error) {
 	return r.projects, nil
 }
 
-func (r *mockProjectRepository) Update(project *Project) error {
+func (r *mockProjectRepository) Update(project *domain.Project) error {
 	for i, p := range r.projects {
 		if p.ID == project.ID {
 			r.projects[i] = *project
@@ -229,5 +230,5 @@ func (r *mockProjectRepository) Delete(id string) error {
 			return nil
 		}
 	}
-	return &RepositoryError{Operation: "delete", Entity: "project", ID: id}
+	return &domain.RepositoryError{Operation: "delete", Entity: "project", ID: id}
 }

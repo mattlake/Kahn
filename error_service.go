@@ -1,6 +1,7 @@
 package main
 
 import (
+	"kahn/internal/domain"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -27,10 +28,10 @@ func (es *ErrorService) HandleError(err error) ErrorMessage {
 	var title, message string
 
 	switch e := err.(type) {
-	case *ValidationError:
+	case *domain.ValidationError:
 		title = "Validation Error"
 		message = e.Message
-	case *RepositoryError:
+	case *domain.RepositoryError:
 		title = "Database Error"
 		message = "An error occurred while accessing the database"
 	default:

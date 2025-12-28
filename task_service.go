@@ -1,63 +1,66 @@
 package main
 
-import "strings"
+import (
+	"kahn/internal/domain"
+	"strings"
+)
 
 type TaskService struct {
-	taskRepo    TaskRepository
-	projectRepo ProjectRepository
+	taskRepo    domain.TaskRepository
+	projectRepo domain.ProjectRepository
 }
 
-func NewTaskService(taskRepo TaskRepository, projectRepo ProjectRepository) *TaskService {
+func NewTaskService(taskRepo domain.TaskRepository, projectRepo domain.ProjectRepository) *TaskService {
 	return &TaskService{
 		taskRepo:    taskRepo,
 		projectRepo: projectRepo,
 	}
 }
 
-func (ts *TaskService) CreateTask(name, description, projectID string) (*Task, error) {
+func (ts *TaskService) CreateTask(name, description, projectID string) (*domain.Task, error) {
 	if strings.TrimSpace(name) == "" {
-		return nil, &ValidationError{Field: "name", Message: "task name cannot be empty"}
+		return nil, &domain.ValidationError{Field: "name", Message: "task name cannot be empty"}
 	}
 
 	if projectID == "" {
-		return nil, &ValidationError{Field: "project_id", Message: "project ID cannot be empty"}
+		return nil, &domain.ValidationError{Field: "project_id", Message: "project ID cannot be empty"}
 	}
 
 	project, err := ts.projectRepo.GetByID(projectID)
 	if err != nil {
-		return nil, &RepositoryError{Operation: "get", Entity: "project", ID: projectID, Cause: err}
+		return nil, &domain.RepositoryError{Operation: "get", Entity: "project", ID: projectID, Cause: err}
 	}
 	if project == nil {
-		return nil, &ValidationError{Field: "project_id", Message: "project not found"}
+		return nil, &domain.ValidationError{Field: "project_id", Message: "project not found"}
 	}
 
-	task := NewTask(name, description, projectID)
+	task := domain.NewTask(name, description, projectID)
 
 	if err := ts.taskRepo.Create(task); err != nil {
-		return nil, &RepositoryError{Operation: "create", Entity: "task", Cause: err}
+		return nil, &domain.RepositoryError{Operation: "create", Entity: "task", Cause: err}
 	}
 
 	return task, nil
 }
 
-func (ts *TaskService) UpdateTask(id, name, description string) (*Task, error) {
+func (ts *TaskService) UpdateTask(id, name, description string) (*domain.Task, error) {
 	if strings.TrimSpace(name) == "" {
-		return nil, &ValidationError{Field: "name", Message: "task name cannot be empty"}
+		return nil, &domain.ValidationError{Field: "name", Message: "task name cannot be empty"}
 	}
 
 	task, err := ts.taskRepo.GetByID(id)
 	if err != nil {
-		return nil, &RepositoryError{Operation: "get", Entity: "task", ID: id, Cause: err}
+		return nil, &domain.RepositoryError{Operation: "get", Entity: "task", ID: id, Cause: err}
 	}
 	if task == nil {
-		return nil, &ValidationError{Field: "id", Message: "task not found"}
+		return nil, &domain.ValidationError{Field: "id", Message: "task not found"}
 	}
 
 	task.Name = name
 	task.Desc = description
 
 	if err := ts.taskRepo.Update(task); err != nil {
-		return nil, &RepositoryError{Operation: "update", Entity: "task", ID: id, Cause: err}
+		return nil, &domain.RepositoryError{Operation: "update", Entity: "task", ID: id, Cause: err}
 	}
 
 	return task, nil
@@ -66,102 +69,102 @@ func (ts *TaskService) UpdateTask(id, name, description string) (*Task, error) {
 func (ts *TaskService) DeleteTask(id string) error {
 	task, err := ts.taskRepo.GetByID(id)
 	if err != nil {
-		return &RepositoryError{Operation: "get", Entity: "task", ID: id, Cause: err}
+		return &domain.RepositoryError{Operation: "get", Entity: "task", ID: id, Cause: err}
 	}
 	if task == nil {
-		return &ValidationError{Field: "id", Message: "task not found"}
+		return &domain.ValidationError{Field: "id", Message: "task not found"}
 	}
 
 	if err := ts.taskRepo.Delete(id); err != nil {
-		return &RepositoryError{Operation: "delete", Entity: "task", ID: id, Cause: err}
+		return &domain.RepositoryError{Operation: "delete", Entity: "task", ID: id, Cause: err}
 	}
 
 	return nil
 }
 
-func (ts *TaskService) MoveTaskToNextStatus(id string) (*Task, error) {
+func (ts *TaskService) MoveTaskToNextStatus(id string) (*domain.Task, error) {
 	task, err := ts.taskRepo.GetByID(id)
 	if err != nil {
-		return nil, &RepositoryError{Operation: "get", Entity: "task", ID: id, Cause: err}
+		return nil, &domain.RepositoryError{Operation: "get", Entity: "task", ID: id, Cause: err}
 	}
 	if task == nil {
-		return nil, &ValidationError{Field: "id", Message: "task not found"}
+		return nil, &domain.ValidationError{Field: "id", Message: "task not found"}
 	}
 
-	var nextStatus Status
+	var nextStatus domain.Status
 	switch task.Status {
-	case NotStarted:
-		nextStatus = InProgress
-	case InProgress:
-		nextStatus = Done
-	case Done:
-		nextStatus = NotStarted
+	case domain.NotStarted:
+		nextStatus = domain.InProgress
+	case domain.InProgress:
+		nextStatus = domain.Done
+	case domain.Done:
+		nextStatus = domain.NotStarted
 	}
 
 	if err := ts.taskRepo.UpdateStatus(id, nextStatus); err != nil {
-		return nil, &RepositoryError{Operation: "update status", Entity: "task", ID: id, Cause: err}
+		return nil, &domain.RepositoryError{Operation: "update status", Entity: "task", ID: id, Cause: err}
 	}
 
 	task.Status = nextStatus
 	return task, nil
 }
 
-func (ts *TaskService) MoveTaskToPreviousStatus(id string) (*Task, error) {
+func (ts *TaskService) MoveTaskToPreviousStatus(id string) (*domain.Task, error) {
 	task, err := ts.taskRepo.GetByID(id)
 	if err != nil {
-		return nil, &RepositoryError{Operation: "get", Entity: "task", ID: id, Cause: err}
+		return nil, &domain.RepositoryError{Operation: "get", Entity: "task", ID: id, Cause: err}
 	}
 	if task == nil {
-		return nil, &ValidationError{Field: "id", Message: "task not found"}
+		return nil, &domain.ValidationError{Field: "id", Message: "task not found"}
 	}
 
-	var prevStatus Status
+	var prevStatus domain.Status
 	switch task.Status {
-	case NotStarted:
-		prevStatus = Done
-	case InProgress:
-		prevStatus = NotStarted
-	case Done:
-		prevStatus = InProgress
+	case domain.NotStarted:
+		prevStatus = domain.Done
+	case domain.InProgress:
+		prevStatus = domain.NotStarted
+	case domain.Done:
+		prevStatus = domain.InProgress
 	}
 
 	if err := ts.taskRepo.UpdateStatus(id, prevStatus); err != nil {
-		return nil, &RepositoryError{Operation: "update status", Entity: "task", ID: id, Cause: err}
+		return nil, &domain.RepositoryError{Operation: "update status", Entity: "task", ID: id, Cause: err}
 	}
 
 	task.Status = prevStatus
 	return task, nil
 }
 
-func (ts *TaskService) GetTask(id string) (*Task, error) {
+func (ts *TaskService) GetTask(id string) (*domain.Task, error) {
 	task, err := ts.taskRepo.GetByID(id)
 	if err != nil {
-		return nil, &RepositoryError{Operation: "get", Entity: "task", ID: id, Cause: err}
+		return nil, &domain.RepositoryError{Operation: "get", Entity: "task", ID: id, Cause: err}
 	}
 	return task, nil
 }
 
-func (ts *TaskService) GetTasksByProject(projectID string) ([]Task, error) {
+func (ts *TaskService) GetTasksByProject(projectID string) ([]domain.Task, error) {
 	if projectID == "" {
-		return nil, &ValidationError{Field: "project_id", Message: "project ID cannot be empty"}
+		return nil, &domain.ValidationError{Field: "project_id", Message: "project ID cannot be empty"}
 	}
 
 	tasks, err := ts.taskRepo.GetByProjectID(projectID)
 	if err != nil {
-		return nil, &RepositoryError{Operation: "get by project", Entity: "tasks", ID: projectID, Cause: err}
+		return nil, &domain.RepositoryError{Operation: "get by project", Entity: "tasks", ID: projectID, Cause: err}
 	}
 
 	return tasks, nil
 }
 
-func (ts *TaskService) GetTasksByStatus(projectID string, status Status) ([]Task, error) {
+func (ts *TaskService) GetTasksByStatus(projectID string, status domain.Status) ([]domain.Task, error) {
 	if projectID == "" {
-		return nil, &ValidationError{Field: "project_id", Message: "project ID cannot be empty"}
+		return nil, &domain.ValidationError{Field: "project_id", Message: "project ID cannot be empty"}
 	}
 
 	tasks, err := ts.taskRepo.GetByStatus(projectID, status)
 	if err != nil {
-		return nil, &RepositoryError{Operation: "get by status", Entity: "tasks", ID: projectID, Cause: err}
+		return nil, &domain.RepositoryError{Operation: "get by status", Entity: "tasks", ID: projectID, Cause: err}
 	}
 
 	return tasks, nil

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
+	"kahn/internal/domain"
 	"kahn/pkg/colors"
 	"kahn/pkg/input"
 )
@@ -26,14 +27,13 @@ func NewModel(database *Database) *Model {
 
 	projects, err := projectService.GetAllProjects()
 	if err != nil {
-		projects = []Project{}
+		projects = []domain.Project{}
 	}
 
-	// CRITICAL: Load tasks for each project to ensure they're populated
 	for i := range projects {
 		tasks, err := taskService.GetTasksByProject(projects[i].ID)
 		if err != nil {
-			projects[i].Tasks = []Task{}
+			projects[i].Tasks = []domain.Task{}
 		} else {
 			projects[i].Tasks = tasks
 		}
@@ -42,9 +42,9 @@ func NewModel(database *Database) *Model {
 	if len(projects) == 0 {
 		newProject, err := projectService.CreateProject("Default Project", "A default project for your tasks")
 		if err != nil {
-			projects = []Project{}
+			projects = []domain.Project{}
 		} else {
-			projects = []Project{*newProject}
+			projects = []domain.Project{*newProject}
 		}
 	}
 
@@ -53,29 +53,29 @@ func NewModel(database *Database) *Model {
 		activeProjectID = projects[0].ID
 	}
 
-	taskLists[NotStarted].Title = NotStarted.ToString()
+	taskLists[domain.NotStarted].Title = domain.NotStarted.ToString()
 	if len(projects) > 0 {
-		taskLists[NotStarted].SetItems(convertTasksToListItems(projects[0].GetTasksByStatus(NotStarted)))
+		taskLists[domain.NotStarted].SetItems(convertTasksToListItems(projects[0].GetTasksByStatus(domain.NotStarted)))
 	}
-	taskLists[NotStarted].Styles.Title = lipgloss.NewStyle().
+	taskLists[domain.NotStarted].Styles.Title = lipgloss.NewStyle().
 		Foreground(lipgloss.Color(colors.Blue)).
 		Bold(true).
 		Align(lipgloss.Center)
 
-	taskLists[InProgress].Title = InProgress.ToString()
+	taskLists[domain.InProgress].Title = domain.InProgress.ToString()
 	if len(projects) > 0 {
-		taskLists[InProgress].SetItems(convertTasksToListItems(projects[0].GetTasksByStatus(InProgress)))
+		taskLists[domain.InProgress].SetItems(convertTasksToListItems(projects[0].GetTasksByStatus(domain.InProgress)))
 	}
-	taskLists[InProgress].Styles.Title = lipgloss.NewStyle().
+	taskLists[domain.InProgress].Styles.Title = lipgloss.NewStyle().
 		Foreground(lipgloss.Color(colors.Yellow)).
 		Bold(true).
 		Align(lipgloss.Center)
 
-	taskLists[Done].Title = Done.ToString()
+	taskLists[domain.Done].Title = domain.Done.ToString()
 	if len(projects) > 0 {
-		taskLists[Done].SetItems(convertTasksToListItems(projects[0].GetTasksByStatus(Done)))
+		taskLists[domain.Done].SetItems(convertTasksToListItems(projects[0].GetTasksByStatus(domain.Done)))
 	}
-	taskLists[Done].Styles.Title = lipgloss.NewStyle().
+	taskLists[domain.Done].Styles.Title = lipgloss.NewStyle().
 		Foreground(lipgloss.Color(colors.Green)).
 		Bold(true).
 		Align(lipgloss.Center)
@@ -95,7 +95,7 @@ func NewModel(database *Database) *Model {
 	}
 }
 
-func convertTasksToListItems(tasks []Task) []list.Item {
+func convertTasksToListItems(tasks []domain.Task) []list.Item {
 	items := make([]list.Item, len(tasks))
 	for i, task := range tasks {
 		items[i] = task
@@ -164,24 +164,24 @@ func (m Model) View() string {
 
 	columnWidth := m.Tasks[0].Width()
 
-	notStartedView := defaultStyle.Width(columnWidth).Render(m.Tasks[NotStarted].View())
-	inProgressView := defaultStyle.Width(columnWidth).Render(m.Tasks[InProgress].View())
-	doneView := defaultStyle.Width(columnWidth).Render(m.Tasks[Done].View())
+	notStartedView := defaultStyle.Width(columnWidth).Render(m.Tasks[domain.NotStarted].View())
+	inProgressView := defaultStyle.Width(columnWidth).Render(m.Tasks[domain.InProgress].View())
+	doneView := defaultStyle.Width(columnWidth).Render(m.Tasks[domain.Done].View())
 
-	focusedNotStartedView := focusedStyle.Width(columnWidth).Render(m.Tasks[NotStarted].View())
-	focusedInProgressView := focusedStyle.Width(columnWidth).Render(m.Tasks[InProgress].View())
-	focusedDoneView := focusedStyle.Width(columnWidth).Render(m.Tasks[Done].View())
+	focusedNotStartedView := focusedStyle.Width(columnWidth).Render(m.Tasks[domain.NotStarted].View())
+	focusedInProgressView := focusedStyle.Width(columnWidth).Render(m.Tasks[domain.InProgress].View())
+	focusedDoneView := focusedStyle.Width(columnWidth).Render(m.Tasks[domain.Done].View())
 
 	boardContent := ""
 	switch m.activeListIndex {
-	case InProgress:
+	case domain.InProgress:
 		boardContent = lipgloss.JoinHorizontal(
 			lipgloss.Left,
 			notStartedView,
 			focusedInProgressView,
 			doneView,
 		)
-	case Done:
+	case domain.Done:
 		boardContent = lipgloss.JoinHorizontal(
 			lipgloss.Left,
 			notStartedView,
@@ -251,7 +251,7 @@ func (m Model) renderNoProjectsBoard() string {
 
 func (m Model) renderTaskDeleteConfirm() string {
 	// Find the task to delete
-	var taskToDelete *Task
+	var taskToDelete *domain.Task
 	activeProj := m.GetActiveProject()
 	if activeProj != nil {
 		for _, task := range activeProj.Tasks {
@@ -265,7 +265,7 @@ func (m Model) renderTaskDeleteConfirm() string {
 	if taskToDelete == nil {
 		// Fallback to selected task if somehow taskToDelete is not set
 		if selectedItem := m.Tasks[m.activeListIndex].SelectedItem(); selectedItem != nil {
-			if task, ok := selectedItem.(Task); ok {
+			if task, ok := selectedItem.(domain.Task); ok {
 				taskToDelete = &task
 			}
 		}

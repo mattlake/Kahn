@@ -4,16 +4,18 @@ import (
 	"fmt"
 	"strings"
 
+	"kahn/internal/domain"
+	"kahn/pkg/input"
+
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"kahn/pkg/input"
 )
 
 type Model struct {
-	Projects                 []Project
+	Projects                 []domain.Project
 	ActiveProjectID          string
 	Tasks                    []list.Model
-	activeListIndex          Status
+	activeListIndex          domain.Status
 	showForm                 bool
 	showProjectSwitch        bool
 	showProjectDeleteConfirm bool
@@ -38,7 +40,7 @@ func (m Model) Init() tea.Cmd {
 	return nil
 }
 
-func (m *Model) GetActiveProject() *Project {
+func (m *Model) GetActiveProject() *domain.Project {
 	for i, proj := range m.Projects {
 		if proj.ID == m.ActiveProjectID {
 			return &m.Projects[i]
@@ -152,18 +154,18 @@ func (m *Model) GetSelectedTask() (input.TaskInterface, bool) {
 		return nil, false
 	}
 
-	task, ok := selectedItem.(Task)
+	task, ok := selectedItem.(domain.Task)
 	if !ok {
 		return nil, false
 	}
 
-	return &TaskWrapper{task: task}, true
+	return &domain.TaskWrapper{Task: task}, true
 }
 
 func (m *Model) GetProjects() []input.ProjectInterface {
 	var projects []input.ProjectInterface
 	for i := range m.Projects {
-		projects = append(projects, &ProjectWrapper{project: &m.Projects[i]})
+		projects = append(projects, &domain.ProjectWrapper{Project: &m.Projects[i]})
 	}
 	return projects
 }
@@ -189,13 +191,13 @@ func (m *Model) DeleteProject(id string) error {
 	}
 
 	if len(m.Projects) == 1 {
-		m.Projects = []Project{}
+		m.Projects = []domain.Project{}
 		m.ActiveProjectID = ""
-		m.Tasks[NotStarted].SetItems([]list.Item{})
-		m.Tasks[InProgress].SetItems([]list.Item{})
-		m.Tasks[Done].SetItems([]list.Item{})
+		m.Tasks[domain.NotStarted].SetItems([]list.Item{})
+		m.Tasks[domain.InProgress].SetItems([]list.Item{})
+		m.Tasks[domain.Done].SetItems([]list.Item{})
 	} else {
-		var newProjects []Project
+		var newProjects []domain.Project
 		var wasActiveProject bool
 		for _, proj := range m.Projects {
 			if proj.ID != id {
@@ -348,16 +350,16 @@ func (m *Model) HideAllForms() {
 }
 
 func (m *Model) NextList() {
-	if m.activeListIndex == Done {
-		m.activeListIndex = NotStarted
+	if m.activeListIndex == domain.Done {
+		m.activeListIndex = domain.NotStarted
 	} else {
 		m.activeListIndex++
 	}
 }
 
 func (m *Model) PrevList() {
-	if m.activeListIndex == NotStarted {
-		m.activeListIndex = Done
+	if m.activeListIndex == domain.NotStarted {
+		m.activeListIndex = domain.Done
 	} else {
 		m.activeListIndex--
 	}
@@ -369,9 +371,9 @@ func (m *Model) updateTaskLists() {
 		return
 	}
 
-	m.Tasks[NotStarted].SetItems(convertTasksToListItems(activeProj.GetTasksByStatus(NotStarted)))
-	m.Tasks[InProgress].SetItems(convertTasksToListItems(activeProj.GetTasksByStatus(InProgress)))
-	m.Tasks[Done].SetItems(convertTasksToListItems(activeProj.GetTasksByStatus(Done)))
+	m.Tasks[domain.NotStarted].SetItems(convertTasksToListItems(activeProj.GetTasksByStatus(domain.NotStarted)))
+	m.Tasks[domain.InProgress].SetItems(convertTasksToListItems(activeProj.GetTasksByStatus(domain.InProgress)))
+	m.Tasks[domain.Done].SetItems(convertTasksToListItems(activeProj.GetTasksByStatus(domain.Done)))
 }
 
 func (m *Model) executeTaskDeletion() *Model {
@@ -418,15 +420,15 @@ func (m *Model) executeProjectDeletion() *Model {
 
 	// Handle edge case: deleting last project
 	if len(m.Projects) == 1 {
-		m.Projects = []Project{}
+		m.Projects = []domain.Project{}
 		m.ActiveProjectID = ""
 		// Clear task lists
-		m.Tasks[NotStarted].SetItems([]list.Item{})
-		m.Tasks[InProgress].SetItems([]list.Item{})
-		m.Tasks[Done].SetItems([]list.Item{})
+		m.Tasks[domain.NotStarted].SetItems([]list.Item{})
+		m.Tasks[domain.InProgress].SetItems([]list.Item{})
+		m.Tasks[domain.Done].SetItems([]list.Item{})
 	} else {
 		// Find and remove the project from the slice
-		var newProjects []Project
+		var newProjects []domain.Project
 		var wasActiveProject bool
 		for _, proj := range m.Projects {
 			if proj.ID != m.projectToDelete {

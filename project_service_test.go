@@ -1,6 +1,7 @@
 package main
 
 import (
+	"kahn/internal/domain"
 	"testing"
 )
 
@@ -53,9 +54,9 @@ func TestProjectService_GetAllProjects(t *testing.T) {
 	service := NewProjectService(projectRepo, taskRepo)
 
 	// Setup test data
-	testProjects := []Project{
-		*NewProject("Project 1", "Description 1", "#89b4fa"),
-		*NewProject("Project 2", "Description 2", "#89b4fa"),
+	testProjects := []domain.Project{
+		*domain.NewProject("Project 1", "Description 1", "#89b4fa"),
+		*domain.NewProject("Project 2", "Description 2", "#89b4fa"),
 	}
 	projectRepo.projects = testProjects
 
@@ -83,8 +84,8 @@ func TestProjectService_DeleteProject(t *testing.T) {
 	service := NewProjectService(projectRepo, taskRepo)
 
 	// Setup test data
-	testProject := NewProject("Test Project", "Test Description", "#89b4fa")
-	projectRepo.projects = []Project{*testProject}
+	testProject := domain.NewProject("Test Project", "Test Description", "#89b4fa")
+	projectRepo.projects = []domain.Project{*testProject}
 
 	t.Run("successful project deletion", func(t *testing.T) {
 		// Act

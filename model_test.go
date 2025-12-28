@@ -1,6 +1,7 @@
 package main
 
 import (
+	"kahn/internal/domain"
 	"testing"
 
 	"github.com/charmbracelet/bubbletea"
@@ -24,7 +25,7 @@ func TestNewModel(t *testing.T) {
 	assert.NotEmpty(t, model.ActiveProjectID, "Should have active project ID")
 	assert.Equal(t, model.Projects[0].ID, model.ActiveProjectID, "Active project should be first project")
 	assert.Len(t, model.Tasks, 3, "Should have 3 task lists (NotStarted, InProgress, Done)")
-	assert.Equal(t, NotStarted, model.activeListIndex, "Active list should be NotStarted initially")
+	assert.Equal(t, domain.NotStarted, model.activeListIndex, "Active list should be NotStarted initially")
 	assert.False(t, model.showForm, "showForm should be false initially")
 	assert.False(t, model.showProjectSwitch, "showProjectSwitch should be false initially")
 	// showProjectForm field removed, so this test is no longer relevant
@@ -49,7 +50,7 @@ func TestModel_GetActiveProject(t *testing.T) {
 
 func TestModel_GetActiveProject_NoProjects(t *testing.T) {
 	model := &Model{
-		Projects:        []Project{},
+		Projects:        []domain.Project{},
 		ActiveProjectID: "",
 	}
 
@@ -62,7 +63,7 @@ func TestModel_GetActiveProject_NonExistentID(t *testing.T) {
 	project2 := createTestProject("Project 2", "Description 2", "red")
 
 	model := &Model{
-		Projects:        []Project{*project1, *project2},
+		Projects:        []domain.Project{*project1, *project2},
 		ActiveProjectID: "non_existent_id",
 	}
 
@@ -71,10 +72,10 @@ func TestModel_GetActiveProject_NonExistentID(t *testing.T) {
 }
 
 func TestConvertTasksToListItems(t *testing.T) {
-	tasks := []Task{
-		*createTestTask("Task 1", "Description 1", "proj_1", NotStarted),
-		*createTestTask("Task 2", "Description 2", "proj_2", InProgress),
-		*createTestTask("Task 3", "Description 3", "proj_3", Done),
+	tasks := []domain.Task{
+		*createTestTask("Task 1", "Description 1", "proj_1", domain.NotStarted),
+		*createTestTask("Task 2", "Description 2", "proj_2", domain.InProgress),
+		*createTestTask("Task 3", "Description 3", "proj_3", domain.Done),
 	}
 
 	items := convertTasksToListItems(tasks)
@@ -87,7 +88,7 @@ func TestConvertTasksToListItems(t *testing.T) {
 }
 
 func TestConvertTasksToListItems_Empty(t *testing.T) {
-	tasks := []Task{}
+	tasks := []domain.Task{}
 
 	items := convertTasksToListItems(tasks)
 
@@ -101,10 +102,10 @@ func TestConvertTasksToListItems_Nil(t *testing.T) {
 }
 
 func TestModel_TaskDeletionKeyHandling(t *testing.T) {
-	model := createTestModelWithTasks(t, []string{"Task 1", "Task 2"}, []Status{NotStarted, InProgress})
+	model := createTestModelWithTasks(t, []string{"Task 1", "Task 2"}, []domain.Status{domain.NotStarted, domain.InProgress})
 
 	// Test d key when task is selected
-	model.Tasks[NotStarted].Select(0) // Select first task
+	model.Tasks[domain.NotStarted].Select(0) // Select first task
 	model = simulateKeyPress(t, model, "d")
 
 	// Get the actual task ID that was set for deletion
@@ -114,7 +115,7 @@ func TestModel_TaskDeletionKeyHandling(t *testing.T) {
 }
 
 func TestModel_TaskDeletionKeyHandling_NoTaskSelected(t *testing.T) {
-	model := createTestModelWithTasks(t, []string{}, []Status{}) // Create model with no tasks
+	model := createTestModelWithTasks(t, []string{}, []domain.Status{}) // Create model with no tasks
 
 	// Test d key when no tasks exist
 	model = simulateKeyPress(t, model, "d")
@@ -124,7 +125,7 @@ func TestModel_TaskDeletionKeyHandling_NoTaskSelected(t *testing.T) {
 }
 
 func TestModel_TaskDeletionConfirmation_Yes(t *testing.T) {
-	model := createTestModelWithTasks(t, []string{"Task 1"}, []Status{NotStarted})
+	model := createTestModelWithTasks(t, []string{"Task 1"}, []domain.Status{domain.NotStarted})
 
 	// Setup deletion state
 	taskID := model.GetActiveProject().Tasks[0].ID
@@ -140,7 +141,7 @@ func TestModel_TaskDeletionConfirmation_Yes(t *testing.T) {
 }
 
 func TestModel_TaskDeletionConfirmation_No(t *testing.T) {
-	model := createTestModelWithTasks(t, []string{"Task 1"}, []Status{NotStarted})
+	model := createTestModelWithTasks(t, []string{"Task 1"}, []domain.Status{domain.NotStarted})
 
 	// Setup deletion state
 	taskID := model.GetActiveProject().Tasks[0].ID
@@ -155,11 +156,11 @@ func TestModel_TaskDeletionConfirmation_No(t *testing.T) {
 
 	// Verify task is not deleted
 	assertTaskDeletionState(t, model, false, "")
-	assertTaskInList(t, model, taskID, NotStarted)
+	assertTaskInList(t, model, taskID, domain.NotStarted)
 }
 
 func TestModel_TaskDeletionConfirmation_Escape(t *testing.T) {
-	model := createTestModelWithTasks(t, []string{"Task 1"}, []Status{NotStarted})
+	model := createTestModelWithTasks(t, []string{"Task 1"}, []domain.Status{domain.NotStarted})
 
 	// Setup deletion state
 	taskID := model.GetActiveProject().Tasks[0].ID
@@ -174,11 +175,11 @@ func TestModel_TaskDeletionConfirmation_Escape(t *testing.T) {
 
 	// Verify task is not deleted
 	assertTaskDeletionState(t, model, false, "")
-	assertTaskInList(t, model, taskID, NotStarted)
+	assertTaskInList(t, model, taskID, domain.NotStarted)
 }
 
 func TestModel_TaskDeletionExecution(t *testing.T) {
-	model := createTestModelWithTasks(t, []string{"Task 1", "Task 2"}, []Status{NotStarted, InProgress})
+	model := createTestModelWithTasks(t, []string{"Task 1", "Task 2"}, []domain.Status{domain.NotStarted, domain.InProgress})
 
 	// Get task to delete
 	taskToDelete := model.GetActiveProject().Tasks[0]
@@ -199,7 +200,7 @@ func TestModel_TaskDeletionExecution(t *testing.T) {
 }
 
 func TestModel_TaskDeletionExecution_DatabaseError(t *testing.T) {
-	model := createTestModelWithTasks(t, []string{"Task 1"}, []Status{NotStarted})
+	model := createTestModelWithTasks(t, []string{"Task 1"}, []domain.Status{domain.NotStarted})
 
 	// Get task to delete
 	taskID := model.GetActiveProject().Tasks[0].ID
@@ -213,12 +214,12 @@ func TestModel_TaskDeletionExecution_DatabaseError(t *testing.T) {
 	assertTaskDeletionState(t, model, false, "")
 
 	// Verify original task is still there
-	assertTaskInList(t, model, taskID, NotStarted)
+	assertTaskInList(t, model, taskID, domain.NotStarted)
 }
 
 func TestModel_TaskDeletionEdgeCases(t *testing.T) {
 	// Test deletion when taskToDelete is empty
-	model := createTestModelWithTasks(t, []string{"Task 1"}, []Status{NotStarted})
+	model := createTestModelWithTasks(t, []string{"Task 1"}, []domain.Status{domain.NotStarted})
 	model.showTaskDeleteConfirm = true
 	model.taskToDelete = ""
 	model = model.executeTaskDeletion()
@@ -229,17 +230,17 @@ func TestModel_TaskDeletionEdgeCases(t *testing.T) {
 func TestModel_TaskDeletionFromDifferentStatuses(t *testing.T) {
 	testCases := []struct {
 		name     string
-		status   Status
+		status   domain.Status
 		taskName string
 	}{
-		{"Delete from NotStarted", NotStarted, "NotStarted Task"},
-		{"Delete from InProgress", InProgress, "InProgress Task"},
-		{"Delete from Done", Done, "Done Task"},
+		{"Delete from NotStarted", domain.NotStarted, "NotStarted Task"},
+		{"Delete from InProgress", domain.InProgress, "InProgress Task"},
+		{"Delete from Done", domain.Done, "Done Task"},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			model := createTestModelWithTasks(t, []string{tc.taskName}, []Status{tc.status})
+			model := createTestModelWithTasks(t, []string{tc.taskName}, []domain.Status{tc.status})
 
 			// Get task to delete
 			taskID := model.GetActiveProject().Tasks[0].ID

@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"kahn/internal/domain"
 	"time"
 )
 
@@ -14,7 +15,7 @@ func NewSQLiteTaskRepository(db *sql.DB) *SQLiteTaskRepository {
 	return &SQLiteTaskRepository{db: db}
 }
 
-func (r *SQLiteTaskRepository) Create(task *Task) error {
+func (r *SQLiteTaskRepository) Create(task *domain.Task) error {
 	query := `
 		INSERT INTO tasks (id, project_id, name, desc, status, priority, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -29,13 +30,13 @@ func (r *SQLiteTaskRepository) Create(task *Task) error {
 	return nil
 }
 
-func (r *SQLiteTaskRepository) GetByID(id string) (*Task, error) {
+func (r *SQLiteTaskRepository) GetByID(id string) (*domain.Task, error) {
 	query := `
 		SELECT id, project_id, name, desc, status, priority, created_at, updated_at
 		FROM tasks WHERE id = ?
 	`
 
-	var task Task
+	var task domain.Task
 	err := r.db.QueryRow(query, id).Scan(
 		&task.ID, &task.ProjectID, &task.Name, &task.Desc,
 		&task.Status, &task.Priority, &task.CreatedAt, &task.UpdatedAt,
@@ -51,7 +52,7 @@ func (r *SQLiteTaskRepository) GetByID(id string) (*Task, error) {
 	return &task, nil
 }
 
-func (r *SQLiteTaskRepository) GetByProjectID(projectID string) ([]Task, error) {
+func (r *SQLiteTaskRepository) GetByProjectID(projectID string) ([]domain.Task, error) {
 	query := `
 		SELECT id, project_id, name, desc, status, priority, created_at, updated_at
 		FROM tasks WHERE project_id = ? ORDER BY created_at DESC
@@ -63,9 +64,9 @@ func (r *SQLiteTaskRepository) GetByProjectID(projectID string) ([]Task, error) 
 	}
 	defer rows.Close()
 
-	var tasks []Task
+	var tasks []domain.Task
 	for rows.Next() {
-		var task Task
+		var task domain.Task
 		err := rows.Scan(
 			&task.ID, &task.ProjectID, &task.Name, &task.Desc,
 			&task.Status, &task.Priority, &task.CreatedAt, &task.UpdatedAt,
@@ -83,7 +84,7 @@ func (r *SQLiteTaskRepository) GetByProjectID(projectID string) ([]Task, error) 
 	return tasks, nil
 }
 
-func (r *SQLiteTaskRepository) GetByStatus(projectID string, status Status) ([]Task, error) {
+func (r *SQLiteTaskRepository) GetByStatus(projectID string, status domain.Status) ([]domain.Task, error) {
 	query := `
 		SELECT id, project_id, name, desc, status, priority, created_at, updated_at
 		FROM tasks WHERE project_id = ? AND status = ? ORDER BY created_at DESC
@@ -95,9 +96,9 @@ func (r *SQLiteTaskRepository) GetByStatus(projectID string, status Status) ([]T
 	}
 	defer rows.Close()
 
-	var tasks []Task
+	var tasks []domain.Task
 	for rows.Next() {
-		var task Task
+		var task domain.Task
 		err := rows.Scan(
 			&task.ID, &task.ProjectID, &task.Name, &task.Desc,
 			&task.Status, &task.Priority, &task.CreatedAt, &task.UpdatedAt,
@@ -115,7 +116,7 @@ func (r *SQLiteTaskRepository) GetByStatus(projectID string, status Status) ([]T
 	return tasks, nil
 }
 
-func (r *SQLiteTaskRepository) Update(task *Task) error {
+func (r *SQLiteTaskRepository) Update(task *domain.Task) error {
 	query := `
 		UPDATE tasks 
 		SET name = ?, desc = ?, status = ?, priority = ?, updated_at = ?
@@ -131,7 +132,7 @@ func (r *SQLiteTaskRepository) Update(task *Task) error {
 	return nil
 }
 
-func (r *SQLiteTaskRepository) UpdateStatus(taskID string, status Status) error {
+func (r *SQLiteTaskRepository) UpdateStatus(taskID string, status domain.Status) error {
 	query := `
 		UPDATE tasks 
 		SET status = ?, updated_at = ?

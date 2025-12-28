@@ -1,4 +1,4 @@
-package main
+package domain
 
 import (
 	"testing"
@@ -104,9 +104,9 @@ func TestProject_AddMultipleTasks(t *testing.T) {
 	assert.Equal(t, "Task 2", project.Tasks[1].Name, "Second task name should match")
 	assert.Equal(t, "Task 3", project.Tasks[2].Name, "Third task name should match")
 
-	// All tasks should have the same project ID
+	// All tasks should have been same project ID
 	for _, task := range project.Tasks {
-		assert.Equal(t, project.ID, task.ProjectID, "All tasks should have the project ID")
+		assert.Equal(t, project.ID, task.ProjectID, "All tasks should have project ID")
 	}
 }
 

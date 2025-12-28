@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"kahn/internal/domain"
 	"log"
 )
 
@@ -14,7 +15,7 @@ func NewSQLiteProjectRepository(db *sql.DB) *SQLiteProjectRepository {
 	return &SQLiteProjectRepository{db: db}
 }
 
-func (r *SQLiteProjectRepository) Create(project *Project) error {
+func (r *SQLiteProjectRepository) Create(project *domain.Project) error {
 	query := `
 		INSERT INTO projects (id, name, description, color, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?)
@@ -29,13 +30,13 @@ func (r *SQLiteProjectRepository) Create(project *Project) error {
 	return nil
 }
 
-func (r *SQLiteProjectRepository) GetByID(id string) (*Project, error) {
+func (r *SQLiteProjectRepository) GetByID(id string) (*domain.Project, error) {
 	query := `
 		SELECT id, name, description, color, created_at, updated_at
 		FROM projects WHERE id = ?
 	`
 
-	var project Project
+	var project domain.Project
 	err := r.db.QueryRow(query, id).Scan(
 		&project.ID, &project.Name, &project.Description, &project.Color,
 		&project.CreatedAt, &project.UpdatedAt,
@@ -51,7 +52,7 @@ func (r *SQLiteProjectRepository) GetByID(id string) (*Project, error) {
 	return &project, nil
 }
 
-func (r *SQLiteProjectRepository) GetAll() ([]Project, error) {
+func (r *SQLiteProjectRepository) GetAll() ([]domain.Project, error) {
 	query := `
 		SELECT id, name, description, color, created_at, updated_at
 		FROM projects ORDER BY created_at DESC
@@ -63,9 +64,9 @@ func (r *SQLiteProjectRepository) GetAll() ([]Project, error) {
 	}
 	defer rows.Close()
 
-	var projects []Project
+	var projects []domain.Project
 	for rows.Next() {
-		var project Project
+		var project domain.Project
 		err := rows.Scan(
 			&project.ID, &project.Name, &project.Description, &project.Color,
 			&project.CreatedAt, &project.UpdatedAt,
@@ -84,7 +85,7 @@ func (r *SQLiteProjectRepository) GetAll() ([]Project, error) {
 	return projects, nil
 }
 
-func (r *SQLiteProjectRepository) Update(project *Project) error {
+func (r *SQLiteProjectRepository) Update(project *domain.Project) error {
 	query := `
 		UPDATE projects 
 		SET name = ?, description = ?, color = ?, updated_at = ?
@@ -120,13 +121,13 @@ func (r *SQLiteProjectRepository) Delete(id string) error {
 	return nil
 }
 
-func (r *SQLiteProjectRepository) GetByIDWithTasks(id string) (*Project, error) {
+func (r *SQLiteProjectRepository) GetByIDWithTasks(id string) (*domain.Project, error) {
 	query := `
 		SELECT id, name, description, color, created_at, updated_at
 		FROM projects WHERE id = ?
 	`
 
-	var project Project
+	var project domain.Project
 	err := r.db.QueryRow(query, id).Scan(
 		&project.ID, &project.Name, &project.Description, &project.Color,
 		&project.CreatedAt, &project.UpdatedAt,
@@ -144,7 +145,7 @@ func (r *SQLiteProjectRepository) GetByIDWithTasks(id string) (*Project, error) 
 	tasks, err := taskRepo.GetByProjectID(id)
 	if err != nil {
 		log.Printf("Warning: failed to load tasks for project %s: %v", id, err)
-		tasks = []Task{}
+		tasks = []domain.Task{}
 	}
 
 	project.Tasks = tasks

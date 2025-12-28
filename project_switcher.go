@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/charmbracelet/lipgloss"
+	"kahn/internal/domain"
 	"kahn/pkg/colors"
 )
 
@@ -137,7 +138,7 @@ func (m Model) renderNoProjectsMessage() string {
 
 func (m Model) renderProjectDeleteConfirm() string {
 	// Find the project to delete
-	var projectToDelete *Project
+	var projectToDelete *domain.Project
 	for _, proj := range m.Projects {
 		if proj.ID == m.projectToDelete {
 			projectToDelete = &proj

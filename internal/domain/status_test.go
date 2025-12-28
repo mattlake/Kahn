@@ -1,4 +1,4 @@
-package main
+package domain
 
 import (
 	"testing"
@@ -43,7 +43,7 @@ func TestStatus_ToString(t *testing.T) {
 }
 
 func TestStatus_Constants(t *testing.T) {
-	// Test that status constants have the expected integer values
+	// Test that status constants have expected integer values
 	assert.Equal(t, Status(0), NotStarted, "NotStarted should be 0")
 	assert.Equal(t, Status(1), InProgress, "InProgress should be 1")
 	assert.Equal(t, Status(2), Done, "Done should be 2")

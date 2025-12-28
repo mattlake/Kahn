@@ -1,31 +1,31 @@
-package main
+package domain
 
 // TaskWrapper implements input.TaskInterface for the main Task type
 type TaskWrapper struct {
-	task Task
+	Task Task
 }
 
 func (tw *TaskWrapper) GetID() string {
-	return tw.task.ID
+	return tw.Task.ID
 }
 
 func (tw *TaskWrapper) GetName() string {
-	return tw.task.Name
+	return tw.Task.Name
 }
 
 func (tw *TaskWrapper) GetDescription() string {
-	return tw.task.Desc
+	return tw.Task.Desc
 }
 
 // ProjectWrapper implements input.ProjectInterface for the main Project type
 type ProjectWrapper struct {
-	project *Project
+	Project *Project
 }
 
 func (pw *ProjectWrapper) GetID() string {
-	return pw.project.ID
+	return pw.Project.ID
 }
 
 func (pw *ProjectWrapper) GetName() string {
-	return pw.project.Name
+	return pw.Project.Name
 }
