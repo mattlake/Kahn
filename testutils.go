@@ -157,7 +157,7 @@ func createTestModelWithTasks(t *testing.T, taskNames []string, statuses []domai
 			createdTask.Status = statuses[i]
 
 			// Update status in database
-			err = model.taskService.taskRepo.UpdateStatus(createdTask.ID, statuses[i])
+			_, err = model.taskService.UpdateTaskStatus(createdTask.ID, statuses[i])
 			require.NoError(t, err, "Failed to update task status in database")
 
 			// Add to project in memory using the database task

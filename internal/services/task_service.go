@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"kahn/internal/domain"
@@ -168,4 +168,25 @@ func (ts *TaskService) GetTasksByStatus(projectID string, status domain.Status) 
 	}
 
 	return tasks, nil
+}
+
+func (ts *TaskService) UpdateTaskStatus(id string, status domain.Status) (*domain.Task, error) {
+	if id == "" {
+		return nil, &domain.ValidationError{Field: "id", Message: "task ID cannot be empty"}
+	}
+
+	task, err := ts.taskRepo.GetByID(id)
+	if err != nil {
+		return nil, &domain.RepositoryError{Operation: "get", Entity: "task", ID: id, Cause: err}
+	}
+	if task == nil {
+		return nil, &domain.ValidationError{Field: "id", Message: "task not found"}
+	}
+
+	if err := ts.taskRepo.UpdateStatus(id, status); err != nil {
+		return nil, &domain.RepositoryError{Operation: "update status", Entity: "task", ID: id, Cause: err}
+	}
+
+	task.Status = status
+	return task, nil
 }

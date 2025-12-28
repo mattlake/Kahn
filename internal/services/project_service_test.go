@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"kahn/internal/domain"
@@ -7,8 +7,8 @@ import (
 
 func TestProjectService_CreateProject(t *testing.T) {
 	// Setup
-	taskRepo := &mockTaskRepository{}
-	projectRepo := &mockProjectRepository{}
+	taskRepo := NewMockTaskRepository()
+	projectRepo := NewMockProjectRepository()
 	service := NewProjectService(projectRepo, taskRepo)
 
 	t.Run("successful project creation", func(t *testing.T) {
@@ -49,8 +49,8 @@ func TestProjectService_CreateProject(t *testing.T) {
 
 func TestProjectService_GetAllProjects(t *testing.T) {
 	// Setup
-	taskRepo := &mockTaskRepository{}
-	projectRepo := &mockProjectRepository{}
+	taskRepo := NewMockTaskRepository()
+	projectRepo := NewMockProjectRepository()
 	service := NewProjectService(projectRepo, taskRepo)
 
 	// Setup test data
@@ -79,8 +79,8 @@ func TestProjectService_GetAllProjects(t *testing.T) {
 
 func TestProjectService_DeleteProject(t *testing.T) {
 	// Setup
-	taskRepo := &mockTaskRepository{}
-	projectRepo := &mockProjectRepository{}
+	taskRepo := NewMockTaskRepository()
+	projectRepo := NewMockProjectRepository()
 	service := NewProjectService(projectRepo, taskRepo)
 
 	// Setup test data

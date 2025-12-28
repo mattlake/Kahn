@@ -7,6 +7,7 @@ import (
 	"kahn/internal/database"
 	"kahn/internal/domain"
 	repo "kahn/internal/repository"
+	"kahn/internal/services"
 	"kahn/pkg/colors"
 	"kahn/pkg/input"
 )
@@ -24,8 +25,8 @@ func NewModel(database *database.Database) *Model {
 	projectRepo := repo.NewSQLiteProjectRepository(database.GetDB())
 
 	// Create services
-	taskService := NewTaskService(taskRepo, projectRepo)
-	projectService := NewProjectService(projectRepo, taskRepo)
+	taskService := services.NewTaskService(taskRepo, projectRepo)
+	projectService := services.NewProjectService(projectRepo, taskRepo)
 
 	projects, err := projectService.GetAllProjects()
 	if err != nil {
