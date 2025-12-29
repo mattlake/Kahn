@@ -36,13 +36,13 @@ func (b *BoardComponent) RenderProjectHeader(project *domain.Project, width int)
 		Render("Project:")
 
 	projectNameText := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(project.Color)).
+		Foreground(lipgloss.Color(colors.Green)).
 		Bold(true).
 		Render(project.Name)
 
 	helpText := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(colors.Subtext1)).
-		Render("[p] Switch • [n] Add Task • [e] Edit Task • [d] Delete Task • [q] Quit")
+		Render("Navigate: ←→/h/l | Move Task: space | Switch Project: p | Add Task: n | Edit Task: e | Delete Task: d | Quit: q")
 
 	// Create a more prominent header with better visual hierarchy
 	headerContent := lipgloss.JoinHorizontal(
@@ -50,15 +50,13 @@ func (b *BoardComponent) RenderProjectHeader(project *domain.Project, width int)
 		projectLabel,
 		lipgloss.NewStyle().Render(" "),
 		projectNameText,
-		lipgloss.NewStyle().Width(width-len(project.Name)-len("Project: ")-25).Render(""),
+		lipgloss.NewStyle().Render(" | "),
 		helpText,
 	)
 
 	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(project.Color)).
+		Margin(0, 0).
 		Padding(0, 1).
-		Background(lipgloss.Color(colors.Surface0)).
 		Width(width).
 		Render(headerContent)
 }
@@ -218,8 +216,8 @@ func (b *BoardComponent) RenderBoard(project *domain.Project, taskLists [3]list.
 
 	return lipgloss.JoinVertical(
 		lipgloss.Top,
-		projectHeader,
 		boardContent,
+		projectHeader,
 	)
 }
 

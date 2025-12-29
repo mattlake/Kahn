@@ -4,8 +4,10 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"kahn/internal/domain"
+	"kahn/internal/ui/colors"
 )
 
 func TestGetListTitleStyles(t *testing.T) {
@@ -52,6 +54,30 @@ func TestApplyListTitleStyles_InsufficientLists(t *testing.T) {
 
 	// Should not panic
 	assert.NotPanics(t, func() {
-		ApplyListTitleStyles(taskLists)
+		ApplyTitleStyles(taskLists, domain.NotStarted)
 	}, "Should not panic with insufficient lists")
+}
+
+func TestApplyFocusedTitleStyles(t *testing.T) {
+	// Create test lists
+	defaultList := list.New([]list.Item{}, list.NewDefaultDelegate(), 20, 10)
+	taskLists := []list.Model{defaultList, defaultList, defaultList}
+
+	// Test with NotStarted focused
+	ApplyFocusedTitleStyles(taskLists, domain.NotStarted)
+
+	// Focused list should have green title
+	assert.Equal(t, taskLists[0].Styles.Title.GetForeground(), lipgloss.Color(colors.Green), "Focused list should have green title")
+
+	// Unfocused lists should have white titles
+	assert.Equal(t, taskLists[1].Styles.Title.GetForeground(), lipgloss.Color(colors.Text), "Unfocused list should have white title")
+	assert.Equal(t, taskLists[2].Styles.Title.GetForeground(), lipgloss.Color(colors.Text), "Unfocused list should have white title")
+
+	// Test with InProgress focused
+	ApplyFocusedTitleStyles(taskLists, domain.InProgress)
+
+	// Now second list should be green, others white
+	assert.Equal(t, taskLists[1].Styles.Title.GetForeground(), lipgloss.Color(colors.Green), "Focused list should have green title")
+	assert.Equal(t, taskLists[0].Styles.Title.GetForeground(), lipgloss.Color(colors.Text), "Unfocused list should have white title")
+	assert.Equal(t, taskLists[2].Styles.Title.GetForeground(), lipgloss.Color(colors.Text), "Unfocused list should have white title")
 }

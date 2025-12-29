@@ -29,7 +29,7 @@ func GetDialogStyles() DialogStyles {
 			Align(lipgloss.Center),
 		Form: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(colors.Mauve)).
+			BorderForeground(lipgloss.Color(colors.Green)).
 			Padding(2, 3),
 		Error: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).

@@ -125,12 +125,18 @@ func (h *Handler) HandleKeyMsg(msg tea.KeyMsg, model ModelInterface) ActionResul
 // handleNormalModeKeys handles keys when in normal mode
 func (h *Handler) handleNormalModeKeys(msg tea.KeyMsg, model ModelInterface) ActionResult {
 	switch msg.String() {
-	case "l":
+	case "l", "right":
 		model.NextList()
 		return ActionResult{Handled: true}
-	case "h":
+	case "h", "left":
 		model.PrevList()
 		return ActionResult{Handled: true}
+	case "j", "down":
+		// Let Bubble Tea list handle vertical navigation
+		return ActionResult{Handled: false}
+	case "k", "up":
+		// Let Bubble Tea list handle vertical navigation
+		return ActionResult{Handled: false}
 	case "n":
 		model.ShowTaskForm()
 		h.mode = TaskFormMode
@@ -154,7 +160,7 @@ func (h *Handler) handleNormalModeKeys(msg tea.KeyMsg, model ModelInterface) Act
 			return ActionResult{Handled: true, Mode: TaskDeleteConfirmMode}
 		}
 		return ActionResult{Handled: true}
-	case "enter":
+	case " ":
 		// Let main Update function handle task progression
 		return ActionResult{Handled: false}
 	case "backspace":
@@ -232,7 +238,7 @@ func (h *Handler) handleProjectSwitchKeys(msg tea.KeyMsg, model ModelInterface) 
 	case "d":
 		h.mode = ProjectDeleteConfirmMode
 		return ActionResult{Handled: true, Mode: ProjectDeleteConfirmMode}
-	case "j":
+	case "j", "down":
 		projects := model.GetProjects()
 		if len(projects) > 0 {
 			currentIndex := model.GetSelectedProjectIndex()
@@ -242,7 +248,7 @@ func (h *Handler) handleProjectSwitchKeys(msg tea.KeyMsg, model ModelInterface) 
 			}
 		}
 		return ActionResult{Handled: true}
-	case "k":
+	case "k", "up":
 		projects := model.GetProjects()
 		if len(projects) > 0 {
 			currentIndex := model.GetSelectedProjectIndex()

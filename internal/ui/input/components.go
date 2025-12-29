@@ -69,7 +69,7 @@ func (ic *InputComponents) createNameInput(placeholder string) textinput.Model {
 	input.Placeholder = placeholder
 	input.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Subtext0))
 	input.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Text))
-	input.Cursor.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Mauve))
+	input.Cursor.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Text))
 	input.CharLimit = 50
 	input.Width = 40
 	return input
@@ -80,7 +80,7 @@ func (ic *InputComponents) createDescInput(placeholder string) textinput.Model {
 	input.Placeholder = placeholder
 	input.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Subtext0))
 	input.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Text))
-	input.Cursor.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Mauve))
+	input.Cursor.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Text))
 	input.CharLimit = 200 // Larger for project descriptions
 	input.Width = 40
 	return input
@@ -172,11 +172,11 @@ func (ic *InputComponents) renderFieldWithError(field int, errorMsg string, erro
 	}
 
 	// Determine field styling
-	borderColor := colors.Overlay1
+	borderColor := colors.Text
 	if errorMsg != "" && errorField == fieldName {
 		borderColor = colors.Red
 	} else if isFocused {
-		borderColor = colors.Mauve
+		borderColor = colors.Green
 	}
 
 	// Render field with optional inline error
@@ -249,7 +249,7 @@ func (ic *InputComponents) getInstructions() string {
 func (ic *InputComponents) wrapInBorder(formContent string, width, height int) string {
 	form := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(colors.Mauve)).
+		BorderForeground(lipgloss.Color(colors.Green)).
 		Padding(2, 3).
 		Render(formContent)
 

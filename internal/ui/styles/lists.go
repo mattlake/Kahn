@@ -49,11 +49,53 @@ func GetListTitleStyle(status domain.Status) lipgloss.Style {
 
 // ApplyListTitleStyles applies proper title styles to task lists
 func ApplyListTitleStyles(taskLists []list.Model) {
+	ApplyTitleStyles(taskLists, domain.NotStarted)
+}
+
+// ApplyFocusedTitleStyles applies focused title styles to task lists
+func ApplyFocusedTitleStyles(taskLists []list.Model, activeListIndex domain.Status) {
 	if len(taskLists) < 3 {
 		return
 	}
-	styles := GetListTitleStyles()
-	taskLists[domain.NotStarted].Styles.Title = styles.NotStarted
-	taskLists[domain.InProgress].Styles.Title = styles.InProgress
-	taskLists[domain.Done].Styles.Title = styles.Done
+
+	for i := range taskLists {
+		status := domain.Status(i)
+		if status == activeListIndex {
+			// Focused list gets green title
+			taskLists[i].Styles.Title = lipgloss.NewStyle().
+				Foreground(lipgloss.Color(colors.Green)).
+				Bold(true).
+				Align(lipgloss.Center)
+		} else {
+			// Unfocused lists get white title
+			taskLists[i].Styles.Title = lipgloss.NewStyle().
+				Foreground(lipgloss.Color(colors.Text)).
+				Bold(true).
+				Align(lipgloss.Center)
+		}
+	}
+}
+
+// ApplyTitleStyles applies basic title styles (for backward compatibility)
+func ApplyTitleStyles(taskLists []list.Model, activeListIndex domain.Status) {
+	if len(taskLists) < 3 {
+		return
+	}
+
+	for i := range taskLists {
+		status := domain.Status(i)
+		if status == activeListIndex {
+			// Focused list gets green title
+			taskLists[i].Styles.Title = lipgloss.NewStyle().
+				Foreground(lipgloss.Color(colors.Green)).
+				Bold(true).
+				Align(lipgloss.Center)
+		} else {
+			// Unfocused lists get white title
+			taskLists[i].Styles.Title = lipgloss.NewStyle().
+				Foreground(lipgloss.Color(colors.Text)).
+				Bold(true).
+				Align(lipgloss.Center)
+		}
+	}
 }

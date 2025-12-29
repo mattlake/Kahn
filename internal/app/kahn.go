@@ -14,6 +14,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type KahnModel struct {
@@ -391,19 +392,39 @@ func (km *KahnModel) HideAllForms() {
 }
 
 func (km *KahnModel) NextList() {
+	// Switch old active list to inactive delegate
+	oldActiveIndex := km.activeListIndex
+	km.Tasks[oldActiveIndex].SetDelegate(styles.NewInactiveListDelegate())
+
 	if km.activeListIndex == domain.Done {
 		km.activeListIndex = domain.NotStarted
 	} else {
 		km.activeListIndex++
 	}
+
+	// Switch new active list to active delegate
+	km.Tasks[km.activeListIndex].SetDelegate(styles.NewActiveListDelegate())
+
+	// Update title styles to reflect new focus
+	styles.ApplyFocusedTitleStyles(km.Tasks[:], km.activeListIndex)
 }
 
 func (km *KahnModel) PrevList() {
+	// Switch old active list to inactive delegate
+	oldActiveIndex := km.activeListIndex
+	km.Tasks[oldActiveIndex].SetDelegate(styles.NewInactiveListDelegate())
+
 	if km.activeListIndex == domain.NotStarted {
 		km.activeListIndex = domain.Done
 	} else {
 		km.activeListIndex--
 	}
+
+	// Switch new active list to active delegate
+	km.Tasks[km.activeListIndex].SetDelegate(styles.NewActiveListDelegate())
+
+	// Update title styles to reflect new focus
+	styles.ApplyFocusedTitleStyles(km.Tasks[:], km.activeListIndex)
 }
 
 func (km *KahnModel) updateTaskLists() {
@@ -538,7 +559,7 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				km.showProjectSwitch = false
 				km.ShowProjectForm()
 				return km, nil
-			case "j":
+			case "j", "down":
 				for i, proj := range km.Projects {
 					if proj.ID == km.ActiveProjectID {
 						nextIndex := (i + 1) % len(km.Projects)
@@ -547,7 +568,7 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return km, nil
 					}
 				}
-			case "k":
+			case "k", "up":
 				for i, proj := range km.Projects {
 					if proj.ID == km.ActiveProjectID {
 						prevIndex := (i - 1 + len(km.Projects)) % len(km.Projects)
@@ -621,7 +642,7 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 				return km, nil
-			case "enter":
+			case " ":
 				if selectedItem := km.Tasks[km.activeListIndex].SelectedItem(); selectedItem != nil {
 					if task, ok := selectedItem.(domain.Task); ok {
 						km.MoveTaskToNextStatus(task.ID)
@@ -641,11 +662,24 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		km.width = msg.Width
 		km.height = msg.Height
 
-		h, v := styles.DefaultStyle.GetFrameSize()
-		columnWidth := max(20, (msg.Width-(h*3))/3)
-		km.Tasks[domain.NotStarted].SetSize(columnWidth, msg.Height-v)
-		km.Tasks[domain.InProgress].SetSize(columnWidth, msg.Height-v)
-		km.Tasks[domain.Done].SetSize(columnWidth, msg.Height-v)
+		frameWidth, frameHeight := styles.DefaultStyle.GetFrameSize()
+		availableWidth := msg.Width - frameWidth/2
+		availableHeight := msg.Height - frameHeight
+		columnWidth := max(20, (availableWidth-3)/3)
+
+		// Calculate project header height dynamically
+		activeProj := km.GetActiveProject()
+		projectHeaderHeight := 0
+		if activeProj != nil {
+			projectHeader := km.board.GetRenderer().RenderProjectHeader(activeProj, availableWidth-3)
+			projectHeaderHeight = lipgloss.Height(projectHeader)
+		}
+
+		// Set list heights accounting for both frame and project header
+		listHeight := availableHeight - projectHeaderHeight
+		km.Tasks[domain.NotStarted].SetSize(columnWidth, listHeight)
+		km.Tasks[domain.InProgress].SetSize(columnWidth, listHeight)
+		km.Tasks[domain.Done].SetSize(columnWidth, listHeight)
 	}
 
 	var cmd tea.Cmd
@@ -696,9 +730,18 @@ func convertTasksToListItems(tasks []domain.Task) []list.Item {
 }
 
 func NewKahnModel(database *database.Database) *KahnModel {
-	defaultList := list.New([]list.Item{}, list.NewDefaultDelegate(), 100, 0)
-	defaultList.SetShowHelp(false)
-	taskLists := []list.Model{defaultList, defaultList, defaultList}
+	// Create delegates for different list states
+	activeDelegate := styles.NewActiveListDelegate()
+	inactiveDelegate := styles.NewInactiveListDelegate()
+
+	// Create lists with appropriate delegates - first list is active by default
+	activeList := list.New([]list.Item{}, activeDelegate, 100, 0)
+	activeList.SetShowHelp(false)
+
+	inactiveList := list.New([]list.Item{}, inactiveDelegate, 100, 0)
+	inactiveList.SetShowHelp(false)
+
+	taskLists := []list.Model{activeList, inactiveList, inactiveList}
 
 	taskInputComponents := &input.InputComponents{}
 	projectInputComponents := &input.InputComponents{}
@@ -755,8 +798,8 @@ func NewKahnModel(database *database.Database) *KahnModel {
 		taskLists[domain.Done].SetItems(convertTasksToListItems(projects[0].GetTasksByStatus(domain.Done)))
 	}
 
-	// Apply proper title styles to all lists
-	styles.ApplyListTitleStyles(taskLists)
+	// Apply title styles to all lists based on active list index
+	styles.ApplyFocusedTitleStyles(taskLists, domain.NotStarted) // Default to NotStarted as initial active list
 
 	return &KahnModel{
 		Projects:               projects,

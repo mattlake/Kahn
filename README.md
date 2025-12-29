@@ -36,7 +36,7 @@ go build -o kahn .
 ### Navigation
 - `h/l` - Navigate between kanban columns
 - `j/k` - Navigate tasks within a column
-- `enter` - Move selected task to next status
+- `space` - Move selected task to next status
 - `backspace` - Move selected task to previous status
 
 ### Task Management
