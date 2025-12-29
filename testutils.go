@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"kahn/internal/app"
 	"kahn/internal/config"
 	"kahn/internal/database"
 	"kahn/internal/domain"
@@ -135,12 +136,12 @@ func countTableRows(t *testing.T, db *sql.DB, tableName string) int {
 }
 
 // createTestModelWithTasks creates a model with predefined tasks for testing
-func createTestModelWithTasks(t *testing.T, taskNames []string, statuses []domain.Status) *Model {
+func createTestModelWithTasks(t *testing.T, taskNames []string, statuses []domain.Status) *app.KahnModel {
 	config := createTestConfig()
 	database, err := database.NewDatabase(config)
 	require.NoError(t, err, "Failed to create test database")
 
-	model := NewModel(database)
+	model := app.NewKahnModel(database)
 	require.NotNil(t, model, "NewModel should not return nil")
 
 	// Create tasks for testing
@@ -149,29 +150,35 @@ func createTestModelWithTasks(t *testing.T, taskNames []string, statuses []domai
 		require.NotNil(t, activeProj, "Should have active project")
 
 		for i, taskName := range taskNames {
-			// Save to database first to get the correct task
-			createdTask, err := model.taskService.CreateTask(taskName, "Test description", activeProj.ID)
+			// Use CreateTask method which handles all the logic
+			err := model.CreateTask(taskName, "Test description")
 			require.NoError(t, err, "Failed to create test task")
 
-			// Set the status for the created task
+			// Get the created task and set its status
+			createdTask := activeProj.Tasks[len(activeProj.Tasks)-1]
 			createdTask.Status = statuses[i]
 
-			// Update status in database
-			_, err = model.taskService.UpdateTaskStatus(createdTask.ID, statuses[i])
-			require.NoError(t, err, "Failed to update task status in database")
-
-			// Add to project in memory using the database task
-			activeProj.AddTask(*createdTask)
+			// Update status directly
+			err = model.MoveTaskToNextStatus(createdTask.ID)
+			if createdTask.Status != domain.NotStarted {
+				// If we moved it forward, we might need to adjust
+				for createdTask.Status != statuses[i] {
+					if createdTask.Status > statuses[i] {
+						err = model.MoveTaskToPreviousStatus(createdTask.ID)
+					} else {
+						err = model.MoveTaskToNextStatus(createdTask.ID)
+					}
+				}
+			}
+			require.NoError(t, err, "Failed to set task status")
 		}
-
-		model.updateTaskLists()
 	}
 
 	return model
 }
 
 // simulateKeyPress simulates a key press on the model
-func simulateKeyPress(t *testing.T, model *Model, key string) *Model {
+func simulateKeyPress(t *testing.T, model *app.KahnModel, key string) *app.KahnModel {
 	var keyMsg tea.KeyMsg
 
 	// Handle special keys
@@ -194,29 +201,29 @@ func simulateKeyPress(t *testing.T, model *Model, key string) *Model {
 	newModel, cmd := model.Update(keyMsg)
 	require.Nil(t, cmd, "Command should be nil for simple key press")
 
-	// Type assertion to convert tea.Model back to Model (not *Model)
-	resultModel, ok := newModel.(Model)
-	require.True(t, ok, "Model should be of type Model")
+	// Type assertion to convert tea.Model back to *app.KahnModel
+	resultModel, ok := newModel.(*app.KahnModel)
+	require.True(t, ok, "Model should be of type *app.KahnModel")
 
-	// Return pointer to the new model
-	return &resultModel
+	// Return the new model
+	return resultModel
 }
 
 // assertTaskDeletionState asserts the model is in correct deletion state
-func assertTaskDeletionState(t *testing.T, model *Model, inConfirmation bool, taskID string) {
-	assert.Equal(t, inConfirmation, model.showTaskDeleteConfirm, "Task deletion confirmation state should match")
+func assertTaskDeletionState(t *testing.T, model *app.KahnModel, inConfirmation bool, taskID string) {
+	assert.Equal(t, inConfirmation, model.IsShowingTaskDeleteConfirm(), "Task deletion confirmation state should match")
 	if inConfirmation {
-		assert.Equal(t, taskID, model.taskToDelete, "Task to delete should match")
+		assert.Equal(t, taskID, model.GetTaskToDelete(), "Task to delete should match")
 	} else {
-		assert.Equal(t, "", model.taskToDelete, "Task to delete should be empty when not in confirmation")
+		assert.Equal(t, "", model.GetTaskToDelete(), "Task to delete should be empty when not in confirmation")
 	}
 }
 
 // assertTaskNotInLists asserts a task is not present in any task list
-func assertTaskNotInLists(t *testing.T, model *Model, taskID string) {
+func assertTaskNotInLists(t *testing.T, model *app.KahnModel, taskID string) {
 	// Check all three status lists
 	for status := domain.NotStarted; status <= domain.Done; status++ {
-		items := model.Tasks[status].Items()
+		items := model.GetTaskItems(status)
 		for _, item := range items {
 			if task, ok := item.(domain.Task); ok {
 				assert.NotEqual(t, taskID, task.ID, "Task should not be found in %s list", status.ToString())
@@ -226,8 +233,8 @@ func assertTaskNotInLists(t *testing.T, model *Model, taskID string) {
 }
 
 // assertTaskInList asserts a task is present in a specific status list
-func assertTaskInList(t *testing.T, model *Model, taskID string, status domain.Status) {
-	items := model.Tasks[status].Items()
+func assertTaskInList(t *testing.T, model *app.KahnModel, taskID string, status domain.Status) {
+	items := model.GetTaskItems(status)
 	found := false
 	for _, item := range items {
 		if task, ok := item.(domain.Task); ok {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"kahn/internal/app"
 	"kahn/internal/config"
 	"kahn/internal/database"
 	"log"
@@ -23,7 +24,7 @@ func main() {
 	defer database.Close()
 
 	// Create model with database
-	m := NewModel(database)
+	m := app.NewKahnModel(database)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
