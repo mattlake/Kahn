@@ -27,9 +27,9 @@ type KahnModel struct {
 	projectToDelete          string
 	showTaskDeleteConfirm    bool
 	taskToDelete             string
-	// Exported fields for testing
+
 	TaskService *services.TaskService
-	// New InputComponents system
+
 	taskInputComponents    *input.InputComponents
 	projectInputComponents *input.InputComponents
 	activeFormType         input.FormType
@@ -58,7 +58,6 @@ func (km KahnModel) View() string {
 		return km.projectSwitcher.RenderSwitcher(km.Projects, km.ActiveProjectID, km.showProjectDeleteConfirm, km.projectToDelete, km.width, km.height)
 	}
 	if km.showTaskDeleteConfirm {
-		// Find the task to delete
 		var taskToDelete *domain.Task
 		activeProj := km.GetActiveProject()
 		if activeProj != nil {
@@ -71,7 +70,6 @@ func (km KahnModel) View() string {
 		}
 
 		if taskToDelete == nil {
-			// Fallback to selected task if somehow taskToDelete is not set
 			if selectedItem := km.Tasks[km.activeListIndex].SelectedItem(); selectedItem != nil {
 				if task, ok := selectedItem.(domain.Task); ok {
 					taskToDelete = &task
@@ -82,12 +80,10 @@ func (km KahnModel) View() string {
 		return km.board.GetRenderer().RenderTaskDeleteConfirm(taskToDelete, km.width, km.height)
 	}
 
-	// Handle case when there are no projects
 	if len(km.Projects) == 0 {
 		return km.board.GetRenderer().RenderNoProjectsBoard(km.width, km.height)
 	}
 
-	// Render main board
 	activeProj := km.GetActiveProject()
 	if activeProj != nil {
 		var taskLists [3]list.Model
@@ -110,8 +106,6 @@ func (km *KahnModel) GetActiveProject() *domain.Project {
 	return nil
 }
 
-// ModelInterface implementation for input handler
-
 func (km *KahnModel) GetActiveProjectID() string {
 	return km.ActiveProjectID
 }
@@ -119,16 +113,14 @@ func (km *KahnModel) GetActiveProjectID() string {
 func (km *KahnModel) CreateTask(name, description string) error {
 	activeProj := km.GetActiveProject()
 	if activeProj == nil {
-		return nil // No active project
+		return nil
 	}
 
-	// Use service layer for business logic
 	newTask, err := km.taskService.CreateTask(name, description, km.ActiveProjectID)
 	if err != nil {
 		return err
 	}
 
-	// Add to active project in memory
 	activeProj.AddTask(*newTask)
 	km.updateTaskLists()
 
@@ -136,13 +128,11 @@ func (km *KahnModel) CreateTask(name, description string) error {
 }
 
 func (km *KahnModel) UpdateTask(id, name, description string) error {
-	// Use service layer for business logic
 	task, err := km.taskService.UpdateTask(id, name, description)
 	if err != nil {
 		return err
 	}
 
-	// Update task in memory
 	activeProj := km.GetActiveProject()
 	if activeProj != nil {
 		for i, t := range activeProj.Tasks {
@@ -160,12 +150,10 @@ func (km *KahnModel) UpdateTask(id, name, description string) error {
 }
 
 func (km *KahnModel) DeleteTask(id string) error {
-	// Use service layer for business logic
 	if err := km.taskService.DeleteTask(id); err != nil {
 		return err
 	}
 
-	// Remove from active project in memory
 	activeProj := km.GetActiveProject()
 	if activeProj != nil {
 		activeProj.RemoveTask(id)
@@ -181,7 +169,6 @@ func (km *KahnModel) MoveTaskToNextStatus(id string) error {
 		return nil
 	}
 
-	// Use service layer for business logic
 	task, err := km.taskService.MoveTaskToNextStatus(id)
 	if err != nil {
 		return err
@@ -198,7 +185,6 @@ func (km *KahnModel) MoveTaskToPreviousStatus(id string) error {
 		return nil
 	}
 
-	// Use service layer for business logic
 	task, err := km.taskService.MoveTaskToPreviousStatus(id)
 	if err != nil {
 		return err
@@ -232,7 +218,6 @@ func (km *KahnModel) GetProjects() []input.ProjectInterface {
 }
 
 func (km *KahnModel) CreateProject(name, description string) error {
-	// Use service layer for business logic
 	newProject, err := km.projectService.CreateProject(name, description)
 	if err != nil {
 		return err
@@ -246,7 +231,6 @@ func (km *KahnModel) CreateProject(name, description string) error {
 }
 
 func (km *KahnModel) DeleteProject(id string) error {
-	// Use service layer for business logic
 	if err := km.projectService.DeleteProject(id); err != nil {
 		return err
 	}
@@ -325,14 +309,12 @@ func (km *KahnModel) GetActiveFormType() input.FormType {
 func (km *KahnModel) SubmitCurrentForm() error {
 	comps := km.GetActiveInputComponents()
 
-	// Validate at submit time
 	isValid, errorField, errorMsg := comps.ValidateForSubmit()
 	if !isValid {
 		km.setFormError(errorMsg, errorField)
 		return fmt.Errorf("validation failed: %s", errorMsg)
 	}
 
-	// Clear error and proceed with submission
 	km.ClearFormError()
 	name := strings.TrimSpace(comps.NameInput.Value())
 	desc := comps.DescInput.Value()
@@ -341,7 +323,6 @@ func (km *KahnModel) SubmitCurrentForm() error {
 	case input.TaskCreateForm:
 		newTask, err := km.taskService.CreateTask(name, desc, km.ActiveProjectID)
 		if err == nil {
-			// Add to active project in memory
 			activeProj := km.GetActiveProject()
 			if activeProj != nil {
 				activeProj.AddTask(*newTask)
@@ -355,7 +336,6 @@ func (km *KahnModel) SubmitCurrentForm() error {
 	case input.ProjectCreateForm:
 		newProject, err := km.projectService.CreateProject(name, desc)
 		if err == nil {
-			// Add to projects list and switch to it
 			km.Projects = append(km.Projects, *newProject)
 			km.ActiveProjectID = newProject.ID
 			km.updateTaskLists()
@@ -368,7 +348,7 @@ func (km *KahnModel) SubmitCurrentForm() error {
 func (km *KahnModel) CancelCurrentForm() {
 	km.showForm = false
 	km.ClearFormError()
-	// Reset forms
+
 	km.taskInputComponents.Reset()
 	km.projectInputComponents.Reset()
 }
@@ -443,22 +423,18 @@ func (km *KahnModel) executeTaskDeletion() tea.Model {
 		return km
 	}
 
-	// Use service layer for business logic
 	if err := km.taskService.DeleteTask(km.taskToDelete); err != nil {
-		// If deletion fails, cancel operation
 		km.showTaskDeleteConfirm = false
 		km.taskToDelete = ""
 		return km
 	}
 
-	// Remove task from active project in memory
 	activeProj := km.GetActiveProject()
 	if activeProj != nil {
 		activeProj.RemoveTask(km.taskToDelete)
 		km.updateTaskLists()
 	}
 
-	// Reset confirmation state
 	km.showTaskDeleteConfirm = false
 	km.taskToDelete = ""
 
@@ -471,24 +447,20 @@ func (km *KahnModel) executeProjectDeletion() tea.Model {
 		return km
 	}
 
-	// Use service layer for business logic
 	if err := km.projectService.DeleteProject(km.projectToDelete); err != nil {
-		// If deletion fails, cancel operation
 		km.showProjectDeleteConfirm = false
 		km.projectToDelete = ""
 		return km
 	}
 
-	// Handle edge case: deleting last project
 	if len(km.Projects) == 1 {
 		km.Projects = []domain.Project{}
 		km.ActiveProjectID = ""
-		// Clear task lists
+
 		km.Tasks[domain.NotStarted].SetItems([]list.Item{})
 		km.Tasks[domain.InProgress].SetItems([]list.Item{})
 		km.Tasks[domain.Done].SetItems([]list.Item{})
 	} else {
-		// Find and remove project from slice
 		var newProjects []domain.Project
 		var wasActiveProject bool
 		for _, proj := range km.Projects {
@@ -500,15 +472,12 @@ func (km *KahnModel) executeProjectDeletion() tea.Model {
 		}
 		km.Projects = newProjects
 
-		// If we deleted active project, switch to next one
 		if wasActiveProject && len(km.Projects) > 0 {
-			// Switch to first remaining project
 			km.ActiveProjectID = km.Projects[0].ID
 			km.updateTaskLists()
 		}
 	}
 
-	// Reset confirmation state
 	km.showProjectDeleteConfirm = false
 	km.projectToDelete = ""
 
@@ -518,15 +487,12 @@ func (km *KahnModel) executeProjectDeletion() tea.Model {
 func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// Handle form modes first
 		if km.showForm {
-			// Use InputHandler for all form key handling
 			action := km.inputHandler.HandleKeyMsg(msg, km)
 			if action.Handled {
 				return km, action.Cmd
 			}
 
-			// Handle textinput updates for unhandled keys
 			comps := km.GetActiveInputComponents()
 			if comps.FocusedField == 0 {
 				updatedName, cmd := comps.NameInput.Update(msg)
@@ -539,7 +505,6 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		if km.showProjectSwitch || km.showProjectDeleteConfirm {
-			// Ensure input handler mode is synchronized with UI state
 			if km.showProjectSwitch && km.inputHandler.GetMode() != input.ProjectSwitchMode {
 				km.inputHandler.SetMode(input.ProjectSwitchMode)
 			}
@@ -547,7 +512,6 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				km.inputHandler.SetMode(input.ProjectDeleteConfirmMode)
 			}
 
-			// Handle confirmation dialog if active
 			if km.showProjectDeleteConfirm {
 				switch msg.String() {
 				case "y", "Y":
@@ -560,13 +524,11 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return km, nil
 			}
 
-			// Project switcher mode key handling
 			switch msg.String() {
 			case "esc":
 				km.showProjectSwitch = false
 				return km, nil
 			case "d":
-				// Trigger project deletion confirmation
 				if len(km.Projects) > 0 {
 					km.showProjectDeleteConfirm = true
 					km.projectToDelete = km.ActiveProjectID
@@ -577,7 +539,6 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				km.ShowProjectForm()
 				return km, nil
 			case "j":
-				// Move down in project list
 				for i, proj := range km.Projects {
 					if proj.ID == km.ActiveProjectID {
 						nextIndex := (i + 1) % len(km.Projects)
@@ -587,7 +548,6 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			case "k":
-				// Move up in project list
 				for i, proj := range km.Projects {
 					if proj.ID == km.ActiveProjectID {
 						prevIndex := (i - 1 + len(km.Projects)) % len(km.Projects)
@@ -597,11 +557,9 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			case "enter":
-				// Select current project and close switcher
 				km.showProjectSwitch = false
 				return km, nil
 			default:
-				// Handle number keys for project selection
 				if len(msg.String()) == 1 && msg.String()[0] >= '1' && msg.String()[0] <= '9' {
 					index := int(msg.String()[0] - '1')
 					if index < len(km.Projects) {
@@ -614,12 +572,10 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		} else if km.showTaskDeleteConfirm {
-			// Ensure input handler mode is synchronized with UI state
 			if km.inputHandler.GetMode() != input.TaskDeleteConfirmMode {
 				km.inputHandler.SetMode(input.TaskDeleteConfirmMode)
 			}
 
-			// Handle task deletion confirmation dialog
 			switch msg.String() {
 			case "y", "Y":
 				return km.executeTaskDeletion(), nil
@@ -630,21 +586,16 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return km, nil
 		} else {
-			// Normal mode - handle navigation keys
-
-			// Ensure input handler mode is synchronized with UI state
 			if km.inputHandler.GetMode() != input.NormalMode {
 				km.inputHandler.SetMode(input.NormalMode)
 			}
 
 			result := km.inputHandler.HandleKeyMsg(msg, km)
 
-			// Handle special keys through input handler
 			if result.Handled && result.Cmd != nil {
 				return km, result.Cmd
 			}
 
-			// Handle task progression directly
 			switch msg.String() {
 			case "q":
 				return km, tea.Quit
@@ -655,16 +606,14 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				km.showProjectSwitch = true
 				return km, nil
 			case "e":
-				// Handle task editing - show edit form
 				if selectedItem := km.Tasks[km.activeListIndex].SelectedItem(); selectedItem != nil {
 					if task, ok := selectedItem.(domain.Task); ok {
 						km.ShowTaskEditForm(task.ID, task.Name, task.Desc)
-						km.showForm = true // Show unified form
+						km.showForm = true
 					}
 				}
 				return km, nil
 			case "d":
-				// Handle task deletion - show confirmation dialog
 				if selectedItem := km.Tasks[km.activeListIndex].SelectedItem(); selectedItem != nil {
 					if task, ok := selectedItem.(domain.Task); ok {
 						km.showTaskDeleteConfirm = true
@@ -673,7 +622,6 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return km, nil
 			case "enter":
-				// Handle task selection - move to next status
 				if selectedItem := km.Tasks[km.activeListIndex].SelectedItem(); selectedItem != nil {
 					if task, ok := selectedItem.(domain.Task); ok {
 						km.MoveTaskToNextStatus(task.ID)
@@ -681,7 +629,6 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return km, nil
 			case "backspace":
-				// Handle task selection - move to previous status
 				if selectedItem := km.Tasks[km.activeListIndex].SelectedItem(); selectedItem != nil {
 					if task, ok := selectedItem.(domain.Task); ok {
 						km.MoveTaskToPreviousStatus(task.ID)
@@ -691,19 +638,16 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case tea.WindowSizeMsg:
-		// Store terminal dimensions
 		km.width = msg.Width
 		km.height = msg.Height
 
 		h, v := styles.DefaultStyle.GetFrameSize()
-		// Calculate equal column width (1/3 of terminal width)
 		columnWidth := max(20, (msg.Width-(h*3))/3)
 		km.Tasks[domain.NotStarted].SetSize(columnWidth, msg.Height-v)
 		km.Tasks[domain.InProgress].SetSize(columnWidth, msg.Height-v)
 		km.Tasks[domain.Done].SetSize(columnWidth, msg.Height-v)
 	}
 
-	// Always update active list if not in a form mode
 	var cmd tea.Cmd
 	if !km.showForm && !km.showProjectSwitch && !km.showTaskDeleteConfirm {
 		km.Tasks[km.activeListIndex], cmd = km.Tasks[km.activeListIndex].Update(msg)
@@ -711,7 +655,6 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return km, cmd
 }
 
-// Testing helpers - these methods provide access to private fields for testing
 func (km *KahnModel) GetTaskToDelete() string {
 	return km.taskToDelete
 }
@@ -732,7 +675,6 @@ func (km *KahnModel) GetTaskItems(status domain.Status) []list.Item {
 	return km.Tasks[status].Items()
 }
 
-// Additional testing helpers
 func (km *KahnModel) GetActiveListIndex() domain.Status {
 	return km.activeListIndex
 }
@@ -751,7 +693,6 @@ func (km *KahnModel) ExecuteTaskDeletion() *KahnModel {
 	return model
 }
 
-// Helper function moved from board.go
 func convertTasksToListItems(tasks []domain.Task) []list.Item {
 	items := make([]list.Item, len(tasks))
 	for i, task := range tasks {
@@ -760,7 +701,6 @@ func convertTasksToListItems(tasks []domain.Task) []list.Item {
 	return items
 }
 
-// NewKahnModel creates a new KahnModel with initialized components
 func NewKahnModel(database *database.Database) *KahnModel {
 	defaultList := list.New([]list.Item{}, list.NewDefaultDelegate(), 100, 0)
 	defaultList.SetShowHelp(false)

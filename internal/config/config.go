@@ -79,21 +79,17 @@ func LoadConfig() (*Config, error) {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
 			return nil, fmt.Errorf("failed to read config file: %w", err)
 		}
-		// Config file not found is not an error - we'll use defaults
 	}
 
-	// Unmarshal config into struct
 	if err := viper.Unmarshal(config); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
-	// Expand ~ in database path
 	config.Database.Path = expandPath(config.Database.Path)
 
 	return config, nil
 }
 
-// expandPath expands ~ to the user's home directory
 func expandPath(path string) string {
 	if strings.HasPrefix(path, "~/") {
 		home, err := os.UserHomeDir()
@@ -106,7 +102,6 @@ func expandPath(path string) string {
 	return path
 }
 
-// EnsureConfigDir ensures the configuration directory exists
 func EnsureConfigDir(configPath string) error {
 	configDir := filepath.Dir(configPath)
 	if configDir == "." {
@@ -121,7 +116,6 @@ func EnsureConfigDir(configPath string) error {
 	return nil
 }
 
-// WriteDefaultConfig writes a default configuration file to the specified path
 func WriteDefaultConfig(configPath string) error {
 	defaultConfig := `# Kahn Configuration File
 # This file controls the behavior of Kahn task manager
@@ -145,18 +139,15 @@ cache_size = 10000
 foreign_keys = true
 `
 
-	// Check if file already exists
 	if _, err := os.Stat(configPath); err == nil {
 		return fmt.Errorf("config file already exists: %s", configPath)
 	}
 
-	// Ensure directory exists
 	configDir := filepath.Dir(configPath)
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	// Write config file
 	if err := os.WriteFile(configPath, []byte(defaultConfig), 0644); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}

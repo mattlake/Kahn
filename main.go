@@ -10,20 +10,17 @@ import (
 )
 
 func main() {
-	// Load configuration
 	config, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// Initialize database
 	database, err := database.NewDatabase(config)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer database.Close()
 
-	// Create model with database
 	m := app.NewKahnModel(database)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
