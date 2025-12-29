@@ -38,6 +38,7 @@ type Model struct {
 	taskService            *services.TaskService
 	projectService         *services.ProjectService
 	board                  *components.Board
+	projectSwitcher        *components.ProjectSwitcher
 }
 
 func (m Model) Init() tea.Cmd {

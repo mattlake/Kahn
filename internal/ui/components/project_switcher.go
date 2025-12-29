@@ -1,4 +1,4 @@
-package main
+package components
 
 import (
 	"fmt"
@@ -8,23 +8,54 @@ import (
 	"kahn/internal/ui/styles"
 )
 
-func (m Model) renderProjectSwitcher() string {
+// ProjectSwitcher handles project selection and switching UI
+type ProjectSwitcher struct {
+	renderer ProjectSwitcherRenderer
+}
+
+// NewProjectSwitcher creates a new project switcher component
+func NewProjectSwitcher() *ProjectSwitcher {
+	return &ProjectSwitcher{
+		renderer: &ProjectSwitcherComponent{},
+	}
+}
+
+// ProjectSwitcherRenderer defines the interface for project switcher UI rendering
+type ProjectSwitcherRenderer interface {
+	RenderProjectSwitcher(projects []domain.Project, activeProjectID string, showDeleteConfirm bool, projectToDelete string, width, height int) string
+	RenderNoProjectsMessage(width, height int) string
+	RenderProjectDeleteConfirm(project *domain.Project, width, height int) string
+}
+
+// ProjectSwitcherComponent implements ProjectSwitcherRenderer interface
+type ProjectSwitcherComponent struct{}
+
+// RenderProjectSwitcher renders the project selection dialog
+func (psc *ProjectSwitcherComponent) RenderProjectSwitcher(projects []domain.Project, activeProjectID string, showDeleteConfirm bool, projectToDelete string, width, height int) string {
 	// Show confirmation dialog if active
-	if m.showProjectDeleteConfirm {
-		return m.renderProjectDeleteConfirm()
+	if showDeleteConfirm {
+		// Find the project to delete
+		var projectToDeletePtr *domain.Project
+		for _, proj := range projects {
+			if proj.ID == projectToDelete {
+				projectToDeletePtr = &proj
+				break
+			}
+		}
+		return psc.RenderProjectDeleteConfirm(projectToDeletePtr, width, height)
 	}
 
-	if len(m.Projects) == 0 {
-		return m.renderNoProjectsMessage()
+	if len(projects) == 0 {
+		return psc.RenderNoProjectsMessage(width, height)
 	}
 
 	dialogStyles := styles.GetDialogStyles()
 	title := dialogStyles.Title.Width(50).Render("Select Project")
 
 	var projectItems []string
-	for i, proj := range m.Projects {
+	for i, proj := range projects {
 		prefix := " "
-		if proj.ID == m.ActiveProjectID {
+		if proj.ID == activeProjectID {
 			prefix = "►"
 		}
 
@@ -36,7 +67,7 @@ func (m Model) renderProjectSwitcher() string {
 		itemStyles := styles.GetProjectItemStyle(color)
 
 		var itemStyle lipgloss.Style
-		if proj.ID == m.ActiveProjectID {
+		if proj.ID == activeProjectID {
 			itemStyle = itemStyles.Active
 		} else {
 			itemStyle = itemStyles.Normal
@@ -77,13 +108,14 @@ func (m Model) renderProjectSwitcher() string {
 		Render(content)
 
 	return lipgloss.Place(
-		m.width, m.height,
+		width, height,
 		lipgloss.Center, lipgloss.Center,
 		form,
 	)
 }
 
-func (m Model) renderNoProjectsMessage() string {
+// RenderNoProjectsMessage renders the empty state when no projects exist
+func (psc *ProjectSwitcherComponent) RenderNoProjectsMessage(width, height int) string {
 	dialogStyles := styles.GetDialogStyles()
 
 	title := dialogStyles.Title.Width(50).Render("No Projects")
@@ -106,28 +138,16 @@ func (m Model) renderNoProjectsMessage() string {
 		Render(content)
 
 	return lipgloss.Place(
-		m.width, m.height,
+		width, height,
 		lipgloss.Center, lipgloss.Center,
 		form,
 	)
 }
 
-func (m Model) renderProjectDeleteConfirm() string {
-	// Find the project to delete
-	var projectToDelete *domain.Project
-	for _, proj := range m.Projects {
-		if proj.ID == m.projectToDelete {
-			projectToDelete = &proj
-			break
-		}
-	}
-
-	if projectToDelete == nil {
-		// Fallback to active project if somehow projectToDelete is not set
-		projectToDelete = m.GetActiveProject()
-		if projectToDelete == nil {
-			return m.renderProjectSwitcher() // Fallback to normal switcher
-		}
+// RenderProjectDeleteConfirm renders the project deletion confirmation dialog
+func (psc *ProjectSwitcherComponent) RenderProjectDeleteConfirm(project *domain.Project, width, height int) string {
+	if project == nil {
+		return ""
 	}
 
 	deleteStyles := styles.GetDeleteConfirmStyles()
@@ -136,9 +156,9 @@ func (m Model) renderProjectDeleteConfirm() string {
 	title := deleteStyles.Title.Width(60).Render("⚠️  Delete Project")
 
 	projectName := dialogStyles.Message.
-		Foreground(lipgloss.Color(projectToDelete.Color)).
+		Foreground(lipgloss.Color(project.Color)).
 		Bold(true).
-		Render(projectToDelete.Name)
+		Render(project.Name)
 
 	warningMessage := deleteStyles.Message.Width(60).Render(fmt.Sprintf("Delete project \"%s\" and ALL its tasks?", projectName))
 	subWarning := deleteStyles.Message.Width(60).Render("This action cannot be undone.")
@@ -162,12 +182,23 @@ func (m Model) renderProjectDeleteConfirm() string {
 		Render(content)
 
 	return lipgloss.Place(
-		m.width, m.height,
+		width, height,
 		lipgloss.Center, lipgloss.Center,
 		form,
 	)
 }
 
+// GetRenderer returns the project switcher renderer interface
+func (ps *ProjectSwitcher) GetRenderer() ProjectSwitcherRenderer {
+	return ps.renderer
+}
+
+// RenderSwitcher is a convenience method that matches the original Model method signature
+func (ps *ProjectSwitcher) RenderSwitcher(projects []domain.Project, activeProjectID string, showDeleteConfirm bool, projectToDelete string, width, height int) string {
+	return ps.renderer.RenderProjectSwitcher(projects, activeProjectID, showDeleteConfirm, projectToDelete, width, height)
+}
+
+// min returns the minimum of two integers
 func min(a, b int) int {
 	if a < b {
 		return a

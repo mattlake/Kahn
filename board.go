@@ -81,6 +81,7 @@ func NewModel(database *database.Database) *Model {
 		taskInputComponents:    taskInputComponents,
 		projectInputComponents: projectInputComponents,
 		board:                  components.NewBoard(),
+		projectSwitcher:        components.NewProjectSwitcher(),
 		width:                  80,
 		height:                 24,
 		database:               database,
@@ -104,7 +105,7 @@ func (m Model) View() string {
 		return comps.Render(m.formError, m.formErrorField, m.width, m.height)
 	}
 	if m.showProjectSwitch {
-		return m.renderProjectSwitcher()
+		return m.projectSwitcher.RenderSwitcher(m.Projects, m.ActiveProjectID, m.showProjectDeleteConfirm, m.projectToDelete, m.width, m.height)
 	}
 	if m.showTaskDeleteConfirm {
 		// Find the task to delete
