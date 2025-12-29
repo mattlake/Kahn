@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"github.com/charmbracelet/lipgloss"
 	"kahn/internal/domain"
+	"kahn/internal/ui/colors"
 	"kahn/internal/ui/styles"
-	"kahn/pkg/colors"
 )
 
 func (m Model) renderProjectSwitcher() string {

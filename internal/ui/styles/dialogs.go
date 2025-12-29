@@ -2,7 +2,7 @@ package styles
 
 import (
 	"github.com/charmbracelet/lipgloss"
-	"kahn/pkg/colors"
+	"kahn/internal/ui/colors"
 )
 
 // DialogStyles provides styles for modal dialogs and forms

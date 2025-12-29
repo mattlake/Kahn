@@ -5,8 +5,8 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
 	"kahn/internal/domain"
+	"kahn/internal/ui/colors"
 	"kahn/internal/ui/styles"
-	"kahn/pkg/colors"
 )
 
 // Board handles main kanban board rendering

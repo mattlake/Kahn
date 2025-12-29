@@ -4,7 +4,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
 	"kahn/internal/domain"
-	"kahn/pkg/colors"
+	"kahn/internal/ui/colors"
 )
 
 // ListTitleStyles provides styles for kanban list titles

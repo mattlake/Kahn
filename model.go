@@ -8,7 +8,7 @@ import (
 	"kahn/internal/domain"
 	"kahn/internal/services"
 	"kahn/internal/ui/components"
-	"kahn/pkg/input"
+	"kahn/internal/ui/input"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"

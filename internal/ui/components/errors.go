@@ -6,7 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"kahn/pkg/colors"
+	"kahn/internal/ui/colors"
 )
 
 type ErrorMessage struct {

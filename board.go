@@ -7,8 +7,8 @@ import (
 	repo "kahn/internal/repository"
 	"kahn/internal/services"
 	"kahn/internal/ui/components"
+	"kahn/internal/ui/input"
 	"kahn/internal/ui/styles"
-	"kahn/pkg/input"
 )
 
 func NewModel(database *database.Database) *Model {

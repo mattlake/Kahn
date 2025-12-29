@@ -3,8 +3,8 @@ package main
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"kahn/internal/domain"
+	"kahn/internal/ui/input"
 	"kahn/internal/ui/styles"
-	"kahn/pkg/input"
 )
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

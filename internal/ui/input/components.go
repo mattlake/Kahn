@@ -6,7 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
-	"kahn/pkg/colors"
+	"kahn/internal/ui/colors"
 )
 
 type FormType int

@@ -3,7 +3,7 @@ package styles
 import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
-	"kahn/pkg/colors"
+	"kahn/internal/ui/colors"
 )
 
 // FormFieldStyles provides styling for form input fields

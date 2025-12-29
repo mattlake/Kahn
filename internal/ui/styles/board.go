@@ -2,7 +2,7 @@ package styles
 
 import (
 	"github.com/charmbracelet/lipgloss"
-	"kahn/pkg/colors"
+	"kahn/internal/ui/colors"
 )
 
 // Lipgloss styles with Catppuccin colors
