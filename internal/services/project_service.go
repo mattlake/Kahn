@@ -121,28 +121,3 @@ func (ps *ProjectService) GetProjectWithTasks(id string) (*domain.Project, error
 	project.Tasks = tasks
 	return project, nil
 }
-
-func (ps *ProjectService) GetProjectsCount() (int, error) {
-	projects, err := ps.projectRepo.GetAll()
-	if err != nil {
-		return 0, &domain.RepositoryError{Operation: "get all", Entity: "projects", Cause: err}
-	}
-
-	return len(projects), nil
-}
-
-func (ps *ProjectService) ValidateProjectExists(id string) error {
-	if id == "" {
-		return &domain.ValidationError{Field: "id", Message: "project ID cannot be empty"}
-	}
-
-	project, err := ps.projectRepo.GetByID(id)
-	if err != nil {
-		return &domain.RepositoryError{Operation: "get", Entity: "project", ID: id, Cause: err}
-	}
-	if project == nil {
-		return &domain.ValidationError{Field: "id", Message: "project not found"}
-	}
-
-	return nil
-}

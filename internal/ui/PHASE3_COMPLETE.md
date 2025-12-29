@@ -18,8 +18,6 @@
 - Replaced all inline lipgloss.NewStyle() calls with centralized style functions
 
 ### 4. ✅ Created Style Helper Functions
-- **ConfigureNameInput()**, **ConfigureDescriptionInput()** - Generic form inputs
-- **ConfigureTaskNameInput()**, **ConfigureProjectNameInput()** - Specific inputs
 - **GetListTitleStyle()** - Status-specific title styling
 - **GetProjectItemStyle()** - Project item styling with active/normal states
 

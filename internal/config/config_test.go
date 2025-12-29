@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,6 +9,63 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// Test helper functions - moved from main config package as they're only used in tests
+
+// EnsureConfigDir creates the config directory if it doesn't exist
+func EnsureConfigDir(configPath string) error {
+	configDir := filepath.Dir(configPath)
+	if configDir == "." {
+		return nil
+	}
+
+	// Create directory if it doesn't exist
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory %s: %w", configDir, err)
+	}
+
+	return nil
+}
+
+// WriteDefaultConfig writes a default configuration file
+func WriteDefaultConfig(configPath string) error {
+	defaultConfig := `# Kahn Configuration File
+# This file controls the behavior of Kahn task manager
+
+[database]
+# Path to the SQLite database file
+# Supports ~ expansion for home directory
+path = "~/.kahn/kahn.db"
+
+# Database connection timeout in milliseconds
+busy_timeout = 5000
+
+# Journal mode for SQLite (WAL recommended for better concurrency)
+# Options: DELETE, TRUNCATE, PERSIST, MEMORY, WAL, OFF
+journal_mode = "WAL"
+
+# SQLite cache size (number of pages)
+cache_size = 10000
+
+# Enable foreign key constraints
+foreign_keys = true
+`
+
+	if _, err := os.Stat(configPath); err == nil {
+		return fmt.Errorf("config file already exists: %s", configPath)
+	}
+
+	configDir := filepath.Dir(configPath)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, []byte(defaultConfig), 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
+}
 
 func TestLoadConfig_DefaultValues(t *testing.T) {
 	// Clear any existing environment variables that might interfere

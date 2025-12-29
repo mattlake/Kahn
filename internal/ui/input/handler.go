@@ -336,11 +336,3 @@ func (h *Handler) SetFocusType(focusType FocusType) {
 func (h *Handler) GetFocusType() FocusType {
 	return h.focusType
 }
-
-// submitTaskForm handles task form submission
-func (h *Handler) submitTaskForm(model ModelInterface) ActionResult {
-	// This is a placeholder - the actual form submission should be handled by the main model
-	// We need to access the form values which aren't available in the interface
-	// For now, let the main model handle this
-	return ActionResult{Handled: true}
-}

@@ -687,12 +687,6 @@ func (km *KahnModel) IsShowingProjectSwitch() bool {
 	return km.showProjectSwitch
 }
 
-func (km *KahnModel) ExecuteTaskDeletion() *KahnModel {
-	result := km.executeTaskDeletion()
-	model, _ := result.(*KahnModel)
-	return model
-}
-
 func convertTasksToListItems(tasks []domain.Task) []list.Item {
 	items := make([]list.Item, len(tasks))
 	for i, task := range tasks {

@@ -37,27 +37,7 @@ func getMigrations() []Migration {
 				);
 			`,
 		},
-		{
-			name: "003_create_tags_table",
-			sql: `
-				CREATE TABLE IF NOT EXISTS tags (
-					id INTEGER PRIMARY KEY AUTOINCREMENT,
-					name TEXT UNIQUE NOT NULL
-				);
-			`,
-		},
-		{
-			name: "004_create_task_tags_table",
-			sql: `
-				CREATE TABLE IF NOT EXISTS task_tags (
-					task_id TEXT NOT NULL,
-					tag_id INTEGER NOT NULL,
-					PRIMARY KEY (task_id, tag_id),
-					FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-					FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-				);
-			`,
-		},
+
 		{
 			name: "005_create_indexes",
 			sql: `

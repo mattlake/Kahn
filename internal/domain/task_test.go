@@ -50,7 +50,6 @@ func TestNewTask(t *testing.T) {
 			assert.Equal(t, tt.projectID, task.ProjectID, "Project ID should match")
 			assert.Equal(t, NotStarted, task.Status, "Default status should be NotStarted")
 			assert.Equal(t, Medium, task.Priority, "Default priority should be Medium")
-			assert.Equal(t, []string{}, task.Tags, "Default tags should be empty")
 
 			// Test timestamps
 			assert.True(t, task.CreatedAt.After(before) || task.CreatedAt.Equal(before), "CreatedAt should be set correctly")

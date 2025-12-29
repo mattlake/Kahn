@@ -1,7 +1,6 @@
 package styles
 
 import (
-	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
 	"kahn/internal/ui/colors"
 )
@@ -34,76 +33,4 @@ func GetFormFieldStyles() FormFieldStyles {
 			Foreground(lipgloss.Color(colors.Red)).
 			Faint(true),
 	}
-}
-
-// ConfigureNameInput configures a text input for name fields
-func ConfigureNameInput(styles FormFieldStyles) textinput.Model {
-	input := textinput.New()
-	input.Placeholder = "Name *"
-	input.PlaceholderStyle = styles.Placeholder
-	input.TextStyle = styles.Text
-	input.Cursor.Style = styles.Cursor
-	input.CharLimit = 50
-	input.Width = 40
-	return input
-}
-
-// ConfigureDescriptionInput configures a text input for description fields
-func ConfigureDescriptionInput(styles FormFieldStyles) textinput.Model {
-	input := textinput.New()
-	input.Placeholder = "Description (optional)"
-	input.PlaceholderStyle = styles.Placeholder
-	input.TextStyle = styles.Text
-	input.Cursor.Style = styles.Cursor
-	input.CharLimit = 200 // Larger for project descriptions
-	input.Width = 40
-	return input
-}
-
-// ConfigureTaskNameInput configures a text input specifically for task names
-func ConfigureTaskNameInput(styles FormFieldStyles) textinput.Model {
-	input := textinput.New()
-	input.Placeholder = "Task name *"
-	input.PlaceholderStyle = styles.Placeholder
-	input.TextStyle = styles.Text
-	input.Cursor.Style = styles.Cursor
-	input.CharLimit = 50
-	input.Width = 40
-	return input
-}
-
-// ConfigureTaskDescriptionInput configures a text input for task descriptions
-func ConfigureTaskDescriptionInput(styles FormFieldStyles) textinput.Model {
-	input := textinput.New()
-	input.Placeholder = "Task description (optional)"
-	input.PlaceholderStyle = styles.Placeholder
-	input.TextStyle = styles.Text
-	input.Cursor.Style = styles.Cursor
-	input.CharLimit = 200
-	input.Width = 40
-	return input
-}
-
-// ConfigureProjectNameInput configures a text input for project names
-func ConfigureProjectNameInput(styles FormFieldStyles) textinput.Model {
-	input := textinput.New()
-	input.Placeholder = "Project name *"
-	input.PlaceholderStyle = styles.Placeholder
-	input.TextStyle = styles.Text
-	input.Cursor.Style = styles.Cursor
-	input.CharLimit = 50
-	input.Width = 40
-	return input
-}
-
-// ConfigureProjectDescriptionInput configures a text input for project descriptions
-func ConfigureProjectDescriptionInput(styles FormFieldStyles) textinput.Model {
-	input := textinput.New()
-	input.Placeholder = "Project description (optional)"
-	input.PlaceholderStyle = styles.Placeholder
-	input.TextStyle = styles.Text
-	input.Cursor.Style = styles.Cursor
-	input.CharLimit = 200
-	input.Width = 40
-	return input
 }

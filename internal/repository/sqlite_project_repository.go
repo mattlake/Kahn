@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"kahn/internal/domain"
-	"log"
 )
 
 type SQLiteProjectRepository struct {
@@ -119,35 +118,4 @@ func (r *SQLiteProjectRepository) Delete(id string) error {
 	}
 
 	return nil
-}
-
-func (r *SQLiteProjectRepository) GetByIDWithTasks(id string) (*domain.Project, error) {
-	query := `
-		SELECT id, name, description, color, created_at, updated_at
-		FROM projects WHERE id = ?
-	`
-
-	var project domain.Project
-	err := r.db.QueryRow(query, id).Scan(
-		&project.ID, &project.Name, &project.Description, &project.Color,
-		&project.CreatedAt, &project.UpdatedAt,
-	)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to get project: %w", err)
-	}
-
-	// Load tasks for this project
-	taskRepo := NewSQLiteTaskRepository(r.db)
-	tasks, err := taskRepo.GetByProjectID(id)
-	if err != nil {
-		log.Printf("Warning: failed to load tasks for project %s: %v", id, err)
-		tasks = []domain.Task{}
-	}
-
-	project.Tasks = tasks
-	return &project, nil
 }

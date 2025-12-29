@@ -13,7 +13,6 @@ func createTestTask(name, description, projectID string, status Status) *Task {
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 		Priority:  Medium,
-		Tags:      []string{},
 	}
 	return task
 }

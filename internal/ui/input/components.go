@@ -15,7 +15,6 @@ const (
 	TaskCreateForm FormType = iota
 	TaskEditForm
 	ProjectCreateForm
-	ProjectEditForm
 )
 
 // InputComponents holds the text input components for forms
@@ -62,17 +61,6 @@ func (ic *InputComponents) SetupForProjectCreate() {
 	ic.taskID = ""
 	ic.NameInput = ic.createNameInput("Project name *")
 	ic.DescInput = ic.createDescInput("Project description (optional)")
-	ic.NameInput.Focus()
-}
-
-func (ic *InputComponents) SetupForProjectEdit(taskID, name, desc string) {
-	ic.formType = ProjectEditForm
-	ic.FocusedField = 0
-	ic.taskID = taskID
-	ic.NameInput = ic.createNameInput("Project name *")
-	ic.DescInput = ic.createDescInput("Project description (optional)")
-	ic.NameInput.SetValue(name)
-	ic.DescInput.SetValue(desc)
 	ic.NameInput.Focus()
 }
 
@@ -135,7 +123,7 @@ func (ic *InputComponents) ValidateForSubmit() (bool, string, string) {
 	}
 
 	// Project description validation
-	if ic.formType == ProjectCreateForm || ic.formType == ProjectEditForm {
+	if ic.formType == ProjectCreateForm {
 		desc := ic.DescInput.Value()
 		if len(desc) > 200 {
 			return false, "description", "Project description too long (max 200 characters)"
@@ -223,8 +211,7 @@ func (ic *InputComponents) getFormTitle() string {
 		return "Edit Task"
 	case ProjectCreateForm:
 		return "New Project"
-	case ProjectEditForm:
-		return "Edit Project"
+
 	default:
 		return "Form"
 	}
@@ -232,7 +219,7 @@ func (ic *InputComponents) getFormTitle() string {
 
 func (ic *InputComponents) getNameLabel() string {
 	label := "Task Name"
-	if ic.formType == ProjectCreateForm || ic.formType == ProjectEditForm {
+	if ic.formType == ProjectCreateForm {
 		label = "Project Name"
 	}
 	return label + ":"
@@ -253,8 +240,7 @@ func (ic *InputComponents) getInstructions() string {
 		return "Tab: Switch fields • Enter: Save Changes • Esc: Cancel"
 	case ProjectCreateForm:
 		return "Tab: Switch fields • Enter: Create Project • Esc: Cancel"
-	case ProjectEditForm:
-		return "Tab: Switch fields • Enter: Save Changes • Esc: Cancel"
+
 	default:
 		return "Tab: Switch fields • Enter: Submit • Esc: Cancel"
 	}

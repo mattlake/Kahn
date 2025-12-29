@@ -14,7 +14,6 @@ type Task struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Priority  Priority  `json:"priority,omitempty"`
-	Tags      []string  `json:"tags,omitempty"`
 }
 
 type Priority int
@@ -49,7 +48,6 @@ func NewTask(name, description, projectID string) *Task {
 		CreatedAt: now,
 		UpdatedAt: now,
 		Priority:  Medium,
-		Tags:      []string{},
 	}
 }
 
