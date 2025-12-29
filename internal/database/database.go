@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -123,7 +124,7 @@ func handleDatabaseError(dbPath string, err error) error {
 
 	// Check for common SQLite issues
 	errStr := err.Error()
-	if contains(errStr, "unable to open database file") {
+	if strings.Contains(errStr, "unable to open database file") {
 		return fmt.Errorf("unable to open database file at %s\n"+
 			"Suggestions:\n"+
 			"  • Verify the directory exists and is writable\n"+
@@ -131,7 +132,7 @@ func handleDatabaseError(dbPath string, err error) error {
 			"  • Try removing the file and restarting: rm %s", dbPath, dbPath)
 	}
 
-	if contains(errStr, "database is locked") {
+	if strings.Contains(errStr, "database is locked") {
 		return fmt.Errorf("database is locked at %s\n"+
 			"Suggestions:\n"+
 			"  • Another instance of Kahn may be running\n"+
@@ -142,25 +143,6 @@ func handleDatabaseError(dbPath string, err error) error {
 	return fmt.Errorf("database initialization failed at %s: %w\n"+
 		"This is likely a configuration or system issue.\n"+
 		"Try running with --help to see configuration options.", dbPath, err)
-}
-
-// contains checks if a string contains a substring (case-insensitive)
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) &&
-		(s == substr ||
-			(len(s) > len(substr) &&
-				(s[:len(substr)] == substr ||
-					s[len(s)-len(substr):] == substr ||
-					containsMiddle(s, substr))))
-}
-
-func containsMiddle(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
 
 // Close closes the database connection
