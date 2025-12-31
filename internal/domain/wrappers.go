@@ -17,6 +17,10 @@ func (tw *TaskWrapper) GetDescription() string {
 	return tw.Task.Desc
 }
 
+func (tw *TaskWrapper) GetPriority() Priority {
+	return tw.Task.Priority
+}
+
 // ProjectWrapper implements input.ProjectInterface for the main Project type
 type ProjectWrapper struct {
 	Project *Project

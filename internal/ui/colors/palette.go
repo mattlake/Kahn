@@ -28,4 +28,7 @@ const (
 	Green  = "#a6e3a1"
 	Yellow = "#f9e2af"
 	Red    = "#f38ba8"
+
+	// Additional colors
+	Peach = "#fab387" // For medium priority
 )

@@ -2,17 +2,20 @@ package repository
 
 import (
 	"database/sql"
-	"fmt"
 	"kahn/internal/domain"
 	"time"
 )
 
+// SQLiteTaskRepository handles task persistence using SQLite
 type SQLiteTaskRepository struct {
-	db *sql.DB
+	base *BaseRepository // Composition, not embedding
 }
 
+// NewSQLiteTaskRepository creates a new task repository
 func NewSQLiteTaskRepository(db *sql.DB) *SQLiteTaskRepository {
-	return &SQLiteTaskRepository{db: db}
+	return &SQLiteTaskRepository{
+		base: NewBaseRepository(db), // Composition
+	}
 }
 
 func (r *SQLiteTaskRepository) Create(task *domain.Task) error {
@@ -21,10 +24,10 @@ func (r *SQLiteTaskRepository) Create(task *domain.Task) error {
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
-	_, err := r.db.Exec(query, task.ID, task.ProjectID, task.Name, task.Desc,
+	_, err := r.base.db.Exec(query, task.ID, task.ProjectID, task.Name, task.Desc,
 		task.Status, task.Priority, task.CreatedAt, task.UpdatedAt)
 	if err != nil {
-		return fmt.Errorf("failed to create task: %w", err)
+		return r.base.WrapDBError("create", "task", task.ID, err)
 	}
 
 	return nil
@@ -36,20 +39,8 @@ func (r *SQLiteTaskRepository) GetByID(id string) (*domain.Task, error) {
 		FROM tasks WHERE id = ?
 	`
 
-	var task domain.Task
-	err := r.db.QueryRow(query, id).Scan(
-		&task.ID, &task.ProjectID, &task.Name, &task.Desc,
-		&task.Status, &task.Priority, &task.CreatedAt, &task.UpdatedAt,
-	)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to get task: %w", err)
-	}
-
-	return &task, nil
+	row := r.base.db.QueryRow(query, id)
+	return r.base.ScanSingleTask(row)
 }
 
 func (r *SQLiteTaskRepository) GetByProjectID(projectID string) ([]domain.Task, error) {
@@ -58,30 +49,13 @@ func (r *SQLiteTaskRepository) GetByProjectID(projectID string) ([]domain.Task, 
 		FROM tasks WHERE project_id = ? ORDER BY created_at DESC
 	`
 
-	rows, err := r.db.Query(query, projectID)
+	rows, err := r.base.db.Query(query, projectID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get tasks for project: %w", err)
+		return nil, r.base.WrapDBError("get", "tasks for project", projectID, err)
 	}
 	defer rows.Close()
 
-	var tasks []domain.Task
-	for rows.Next() {
-		var task domain.Task
-		err := rows.Scan(
-			&task.ID, &task.ProjectID, &task.Name, &task.Desc,
-			&task.Status, &task.Priority, &task.CreatedAt, &task.UpdatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan task: %w", err)
-		}
-		tasks = append(tasks, task)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating tasks: %w", err)
-	}
-
-	return tasks, nil
+	return r.base.ScanTaskRows(rows)
 }
 
 func (r *SQLiteTaskRepository) GetByStatus(projectID string, status domain.Status) ([]domain.Task, error) {
@@ -90,30 +64,13 @@ func (r *SQLiteTaskRepository) GetByStatus(projectID string, status domain.Statu
 		FROM tasks WHERE project_id = ? AND status = ? ORDER BY created_at DESC
 	`
 
-	rows, err := r.db.Query(query, projectID, status)
+	rows, err := r.base.db.Query(query, projectID, status)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get tasks by status: %w", err)
+		return nil, r.base.WrapDBError("get", "tasks by status", "", err)
 	}
 	defer rows.Close()
 
-	var tasks []domain.Task
-	for rows.Next() {
-		var task domain.Task
-		err := rows.Scan(
-			&task.ID, &task.ProjectID, &task.Name, &task.Desc,
-			&task.Status, &task.Priority, &task.CreatedAt, &task.UpdatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan task: %w", err)
-		}
-		tasks = append(tasks, task)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating tasks: %w", err)
-	}
-
-	return tasks, nil
+	return r.base.ScanTaskRows(rows)
 }
 
 func (r *SQLiteTaskRepository) Update(task *domain.Task) error {
@@ -123,10 +80,11 @@ func (r *SQLiteTaskRepository) Update(task *domain.Task) error {
 		WHERE id = ?
 	`
 
-	_, err := r.db.Exec(query, task.Name, task.Desc, task.Status,
+	task.UpdatedAt = time.Now()
+	_, err := r.base.db.Exec(query, task.Name, task.Desc, task.Status,
 		task.Priority, task.UpdatedAt, task.ID)
 	if err != nil {
-		return fmt.Errorf("failed to update task: %w", err)
+		return r.base.WrapDBError("update", "task", task.ID, err)
 	}
 
 	return nil
@@ -139,9 +97,10 @@ func (r *SQLiteTaskRepository) UpdateStatus(taskID string, status domain.Status)
 		WHERE id = ?
 	`
 
-	_, err := r.db.Exec(query, status, time.Now(), taskID)
+	updatedAt := time.Now()
+	_, err := r.base.db.Exec(query, status, updatedAt, taskID)
 	if err != nil {
-		return fmt.Errorf("failed to update task status: %w", err)
+		return r.base.WrapDBError("update", "task status", taskID, err)
 	}
 
 	return nil
@@ -150,19 +109,10 @@ func (r *SQLiteTaskRepository) UpdateStatus(taskID string, status domain.Status)
 func (r *SQLiteTaskRepository) Delete(id string) error {
 	query := `DELETE FROM tasks WHERE id = ?`
 
-	result, err := r.db.Exec(query, id)
+	result, err := r.base.db.Exec(query, id)
 	if err != nil {
-		return fmt.Errorf("failed to delete task: %w", err)
+		return r.base.WrapDBError("delete", "task", id, err)
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return fmt.Errorf("task not found: %s", id)
-	}
-
-	return nil
+	return r.base.HandleRowsAffected(result, "delete", "task")
 }

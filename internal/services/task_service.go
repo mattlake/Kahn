@@ -17,7 +17,7 @@ func NewTaskService(taskRepo domain.TaskRepository, projectRepo domain.ProjectRe
 	}
 }
 
-func (ts *TaskService) CreateTask(name, description, projectID string) (*domain.Task, error) {
+func (ts *TaskService) CreateTask(name, description, projectID string, priority domain.Priority) (*domain.Task, error) {
 	if strings.TrimSpace(name) == "" {
 		return nil, &domain.ValidationError{Field: "name", Message: "task name cannot be empty"}
 	}
@@ -35,6 +35,7 @@ func (ts *TaskService) CreateTask(name, description, projectID string) (*domain.
 	}
 
 	task := domain.NewTask(name, description, projectID)
+	task.Priority = priority // Set the specified priority
 
 	if err := ts.taskRepo.Create(task); err != nil {
 		return nil, &domain.RepositoryError{Operation: "create", Entity: "task", Cause: err}
@@ -43,7 +44,7 @@ func (ts *TaskService) CreateTask(name, description, projectID string) (*domain.
 	return task, nil
 }
 
-func (ts *TaskService) UpdateTask(id, name, description string) (*domain.Task, error) {
+func (ts *TaskService) UpdateTask(id, name, description string, priority domain.Priority) (*domain.Task, error) {
 	if strings.TrimSpace(name) == "" {
 		return nil, &domain.ValidationError{Field: "name", Message: "task name cannot be empty"}
 	}
@@ -58,6 +59,7 @@ func (ts *TaskService) UpdateTask(id, name, description string) (*domain.Task, e
 
 	task.Name = name
 	task.Desc = description
+	task.Priority = priority // Update the priority
 
 	if err := ts.taskRepo.Update(task); err != nil {
 		return nil, &domain.RepositoryError{Operation: "update", Entity: "task", ID: id, Cause: err}

@@ -47,7 +47,7 @@ func NewTask(name, description, projectID string) *Task {
 		Status:    NotStarted,
 		CreatedAt: now,
 		UpdatedAt: now,
-		Priority:  Medium,
+		Priority:  Low, // Changed default from Medium to Low
 	}
 }
 
@@ -55,6 +55,7 @@ func generateTaskID() string {
 	return fmt.Sprintf("task_%d", time.Now().UnixNano())
 }
 
-func (t Task) Title() string       { return t.Name }
-func (t Task) Description() string { return t.Desc }
-func (t Task) FilterValue() string { return t.Name }
+func (t Task) Title() string         { return t.Name }
+func (t Task) Description() string   { return t.Desc }
+func (t Task) GetPriority() Priority { return t.Priority }
+func (t Task) FilterValue() string   { return t.Name }

@@ -18,7 +18,7 @@ func TestTaskService_CreateTask(t *testing.T) {
 
 	t.Run("successful task creation", func(t *testing.T) {
 		// Act
-		task, err := service.CreateTask("Test Task", "Test Description", testProject.ID)
+		task, err := service.CreateTask("Test Task", "Test Description", testProject.ID, domain.Low)
 
 		// Assert
 		if err != nil {
@@ -40,7 +40,7 @@ func TestTaskService_CreateTask(t *testing.T) {
 
 	t.Run("empty name validation", func(t *testing.T) {
 		// Act
-		task, err := service.CreateTask("", "Test Description", "project-123")
+		task, err := service.CreateTask("", "Test Description", "project-123", domain.Low)
 
 		// Assert
 		if err == nil {
@@ -53,7 +53,7 @@ func TestTaskService_CreateTask(t *testing.T) {
 
 	t.Run("empty project ID validation", func(t *testing.T) {
 		// Act
-		task, err := service.CreateTask("Test Task", "Test Description", "")
+		task, err := service.CreateTask("Test Task", "Test Description", "", domain.Low)
 
 		// Assert
 		if err == nil {

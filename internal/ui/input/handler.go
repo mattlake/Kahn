@@ -2,6 +2,7 @@ package input
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"kahn/internal/domain"
 )
 
 // InputMode represents the current input mode
@@ -23,6 +24,7 @@ type FocusType int
 const (
 	NameFocus FocusType = iota
 	DescriptionFocus
+	PriorityFocus
 )
 
 // ActionResult represents the result of an input action
@@ -40,7 +42,7 @@ type ModelInterface interface {
 	// Task operations
 	GetActiveProjectID() string
 	CreateTask(name, description string) error
-	UpdateTask(id, name, description string) error
+	UpdateTask(id, name, description string, priority domain.Priority) error
 	DeleteTask(id string) error
 	MoveTaskToNextStatus(id string) error
 	MoveTaskToPreviousStatus(id string) error
@@ -55,9 +57,10 @@ type ModelInterface interface {
 
 	// UI state operations
 	ShowTaskForm()
-	ShowTaskEditForm(taskID string, name, description string)
+	ShowTaskEditForm(taskID string, name, description string, priority domain.Priority)
 	ShowProjectForm()
 	ShowProjectSwitcher()
+	ShowTaskDeleteConfirm(taskID string)
 	HideAllForms()
 
 	// List operations
@@ -79,6 +82,7 @@ type TaskInterface interface {
 	GetID() string
 	GetName() string
 	GetDescription() string
+	GetPriority() domain.Priority
 }
 
 // ProjectInterface defines the interface for a project
@@ -148,14 +152,15 @@ func (h *Handler) handleNormalModeKeys(msg tea.KeyMsg, model ModelInterface) Act
 		return ActionResult{Handled: true, Mode: ProjectSwitchMode}
 	case "e":
 		if task, ok := model.GetSelectedTask(); ok {
-			model.ShowTaskEditForm(task.GetID(), task.GetName(), task.GetDescription())
+			model.ShowTaskEditForm(task.GetID(), task.GetName(), task.GetDescription(), task.GetPriority())
 			h.mode = TaskEditFormMode
 			h.focusType = NameFocus
 			return ActionResult{Handled: true, Mode: TaskEditFormMode, FocusType: NameFocus}
 		}
 		return ActionResult{Handled: true}
 	case "d":
-		if _, ok := model.GetSelectedTask(); ok {
+		if task, ok := model.GetSelectedTask(); ok {
+			model.ShowTaskDeleteConfirm(task.GetID())
 			h.mode = TaskDeleteConfirmMode
 			return ActionResult{Handled: true, Mode: TaskDeleteConfirmMode}
 		}
@@ -191,6 +196,18 @@ func (h *Handler) handleTaskFormKeys(msg tea.KeyMsg, model ModelInterface) Actio
 		model.CancelCurrentForm()
 		h.mode = NormalMode
 		return ActionResult{Handled: true, Mode: NormalMode, ExitMode: true}
+	case "up", "down":
+		// Handle priority cycling when priority field is focused
+		comps := model.GetActiveInputComponents()
+		if comps.IsTaskForm() && comps.FocusedField == 2 { // Priority field focused
+			if msg.String() == "up" {
+				comps.CyclePriorityUp()
+			} else {
+				comps.CyclePriorityDown()
+			}
+			return ActionResult{Handled: true, ShouldUpdate: true}
+		}
+		return ActionResult{Handled: false} // Let textinput handle for other fields
 	default:
 		// Clear any previous errors when user types
 		model.ClearFormError()
@@ -206,14 +223,33 @@ func (h *Handler) handleTaskEditFormKeys(msg tea.KeyMsg, model ModelInterface) A
 
 func (h *Handler) handleTabKey(model ModelInterface) ActionResult {
 	comps := model.GetActiveInputComponents()
-	if comps.FocusedField == 0 {
+
+	switch comps.FocusedField {
+	case 0: // Name -> Description
 		comps.FocusDesc()
 		comps.BlurName()
 		return ActionResult{Handled: true, Mode: h.mode, FocusType: DescriptionFocus}
+	case 1: // Description -> Priority (for task forms) or Name (for project forms)
+		if comps.IsTaskForm() {
+			// Task forms: Description -> Priority
+			comps.FocusPriority()
+			comps.BlurDesc()
+			return ActionResult{Handled: true, Mode: h.mode, FocusType: PriorityFocus}
+		} else {
+			// Project forms: Description -> Name (cycle back)
+			comps.FocusName()
+			comps.BlurDesc()
+			return ActionResult{Handled: true, Mode: h.mode, FocusType: NameFocus}
+		}
+	case 2: // Priority -> Name (only for task forms)
+		comps.FocusName()
+		comps.BlurPriority()
+		return ActionResult{Handled: true, Mode: h.mode, FocusType: NameFocus}
+	default:
+		// Fallback to name focus
+		comps.FocusName()
+		return ActionResult{Handled: true, Mode: h.mode, FocusType: NameFocus}
 	}
-	comps.FocusName()
-	comps.BlurDesc()
-	return ActionResult{Handled: true, Mode: h.mode, FocusType: NameFocus}
 }
 
 // handleProjectFormKeys handles keys when in project form mode

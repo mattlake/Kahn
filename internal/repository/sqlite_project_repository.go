@@ -2,16 +2,19 @@ package repository
 
 import (
 	"database/sql"
-	"fmt"
 	"kahn/internal/domain"
 )
 
+// SQLiteProjectRepository handles project persistence using SQLite
 type SQLiteProjectRepository struct {
-	db *sql.DB
+	base *BaseRepository // Composition, not embedding
 }
 
+// NewSQLiteProjectRepository creates a new project repository
 func NewSQLiteProjectRepository(db *sql.DB) *SQLiteProjectRepository {
-	return &SQLiteProjectRepository{db: db}
+	return &SQLiteProjectRepository{
+		base: NewBaseRepository(db), // Composition
+	}
 }
 
 func (r *SQLiteProjectRepository) Create(project *domain.Project) error {
@@ -20,10 +23,10 @@ func (r *SQLiteProjectRepository) Create(project *domain.Project) error {
 		VALUES (?, ?, ?, ?, ?, ?)
 	`
 
-	_, err := r.db.Exec(query, project.ID, project.Name, project.Description,
+	_, err := r.base.db.Exec(query, project.ID, project.Name, project.Description,
 		project.Color, project.CreatedAt, project.UpdatedAt)
 	if err != nil {
-		return fmt.Errorf("failed to create project: %w", err)
+		return r.base.WrapDBError("create", "project", project.ID, err)
 	}
 
 	return nil
@@ -35,20 +38,8 @@ func (r *SQLiteProjectRepository) GetByID(id string) (*domain.Project, error) {
 		FROM projects WHERE id = ?
 	`
 
-	var project domain.Project
-	err := r.db.QueryRow(query, id).Scan(
-		&project.ID, &project.Name, &project.Description, &project.Color,
-		&project.CreatedAt, &project.UpdatedAt,
-	)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to get project: %w", err)
-	}
-
-	return &project, nil
+	row := r.base.db.QueryRow(query, id)
+	return r.base.ScanSingleProject(row)
 }
 
 func (r *SQLiteProjectRepository) GetAll() ([]domain.Project, error) {
@@ -57,31 +48,13 @@ func (r *SQLiteProjectRepository) GetAll() ([]domain.Project, error) {
 		FROM projects ORDER BY created_at DESC
 	`
 
-	rows, err := r.db.Query(query)
+	rows, err := r.base.db.Query(query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get projects: %w", err)
+		return nil, r.base.WrapDBError("get", "projects", "", err)
 	}
 	defer rows.Close()
 
-	var projects []domain.Project
-	for rows.Next() {
-		var project domain.Project
-		err := rows.Scan(
-			&project.ID, &project.Name, &project.Description, &project.Color,
-			&project.CreatedAt, &project.UpdatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan project: %w", err)
-		}
-
-		projects = append(projects, project)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating projects: %w", err)
-	}
-
-	return projects, nil
+	return r.base.ScanProjectRows(rows)
 }
 
 func (r *SQLiteProjectRepository) Update(project *domain.Project) error {
@@ -91,10 +64,10 @@ func (r *SQLiteProjectRepository) Update(project *domain.Project) error {
 		WHERE id = ?
 	`
 
-	_, err := r.db.Exec(query, project.Name, project.Description,
+	_, err := r.base.db.Exec(query, project.Name, project.Description,
 		project.Color, project.UpdatedAt, project.ID)
 	if err != nil {
-		return fmt.Errorf("failed to update project: %w", err)
+		return r.base.WrapDBError("update", "project", project.ID, err)
 	}
 
 	return nil
@@ -103,19 +76,10 @@ func (r *SQLiteProjectRepository) Update(project *domain.Project) error {
 func (r *SQLiteProjectRepository) Delete(id string) error {
 	query := `DELETE FROM projects WHERE id = ?`
 
-	result, err := r.db.Exec(query, id)
+	result, err := r.base.db.Exec(query, id)
 	if err != nil {
-		return fmt.Errorf("failed to delete project: %w", err)
+		return r.base.WrapDBError("delete", "project", id, err)
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return fmt.Errorf("project not found: %s", id)
-	}
-
-	return nil
+	return r.base.HandleRowsAffected(result, "delete", "project")
 }

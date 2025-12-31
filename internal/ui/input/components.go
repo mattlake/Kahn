@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
+	"kahn/internal/domain"
 	"kahn/internal/ui/colors"
 )
 
@@ -19,11 +20,12 @@ const (
 
 // InputComponents holds the text input components for forms
 type InputComponents struct {
-	NameInput    textinput.Model
-	DescInput    textinput.Model
-	formType     FormType
-	taskID       string // for edit forms
-	FocusedField int    // 0=name, 1=desc (exported)
+	NameInput     textinput.Model
+	DescInput     textinput.Model
+	PriorityValue domain.Priority // Track current priority value
+	formType      FormType
+	taskID        string // for edit forms
+	FocusedField  int    // 0=name, 1=desc, 2=priority (exported)
 }
 
 // NewInputComponents creates and initializes input components for forms
@@ -39,15 +41,17 @@ func (ic *InputComponents) SetupForTaskCreate() {
 	ic.formType = TaskCreateForm
 	ic.FocusedField = 0
 	ic.taskID = ""
+	ic.PriorityValue = domain.Low // Default to Low priority
 	ic.NameInput = ic.createNameInput("Task name *")
 	ic.DescInput = ic.createDescInput("Task description (optional)")
 	ic.NameInput.Focus()
 }
 
-func (ic *InputComponents) SetupForTaskEdit(taskID, name, desc string) {
+func (ic *InputComponents) SetupForTaskEdit(taskID, name, desc string, priority domain.Priority) {
 	ic.formType = TaskEditForm
 	ic.FocusedField = 0
 	ic.taskID = taskID
+	ic.PriorityValue = priority
 	ic.NameInput = ic.createNameInput("Task name *")
 	ic.DescInput = ic.createDescInput("Task description (optional)")
 	ic.NameInput.SetValue(name)
@@ -90,8 +94,48 @@ func (ic *InputComponents) createDescInput(placeholder string) textinput.Model {
 func (ic *InputComponents) Reset() {
 	ic.NameInput.Reset()
 	ic.DescInput.Reset()
+	ic.PriorityValue = domain.Low
 	ic.FocusedField = 0
 	ic.taskID = ""
+}
+
+// FocusPriority sets focus to priority field
+func (ic *InputComponents) FocusPriority() {
+	ic.FocusedField = 2
+}
+
+// BlurPriority removes focus from priority field
+func (ic *InputComponents) BlurPriority() {
+	// No specific blur needed for priority field
+}
+
+// CyclePriorityUp cycles priority up (Low -> Medium -> High -> Low)
+func (ic *InputComponents) CyclePriorityUp() {
+	switch ic.PriorityValue {
+	case domain.Low:
+		ic.PriorityValue = domain.Medium
+	case domain.Medium:
+		ic.PriorityValue = domain.High
+	case domain.High:
+		ic.PriorityValue = domain.Low
+	}
+}
+
+// CyclePriorityDown cycles priority down (High -> Medium -> Low -> High)
+func (ic *InputComponents) CyclePriorityDown() {
+	switch ic.PriorityValue {
+	case domain.Low:
+		ic.PriorityValue = domain.High
+	case domain.Medium:
+		ic.PriorityValue = domain.Low
+	case domain.High:
+		ic.PriorityValue = domain.Medium
+	}
+}
+
+// IsTaskForm returns true if the current form is a task form
+func (ic *InputComponents) IsTaskForm() bool {
+	return ic.formType == TaskCreateForm || ic.formType == TaskEditForm
 }
 
 // Validate performs basic validation without field-specific errors
@@ -142,16 +186,37 @@ func (ic *InputComponents) Render(errorMsg string, errorField string, width, hei
 	// Render fields with inline error highlighting
 	nameField := ic.renderFieldWithError(0, errorMsg, errorField)
 	descField := ic.renderFieldWithError(1, errorMsg, errorField)
+	var priorityField string
+
+	// Only show priority field for task forms
+	if ic.formType == TaskCreateForm || ic.formType == TaskEditForm {
+		priorityField = ic.renderPriorityField(errorMsg, errorField)
+	}
 
 	instructions := ic.getInstructions()
 
-	formContent := lipgloss.JoinVertical(
-		lipgloss.Left,
-		"", title, "",
-		nameLabel, nameField, "",
-		descLabel, descField, "",
-		instructions,
-	)
+	// Build form content
+	var formContent string
+	if ic.formType == TaskCreateForm || ic.formType == TaskEditForm {
+		// Task forms include priority field
+		formContent = lipgloss.JoinVertical(
+			lipgloss.Left,
+			"", title, "",
+			nameLabel, nameField, "",
+			descLabel, descField, "",
+			"Priority:", priorityField, "",
+			instructions,
+		)
+	} else {
+		// Project forms (no priority field)
+		formContent = lipgloss.JoinVertical(
+			lipgloss.Left,
+			"", title, "",
+			nameLabel, nameField, "",
+			descLabel, descField, "",
+			instructions,
+		)
+	}
 
 	return ic.wrapInBorder(formContent, width, height)
 }
@@ -199,6 +264,48 @@ func (ic *InputComponents) renderFieldWithError(field int, errorMsg string, erro
 			errorText,
 		)
 	}
+
+	return fieldWithBorder
+}
+
+// renderPriorityField renders the priority field with visual indicators
+func (ic *InputComponents) renderPriorityField(errorMsg string, errorField string) string {
+	priorityOptions := []string{"Low", "Medium", "High"}
+	currentIndex := int(ic.PriorityValue)
+
+	// Build display string like "Priority: Low »"
+	display := fmt.Sprintf("Priority: %s", priorityOptions[currentIndex])
+
+	if ic.FocusedField == 2 { // Priority field focused
+		display += " »" // Add indicator for focused field
+	}
+
+	// Determine field styling
+	borderColor := colors.Text
+	if errorMsg != "" && errorField == "priority" {
+		borderColor = colors.Red
+	} else if ic.FocusedField == 2 {
+		borderColor = colors.Green
+	}
+
+	// Get priority color for the text
+	var textColor string
+	switch ic.PriorityValue {
+	case domain.Low:
+		textColor = colors.Green
+	case domain.Medium:
+		textColor = colors.Peach
+	case domain.High:
+		textColor = colors.Red
+	}
+
+	// Render field with border and color
+	fieldWithBorder := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(borderColor)).
+		Padding(0, 1).
+		Width(40).
+		Render(lipgloss.NewStyle().Foreground(lipgloss.Color(textColor)).Render(display))
 
 	return fieldWithBorder
 }
