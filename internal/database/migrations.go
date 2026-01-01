@@ -45,6 +45,7 @@ func getMigrations() []Migration {
 				CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 				CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at);
 				CREATE INDEX IF NOT EXISTS idx_projects_created_at ON projects(created_at);
+				CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
 			`,
 		},
 	}

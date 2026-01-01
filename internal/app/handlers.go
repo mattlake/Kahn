@@ -66,7 +66,7 @@ func (km *KahnModel) handleProjectSwitch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if proj.ID == km.ActiveProjectID {
 				nextIndex := (i + 1) % len(km.Projects)
 				km.ActiveProjectID = km.Projects[nextIndex].ID
-				km.navState.UpdateTaskLists(km.GetActiveProject())
+				km.navState.UpdateTaskLists(km.GetActiveProject(), km.taskService)
 				return km, nil
 			}
 		}
@@ -75,7 +75,7 @@ func (km *KahnModel) handleProjectSwitch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if proj.ID == km.ActiveProjectID {
 				prevIndex := (i - 1 + len(km.Projects)) % len(km.Projects)
 				km.ActiveProjectID = km.Projects[prevIndex].ID
-				km.navState.UpdateTaskLists(km.GetActiveProject())
+				km.navState.UpdateTaskLists(km.GetActiveProject(), km.taskService)
 				return km, nil
 			}
 		}
@@ -87,7 +87,7 @@ func (km *KahnModel) handleProjectSwitch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			index := int(msg.String()[0] - '1')
 			if index < len(km.Projects) {
 				km.ActiveProjectID = km.Projects[index].ID
-				km.navState.UpdateTaskLists(km.GetActiveProject())
+				km.navState.UpdateTaskLists(km.GetActiveProject(), km.taskService)
 				km.navState.HideProjectSwitch()
 			}
 		}

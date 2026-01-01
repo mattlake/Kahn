@@ -4,14 +4,15 @@ import "time"
 
 // createTestTask creates a test task with the given parameters
 func createTestTask(name, description, projectID string, status Status) *Task {
+	now := time.Now()
 	task := &Task{
-		ID:        "test_task_" + time.Now().Format("20060102150405.000000000"),
+		ID:        "test_task_" + now.Format("20060102150405.000000000"),
 		Name:      name,
 		Desc:      description,
 		ProjectID: projectID,
 		Status:    status,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		CreatedAt: now,
+		UpdatedAt: now,
 		Priority:  Medium,
 	}
 	return task

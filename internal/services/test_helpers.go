@@ -2,6 +2,8 @@ package services
 
 import (
 	"kahn/internal/domain"
+	"sort"
+	"time"
 )
 
 // MockTaskRepository implements domain.TaskRepository for testing
@@ -21,7 +23,9 @@ func (r *MockTaskRepository) Create(task *domain.Task) error {
 func (r *MockTaskRepository) GetByID(id string) (*domain.Task, error) {
 	for i, task := range r.tasks {
 		if task.ID == id {
-			return &r.tasks[i], nil
+			// Return a copy to ensure we get current values
+			taskCopy := r.tasks[i]
+			return &taskCopy, nil
 		}
 	}
 	return &domain.Task{}, &domain.RepositoryError{Operation: "get", Entity: "task", ID: id}
@@ -44,13 +48,33 @@ func (r *MockTaskRepository) GetByStatus(projectID string, status domain.Status)
 			result = append(result, task)
 		}
 	}
+
+	// Apply same ordering logic as SQLite repository
+	if status == domain.NotStarted {
+		// Not Started: priority DESC, then created_at ASC (oldest highest priority first)
+		sort.Slice(result, func(i, j int) bool {
+			if result[i].Priority != result[j].Priority {
+				return result[i].Priority > result[j].Priority // Higher priority first
+			}
+			return result[i].CreatedAt.Before(result[j].CreatedAt) // Older created first
+		})
+	} else {
+		// In Progress and Done: updated_at DESC (newest changes first)
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].UpdatedAt.After(result[j].UpdatedAt)
+		})
+	}
+
 	return result, nil
 }
 
 func (r *MockTaskRepository) Update(task *domain.Task) error {
 	for i, t := range r.tasks {
 		if t.ID == task.ID {
-			r.tasks[i] = *task
+			// Create a copy of provided task and set UpdatedAt
+			updatedTask := *task
+			updatedTask.UpdatedAt = time.Now()
+			r.tasks[i] = updatedTask
 			break
 		}
 	}
@@ -60,7 +84,11 @@ func (r *MockTaskRepository) Update(task *domain.Task) error {
 func (r *MockTaskRepository) UpdateStatus(taskID string, status domain.Status) error {
 	for i, task := range r.tasks {
 		if task.ID == taskID {
-			r.tasks[i].Status = status
+			// Create a copy of task with updated values
+			updatedTask := task
+			updatedTask.Status = status
+			updatedTask.UpdatedAt = time.Now()
+			r.tasks[i] = updatedTask
 			break
 		}
 	}

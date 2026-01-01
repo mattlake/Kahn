@@ -59,7 +59,7 @@ func TestRunMigrations(t *testing.T) {
 	err = database.RunMigrations()
 	assert.NoError(t, err, "Running migrations again should not return error")
 
-	// Test that migration count is still 5 (no duplicates)
+	// Test that migration count is still 3 (no duplicates)
 	err = db.QueryRow("SELECT COUNT(*) FROM migrations").Scan(&count)
 	assert.NoError(t, err, "Should be able to query migrations table")
 	assert.Equal(t, 3, count, "Should still have 3 migration records (no duplicates)")
@@ -122,6 +122,7 @@ func TestMigration_Indexes(t *testing.T) {
 		"idx_tasks_status",
 		"idx_tasks_created_at",
 		"idx_projects_created_at",
+		"idx_tasks_priority",
 	}
 
 	for _, indexName := range indexes {

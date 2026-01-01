@@ -4,6 +4,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"kahn/internal/domain"
+	"kahn/internal/services"
 	"kahn/internal/ui/styles"
 )
 
@@ -104,7 +105,7 @@ func (ns *NavigationState) PrevList() {
 }
 
 // UpdateTaskLists updates the task lists with new data
-func (ns *NavigationState) UpdateTaskLists(project *domain.Project) {
+func (ns *NavigationState) UpdateTaskLists(project *domain.Project, taskService *services.TaskService) {
 	if project == nil {
 		return
 	}
@@ -115,9 +116,30 @@ func (ns *NavigationState) UpdateTaskLists(project *domain.Project) {
 	doneIndex := ns.Tasks[domain.Done].Index()
 
 	// Convert tasks to list items and update
-	ns.Tasks[domain.NotStarted].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.NotStarted)))
-	ns.Tasks[domain.InProgress].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.InProgress)))
-	ns.Tasks[domain.Done].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.Done)))
+	notStartedTasks, err := taskService.GetTasksByStatus(project.ID, domain.NotStarted)
+	if err != nil {
+		// Handle error - maybe set empty lists
+		ns.Tasks[domain.NotStarted].SetItems([]list.Item{})
+	} else {
+		project.Tasks = notStartedTasks
+		ns.Tasks[domain.NotStarted].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.NotStarted)))
+	}
+
+	inProgressTasks, err := taskService.GetTasksByStatus(project.ID, domain.InProgress)
+	if err != nil {
+		ns.Tasks[domain.InProgress].SetItems([]list.Item{})
+	} else {
+		project.Tasks = inProgressTasks
+		ns.Tasks[domain.InProgress].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.InProgress)))
+	}
+
+	doneTasks, err := taskService.GetTasksByStatus(project.ID, domain.Done)
+	if err != nil {
+		ns.Tasks[domain.Done].SetItems([]list.Item{})
+	} else {
+		project.Tasks = doneTasks
+		ns.Tasks[domain.Done].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.Done)))
+	}
 
 	// Update selection states after refresh
 	ns.Tasks[domain.NotStarted].SetItems(styles.UpdateTaskSelection(ns.Tasks[domain.NotStarted].Items(), notStartedIndex, ns.activeListIndex == domain.NotStarted))

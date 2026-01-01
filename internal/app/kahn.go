@@ -368,7 +368,7 @@ func (km *KahnModel) PrevList() {
 }
 
 func (km *KahnModel) updateTaskLists() {
-	km.navState.UpdateTaskLists(km.GetActiveProject())
+	km.navState.UpdateTaskLists(km.GetActiveProject(), km.taskService)
 }
 
 func (km *KahnModel) executeTaskDeletion() tea.Model {
@@ -541,16 +541,34 @@ func NewKahnModel(database *database.Database) *KahnModel {
 	// Apply list titles and styles
 	taskLists[domain.NotStarted].Title = domain.NotStarted.ToString()
 	if len(projects) > 0 {
+		notStartedTasks, err := taskService.GetTasksByStatus(projects[0].ID, domain.NotStarted)
+		if err != nil {
+			projects[0].Tasks = []domain.Task{}
+		} else {
+			projects[0].Tasks = notStartedTasks
+		}
 		taskLists[domain.NotStarted].SetItems(convertTasksToListItems(projects[0].GetTasksByStatus(domain.NotStarted)))
 	}
 
 	taskLists[domain.InProgress].Title = domain.InProgress.ToString()
 	if len(projects) > 0 {
+		inProgressTasks, err := taskService.GetTasksByStatus(projects[0].ID, domain.InProgress)
+		if err != nil {
+			projects[0].Tasks = []domain.Task{}
+		} else {
+			projects[0].Tasks = inProgressTasks
+		}
 		taskLists[domain.InProgress].SetItems(convertTasksToListItems(projects[0].GetTasksByStatus(domain.InProgress)))
 	}
 
 	taskLists[domain.Done].Title = domain.Done.ToString()
 	if len(projects) > 0 {
+		doneTasks, err := taskService.GetTasksByStatus(projects[0].ID, domain.Done)
+		if err != nil {
+			projects[0].Tasks = []domain.Task{}
+		} else {
+			projects[0].Tasks = doneTasks
+		}
 		taskLists[domain.Done].SetItems(convertTasksToListItems(projects[0].GetTasksByStatus(domain.Done)))
 	}
 

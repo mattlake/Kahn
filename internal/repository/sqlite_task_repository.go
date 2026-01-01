@@ -59,10 +59,24 @@ func (r *SQLiteTaskRepository) GetByProjectID(projectID string) ([]domain.Task, 
 }
 
 func (r *SQLiteTaskRepository) GetByStatus(projectID string, status domain.Status) ([]domain.Task, error) {
-	query := `
-		SELECT id, project_id, name, desc, status, priority, created_at, updated_at
-		FROM tasks WHERE project_id = ? AND status = ? ORDER BY created_at DESC
-	`
+	var query string
+
+	// Different ordering based on status
+	if status == domain.NotStarted {
+		// Not Started: priority DESC, then created_at ASC (oldest highest priority first)
+		query = `
+			SELECT id, project_id, name, desc, status, priority, created_at, updated_at
+			FROM tasks WHERE project_id = ? AND status = ? 
+			ORDER BY priority DESC, created_at ASC
+		`
+	} else {
+		// In Progress and Done: updated_at DESC (newest changes first)
+		query = `
+			SELECT id, project_id, name, desc, status, priority, created_at, updated_at
+			FROM tasks WHERE project_id = ? AND status = ? 
+			ORDER BY updated_at DESC
+		`
+	}
 
 	rows, err := r.base.db.Query(query, projectID, status)
 	if err != nil {
@@ -97,8 +111,7 @@ func (r *SQLiteTaskRepository) UpdateStatus(taskID string, status domain.Status)
 		WHERE id = ?
 	`
 
-	updatedAt := time.Now()
-	_, err := r.base.db.Exec(query, status, updatedAt, taskID)
+	_, err := r.base.db.Exec(query, status, time.Now(), taskID)
 	if err != nil {
 		return r.base.WrapDBError("update", "task status", taskID, err)
 	}
