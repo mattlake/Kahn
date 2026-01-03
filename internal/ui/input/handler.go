@@ -25,6 +25,7 @@ const (
 	NameFocus FocusType = iota
 	DescriptionFocus
 	PriorityFocus
+	TypeFocus
 )
 
 // ActionResult represents the result of an input action
@@ -42,7 +43,7 @@ type ModelInterface interface {
 	// Task operations
 	GetActiveProjectID() string
 	CreateTask(name, description string) error
-	UpdateTask(id, name, description string, priority domain.Priority) error
+	UpdateTask(id, name, description string, priority domain.Priority, taskType domain.TaskType) error
 	DeleteTask(id string) error
 	MoveTaskToNextStatus(id string) error
 	MoveTaskToPreviousStatus(id string) error
@@ -57,7 +58,7 @@ type ModelInterface interface {
 
 	// UI state operations
 	ShowTaskForm()
-	ShowTaskEditForm(taskID string, name, description string, priority domain.Priority)
+	ShowTaskEditForm(taskID string, name, description string, priority domain.Priority, taskType domain.TaskType)
 	ShowProjectForm()
 	ShowProjectSwitcher()
 	ShowTaskDeleteConfirm(taskID string)
@@ -83,6 +84,7 @@ type TaskInterface interface {
 	GetName() string
 	GetDescription() string
 	GetPriority() domain.Priority
+	GetTaskType() domain.TaskType
 }
 
 // ProjectInterface defines the interface for a project
@@ -152,7 +154,7 @@ func (h *Handler) handleNormalModeKeys(msg tea.KeyMsg, model ModelInterface) Act
 		return ActionResult{Handled: true, Mode: ProjectSwitchMode}
 	case "e":
 		if task, ok := model.GetSelectedTask(); ok {
-			model.ShowTaskEditForm(task.GetID(), task.GetName(), task.GetDescription(), task.GetPriority())
+			model.ShowTaskEditForm(task.GetID(), task.GetName(), task.GetDescription(), task.GetPriority(), task.GetTaskType())
 			h.mode = TaskEditFormMode
 			h.focusType = NameFocus
 			return ActionResult{Handled: true, Mode: TaskEditFormMode, FocusType: NameFocus}
@@ -197,15 +199,24 @@ func (h *Handler) handleTaskFormKeys(msg tea.KeyMsg, model ModelInterface) Actio
 		h.mode = NormalMode
 		return ActionResult{Handled: true, Mode: NormalMode, ExitMode: true}
 	case "up", "down":
-		// Handle priority cycling when priority field is focused
+		// Handle priority/type cycling when those fields are focused
 		comps := model.GetActiveInputComponents()
-		if comps.IsTaskForm() && comps.FocusedField == 2 { // Priority field focused
-			if msg.String() == "up" {
-				comps.CyclePriorityUp()
-			} else {
-				comps.CyclePriorityDown()
+		if comps.IsTaskForm() {
+			if comps.FocusedField == 2 { // Priority field focused
+				if msg.String() == "up" {
+					comps.CyclePriorityUp()
+				} else {
+					comps.CyclePriorityDown()
+				}
+				return ActionResult{Handled: true, ShouldUpdate: true}
+			} else if comps.FocusedField == 3 { // Type field focused
+				if msg.String() == "up" {
+					comps.CycleTypeUp()
+				} else {
+					comps.CycleTypeDown()
+				}
+				return ActionResult{Handled: true, ShouldUpdate: true}
 			}
-			return ActionResult{Handled: true, ShouldUpdate: true}
 		}
 		return ActionResult{Handled: false} // Let textinput handle for other fields
 	default:
@@ -241,9 +252,13 @@ func (h *Handler) handleTabKey(model ModelInterface) ActionResult {
 			comps.BlurDesc()
 			return ActionResult{Handled: true, Mode: h.mode, FocusType: NameFocus}
 		}
-	case 2: // Priority -> Name (only for task forms)
-		comps.FocusName()
+	case 2: // Priority -> Type (only for task forms)
+		comps.FocusType()
 		comps.BlurPriority()
+		return ActionResult{Handled: true, Mode: h.mode, FocusType: TypeFocus}
+	case 3: // Type -> Name (only for task forms, cycle back)
+		comps.FocusName()
+		comps.BlurType()
 		return ActionResult{Handled: true, Mode: h.mode, FocusType: NameFocus}
 	default:
 		// Fallback to name focus

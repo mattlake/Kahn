@@ -23,9 +23,10 @@ type InputComponents struct {
 	NameInput     textinput.Model
 	DescInput     textinput.Model
 	PriorityValue domain.Priority // Track current priority value
+	TypeValue     domain.TaskType // Track current task type value
 	formType      FormType
 	taskID        string // for edit forms
-	FocusedField  int    // 0=name, 1=desc, 2=priority (exported)
+	FocusedField  int    // 0=name, 1=desc, 2=priority, 3=type (exported)
 }
 
 // NewInputComponents creates and initializes input components for forms
@@ -33,6 +34,7 @@ func NewInputComponents() InputComponents {
 	return InputComponents{
 		formType:     TaskCreateForm,
 		FocusedField: 0,
+		TypeValue:    domain.RegularTask, // Default to RegularTask
 	}
 }
 
@@ -41,17 +43,19 @@ func (ic *InputComponents) SetupForTaskCreate() {
 	ic.formType = TaskCreateForm
 	ic.FocusedField = 0
 	ic.taskID = ""
-	ic.PriorityValue = domain.Low // Default to Low priority
+	ic.PriorityValue = domain.Low     // Default to Low priority
+	ic.TypeValue = domain.RegularTask // Default to RegularTask type
 	ic.NameInput = ic.createNameInput("Task name *")
 	ic.DescInput = ic.createDescInput("Task description (optional)")
 	ic.NameInput.Focus()
 }
 
-func (ic *InputComponents) SetupForTaskEdit(taskID, name, desc string, priority domain.Priority) {
+func (ic *InputComponents) SetupForTaskEdit(taskID, name, desc string, priority domain.Priority, taskType domain.TaskType) {
 	ic.formType = TaskEditForm
 	ic.FocusedField = 0
 	ic.taskID = taskID
 	ic.PriorityValue = priority
+	ic.TypeValue = taskType
 	ic.NameInput = ic.createNameInput("Task name *")
 	ic.DescInput = ic.createDescInput("Task description (optional)")
 	ic.NameInput.SetValue(name)
@@ -95,6 +99,7 @@ func (ic *InputComponents) Reset() {
 	ic.NameInput.Reset()
 	ic.DescInput.Reset()
 	ic.PriorityValue = domain.Low
+	ic.TypeValue = domain.RegularTask
 	ic.FocusedField = 0
 	ic.taskID = ""
 }
@@ -130,6 +135,30 @@ func (ic *InputComponents) CyclePriorityDown() {
 		ic.PriorityValue = domain.Low
 	case domain.High:
 		ic.PriorityValue = domain.Medium
+	}
+}
+
+// CycleTypeUp cycles type up (RegularTask -> Bug -> Feature -> RegularTask)
+func (ic *InputComponents) CycleTypeUp() {
+	switch ic.TypeValue {
+	case domain.RegularTask:
+		ic.TypeValue = domain.Bug
+	case domain.Bug:
+		ic.TypeValue = domain.Feature
+	case domain.Feature:
+		ic.TypeValue = domain.RegularTask
+	}
+}
+
+// CycleTypeDown cycles type down (Feature -> Bug -> RegularTask -> Feature)
+func (ic *InputComponents) CycleTypeDown() {
+	switch ic.TypeValue {
+	case domain.RegularTask:
+		ic.TypeValue = domain.Feature
+	case domain.Bug:
+		ic.TypeValue = domain.RegularTask
+	case domain.Feature:
+		ic.TypeValue = domain.Bug
 	}
 }
 
@@ -187,10 +216,12 @@ func (ic *InputComponents) Render(errorMsg string, errorField string, width, hei
 	nameField := ic.renderFieldWithError(0, errorMsg, errorField)
 	descField := ic.renderFieldWithError(1, errorMsg, errorField)
 	var priorityField string
+	var typeField string
 
-	// Only show priority field for task forms
+	// Only show priority and type fields for task forms
 	if ic.formType == TaskCreateForm || ic.formType == TaskEditForm {
 		priorityField = ic.renderPriorityField(errorMsg, errorField)
+		typeField = ic.renderTypeField(errorMsg, errorField)
 	}
 
 	instructions := ic.getInstructions()
@@ -198,17 +229,18 @@ func (ic *InputComponents) Render(errorMsg string, errorField string, width, hei
 	// Build form content
 	var formContent string
 	if ic.formType == TaskCreateForm || ic.formType == TaskEditForm {
-		// Task forms include priority field
+		// Task forms include priority and type fields
 		formContent = lipgloss.JoinVertical(
 			lipgloss.Left,
 			"", title, "",
 			nameLabel, nameField, "",
 			descLabel, descField, "",
 			"Priority:", priorityField, "",
+			"Type:", typeField, "",
 			instructions,
 		)
 	} else {
-		// Project forms (no priority field)
+		// Project forms (no priority or type fields)
 		formContent = lipgloss.JoinVertical(
 			lipgloss.Left,
 			"", title, "",
@@ -310,6 +342,48 @@ func (ic *InputComponents) renderPriorityField(errorMsg string, errorField strin
 	return fieldWithBorder
 }
 
+// renderTypeField renders the task type field with visual indicators
+func (ic *InputComponents) renderTypeField(errorMsg string, errorField string) string {
+	typeOptions := []string{"Task", "Bug", "Feature"}
+	currentIndex := int(ic.TypeValue)
+
+	// Build display string like "Type: Bug »"
+	display := fmt.Sprintf("Type: %s", typeOptions[currentIndex])
+
+	if ic.FocusedField == 3 { // Type field focused
+		display += " »" // Add indicator for focused field
+	}
+
+	// Determine field styling
+	borderColor := colors.Text
+	if errorMsg != "" && errorField == "type" {
+		borderColor = colors.Red
+	} else if ic.FocusedField == 3 {
+		borderColor = colors.Green
+	}
+
+	// Get type color for text
+	var textColor string
+	switch ic.TypeValue {
+	case domain.RegularTask:
+		textColor = colors.Text // Default color
+	case domain.Bug:
+		textColor = colors.Text // Use same color as other fields
+	case domain.Feature:
+		textColor = colors.Text // Use same color as other fields
+	}
+
+	// Render field with border and color
+	fieldWithBorder := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(borderColor)).
+		Padding(0, 1).
+		Width(40).
+		Render(lipgloss.NewStyle().Foreground(lipgloss.Color(textColor)).Render(display))
+
+	return fieldWithBorder
+}
+
 func (ic *InputComponents) getFormTitle() string {
 	switch ic.formType {
 	case TaskCreateForm:
@@ -342,9 +416,9 @@ func (ic *InputComponents) getDescLabel() string {
 func (ic *InputComponents) getInstructions() string {
 	switch ic.formType {
 	case TaskCreateForm:
-		return "Tab: Switch fields • Enter: Create Task • Esc: Cancel"
+		return "Tab: Switch fields • ↑/↓: Change Priority/Type • Enter: Create Task • Esc: Cancel"
 	case TaskEditForm:
-		return "Tab: Switch fields • Enter: Save Changes • Esc: Cancel"
+		return "Tab: Switch fields • ↑/↓: Change Priority/Type • Enter: Save Changes • Esc: Cancel"
 	case ProjectCreateForm:
 		return "Tab: Switch fields • Enter: Create Project • Esc: Cancel"
 
@@ -389,6 +463,16 @@ func (ic *InputComponents) BlurName() {
 // BlurDesc blurs the description input
 func (ic *InputComponents) BlurDesc() {
 	ic.DescInput.Blur()
+}
+
+// FocusType focuses the type field
+func (ic *InputComponents) FocusType() {
+	ic.FocusedField = 3
+}
+
+// BlurType removes focus from the type field
+func (ic *InputComponents) BlurType() {
+	// No specific blur needed for type field
 }
 
 // Blur blurs all inputs

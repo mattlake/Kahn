@@ -37,6 +37,12 @@ func getMigrations() []Migration {
 				);
 			`,
 		},
+		{
+			name: "003_add_type_to_tasks",
+			sql: `
+				ALTER TABLE tasks ADD COLUMN type INTEGER DEFAULT 0;
+			`,
+		},
 
 		{
 			name: "005_create_indexes",

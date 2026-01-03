@@ -16,7 +16,7 @@ func NewTaskService(taskRepo domain.TaskRepository, projectRepo domain.ProjectRe
 	}
 }
 
-func (ts *TaskService) CreateTask(name, description, projectID string, priority domain.Priority) (*domain.Task, error) {
+func (ts *TaskService) CreateTask(name, description, projectID string, taskType domain.TaskType, priority domain.Priority) (*domain.Task, error) {
 	// Verify project exists before creating task
 	project, err := ts.projectRepo.GetByID(projectID)
 	if err != nil {
@@ -27,7 +27,8 @@ func (ts *TaskService) CreateTask(name, description, projectID string, priority 
 	}
 
 	task := domain.NewTask(name, description, projectID)
-	task.Priority = priority // Set the specified priority
+	task.Type = taskType     // Set specified type
+	task.Priority = priority // Set specified priority
 
 	// Use domain validation for data integrity
 	if err := task.Validate(); err != nil {
@@ -41,7 +42,7 @@ func (ts *TaskService) CreateTask(name, description, projectID string, priority 
 	return task, nil
 }
 
-func (ts *TaskService) UpdateTask(id, name, description string, priority domain.Priority) (*domain.Task, error) {
+func (ts *TaskService) UpdateTask(id, name, description string, taskType domain.TaskType, priority domain.Priority) (*domain.Task, error) {
 	task, err := ts.taskRepo.GetByID(id)
 	if err != nil {
 		return nil, &domain.RepositoryError{Operation: "get", Entity: "task", ID: id, Cause: err}
@@ -53,7 +54,8 @@ func (ts *TaskService) UpdateTask(id, name, description string, priority domain.
 	// Update task fields
 	task.Name = name
 	task.Desc = description
-	task.Priority = priority // Update the priority
+	task.Type = taskType     // Update type
+	task.Priority = priority // Update priority
 
 	// Use domain validation for data integrity
 	if err := task.Validate(); err != nil {

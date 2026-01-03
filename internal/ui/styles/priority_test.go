@@ -114,7 +114,7 @@ func TestNewTaskWithTitle(t *testing.T) {
 	wrapped := NewTaskWithTitle(*task)
 
 	// Check that it's properly wrapped
-	assert.Equal(t, "»» Test Task", wrapped.Title())   // Should include priority indicators + task name
+	assert.Equal(t, "»» 󰄬 Test Task", wrapped.Title()) // Should include priority indicators + task type + task name
 	assert.Equal(t, domain.High, wrapped.Priority)     // Priority preserved
 	assert.Equal(t, "Test Task", wrapped.Task.Title()) // Original task title preserved
 

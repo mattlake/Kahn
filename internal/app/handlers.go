@@ -146,7 +146,7 @@ func (km *KahnModel) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "e":
 		if selectedItem := km.navState.GetActiveList().SelectedItem(); selectedItem != nil {
 			if taskWrapper, ok := selectedItem.(styles.TaskWithTitle); ok {
-				km.formState.ShowTaskEditForm(taskWrapper.ID, taskWrapper.Name, taskWrapper.Desc, taskWrapper.Priority)
+				km.formState.ShowTaskEditForm(taskWrapper.ID, taskWrapper.Name, taskWrapper.Desc, taskWrapper.Priority, taskWrapper.Type)
 			}
 		}
 		return km, nil

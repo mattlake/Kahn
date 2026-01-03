@@ -12,12 +12,13 @@ import (
 func TestGetMigrations(t *testing.T) {
 	migrations := getMigrations()
 
-	assert.Len(t, migrations, 3, "Should have 3 migrations")
+	assert.Len(t, migrations, 4, "Should have 4 migrations")
 
 	// Test migration names
 	expectedNames := []string{
 		"001_create_projects_table",
 		"002_create_tasks_table",
+		"003_add_type_to_tasks",
 		"005_create_indexes",
 	}
 
@@ -46,7 +47,7 @@ func TestRunMigrations(t *testing.T) {
 	// Test that migrations table exists and has records
 	err = db.QueryRow("SELECT COUNT(*) FROM migrations").Scan(&count)
 	assert.NoError(t, err, "Should be able to query migrations table")
-	assert.Equal(t, 3, count, "Should have 3 migration records")
+	assert.Equal(t, 4, count, "Should have 4 migration records")
 
 	// Test that all expected tables exist
 	tables := []string{"projects", "tasks", "migrations"}
@@ -59,10 +60,10 @@ func TestRunMigrations(t *testing.T) {
 	err = database.RunMigrations()
 	assert.NoError(t, err, "Running migrations again should not return error")
 
-	// Test that migration count is still 3 (no duplicates)
+	// Test that migration count is still 4 (no duplicates)
 	err = db.QueryRow("SELECT COUNT(*) FROM migrations").Scan(&count)
 	assert.NoError(t, err, "Should be able to query migrations table")
-	assert.Equal(t, 3, count, "Should still have 3 migration records (no duplicates)")
+	assert.Equal(t, 4, count, "Should still have 4 migration records (no duplicates)")
 }
 
 func TestMigration_ProjectsTable(t *testing.T) {

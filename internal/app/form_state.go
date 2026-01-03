@@ -32,8 +32,8 @@ func (fs *FormState) ShowTaskForm() {
 }
 
 // ShowTaskEditForm displays the task edit form
-func (fs *FormState) ShowTaskEditForm(taskID string, name, description string, priority domain.Priority) {
-	fs.taskComponents.SetupForTaskEdit(taskID, name, description, priority)
+func (fs *FormState) ShowTaskEditForm(taskID string, name, description string, priority domain.Priority, taskType domain.TaskType) {
+	fs.taskComponents.SetupForTaskEdit(taskID, name, description, priority, taskType)
 	fs.activeFormType = input.TaskEditForm
 	fs.showForm = true
 	fs.ClearError()
@@ -97,12 +97,13 @@ func (fs *FormState) ValidateForSubmit() (bool, string, string) {
 }
 
 // GetFormData returns the current form data
-func (fs *FormState) GetFormData() (string, string, domain.Priority) {
+func (fs *FormState) GetFormData() (string, string, domain.TaskType, domain.Priority) {
 	comps := fs.GetActiveInputComponents()
 	name := comps.NameInput.Value()
 	desc := comps.DescInput.Value()
+	taskType := comps.TypeValue
 	priority := comps.PriorityValue
-	return name, desc, priority
+	return name, desc, taskType, priority
 }
 
 // GetTaskID returns the task ID for edit forms

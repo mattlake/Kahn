@@ -50,6 +50,7 @@ func TestNewTask(t *testing.T) {
 			assert.Equal(t, tt.description, task.Desc, "Task description should match")
 			assert.Equal(t, tt.projectID, task.ProjectID, "Project ID should match")
 			assert.Equal(t, NotStarted, task.Status, "Default status should be NotStarted")
+			assert.Equal(t, RegularTask, task.Type, "Default type should be RegularTask")
 			assert.Equal(t, Low, task.Priority, "Default priority should be Low")
 
 			// Test timestamps
@@ -235,6 +236,8 @@ func TestTask_Validate(t *testing.T) {
 		{"invalid priority low", &Task{Name: "Task", Desc: "Description", ProjectID: "proj_123", Priority: Priority(-1), Status: NotStarted}, true, "priority", "invalid priority"},
 		{"invalid priority high", &Task{Name: "Task", Desc: "Description", ProjectID: "proj_123", Priority: Priority(999), Status: NotStarted}, true, "priority", "invalid priority"},
 		{"invalid status", &Task{Name: "Task", Desc: "Description", ProjectID: "proj_123", Priority: Low, Status: Status(999)}, true, "status", "invalid status"},
+		{"invalid type low", &Task{Name: "Task", Desc: "Description", ProjectID: "proj_123", Priority: Low, Status: NotStarted, Type: TaskType(-1)}, true, "type", "invalid type"},
+		{"invalid type high", &Task{Name: "Task", Desc: "Description", ProjectID: "proj_123", Priority: Low, Status: NotStarted, Type: TaskType(999)}, true, "type", "invalid type"},
 	}
 
 	for _, tt := range tests {
@@ -269,5 +272,85 @@ func TestTask_ValidateEdgeCases(t *testing.T) {
 		task.Status = status
 		err := task.Validate()
 		assert.NoError(t, err, "Status %v should be valid", status)
+	}
+
+	// Test valid type values
+	validTypes := []TaskType{RegularTask, Bug, Feature}
+	for _, taskType := range validTypes {
+		task := NewTask("Test Task", "Description", "proj_123")
+		task.Type = taskType
+		err := task.Validate()
+		assert.NoError(t, err, "TaskType %v should be valid", taskType)
+	}
+}
+
+func TestTaskType_String(t *testing.T) {
+	tests := []struct {
+		name     string
+		taskType TaskType
+		expected string
+	}{
+		{
+			name:     "RegularTask type",
+			taskType: RegularTask,
+			expected: "Task",
+		},
+		{
+			name:     "Bug type",
+			taskType: Bug,
+			expected: "Bug",
+		},
+		{
+			name:     "Feature type",
+			taskType: Feature,
+			expected: "Feature",
+		},
+		{
+			name:     "Unknown type (should return Task)",
+			taskType: TaskType(999),
+			expected: "Task",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.taskType.String()
+			assert.Equal(t, tt.expected, result, "TaskType string representation should match expected value")
+		})
+	}
+}
+
+func TestTaskType_Constants(t *testing.T) {
+	// Test that type constants have expected integer values
+	assert.Equal(t, TaskType(0), RegularTask, "RegularTask should be 0")
+	assert.Equal(t, TaskType(1), Bug, "Bug should be 1")
+	assert.Equal(t, TaskType(2), Feature, "Feature should be 2")
+}
+
+func TestNewTask_WithTaskType(t *testing.T) {
+	tests := []struct {
+		name         string
+		taskName     string
+		description  string
+		projectID    string
+		expectedType TaskType
+	}{
+		{
+			name:         "Create task with default type",
+			taskName:     "Test Task",
+			description:  "Test Description",
+			projectID:    "proj_123",
+			expectedType: RegularTask,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := NewTask(tt.taskName, tt.description, tt.projectID)
+
+			require.NotNil(t, task, "Task should not be nil")
+			assert.Equal(t, tt.expectedType, task.Type, "Task type should match expected default")
+			assert.NoError(t, task.Validate(), "Task should be valid")
+		})
 	}
 }

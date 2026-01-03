@@ -35,14 +35,30 @@ type TaskWithTitle struct {
 // Title returns the priority-formatted title for display
 // PERFORMANCE: Uses cached style objects to avoid allocations
 func (t TaskWithTitle) Title() string {
+	// Add type prefix for all task types
+	title := t.Task.Title()
+	switch t.Task.Type {
+	case domain.RegularTask:
+		title = "󰄬 " + title
+	case domain.Bug:
+		title = "󰃤 " + title
+	case domain.Feature:
+		title = "󱕣 " + title
+	}
+
 	if t.isSelected && t.isActiveList {
 		// PERFORMANCE: Use cached selected style instead of creating new object
-		return selectedStyle.Render(t.priorityText + t.Task.Title())
+		return selectedStyle.Render(t.priorityText + title)
 	} else {
 		// PERFORMANCE: Use cached priority style instead of creating new object
 		priorityStyled := priorityStyles[t.Task.Priority].Render(t.priorityText)
-		return priorityStyled + t.Task.Title()
+		return priorityStyled + title
 	}
+}
+
+// GetTaskType returns the task type for interface compliance
+func (t TaskWithTitle) GetTaskType() domain.TaskType {
+	return t.Task.Type
 }
 
 // NewTaskWithTitle creates a wrapper for display purposes

@@ -109,7 +109,7 @@ func (km *KahnModel) CreateTaskWithPriority(name, description string, priority d
 		return nil
 	}
 
-	newTask, err := km.taskService.CreateTask(name, description, km.ActiveProjectID, priority)
+	newTask, err := km.taskService.CreateTask(name, description, km.ActiveProjectID, domain.RegularTask, priority)
 	if err != nil {
 		return err
 	}
@@ -122,8 +122,8 @@ func (km *KahnModel) CreateTaskWithPriority(name, description string, priority d
 	return nil
 }
 
-func (km *KahnModel) UpdateTask(id, name, description string, priority domain.Priority) error {
-	task, err := km.taskService.UpdateTask(id, name, description, priority)
+func (km *KahnModel) UpdateTask(id, name, description string, priority domain.Priority, taskType domain.TaskType) error {
+	task, err := km.taskService.UpdateTask(id, name, description, taskType, priority)
 	if err != nil {
 		return err
 	}
@@ -341,11 +341,11 @@ func (km *KahnModel) SubmitCurrentForm() error {
 	}
 
 	km.formState.ClearError()
-	name, desc, priority := km.formState.GetFormData()
+	name, desc, taskType, priority := km.formState.GetFormData()
 
 	switch km.formState.GetActiveFormType() {
 	case input.TaskCreateForm:
-		newTask, err := km.taskService.CreateTask(name, desc, km.ActiveProjectID, priority)
+		newTask, err := km.taskService.CreateTask(name, desc, km.ActiveProjectID, taskType, priority)
 		if err == nil {
 			activeProj := km.GetActiveProject()
 			if activeProj != nil {
@@ -355,7 +355,7 @@ func (km *KahnModel) SubmitCurrentForm() error {
 		}
 	case input.TaskEditForm:
 		taskID := km.formState.GetTaskID()
-		err := km.UpdateTask(taskID, name, desc, priority)
+		err := km.UpdateTask(taskID, name, desc, priority, taskType)
 		return err
 	case input.ProjectCreateForm:
 		newProject, err := km.projectService.CreateProject(name, desc)
@@ -377,8 +377,8 @@ func (km *KahnModel) ShowTaskForm() {
 	km.formState.ShowTaskForm()
 }
 
-func (km *KahnModel) ShowTaskEditForm(taskID string, name, description string, priority domain.Priority) {
-	km.formState.ShowTaskEditForm(taskID, name, description, priority)
+func (km *KahnModel) ShowTaskEditForm(taskID string, name, description string, priority domain.Priority, taskType domain.TaskType) {
+	km.formState.ShowTaskEditForm(taskID, name, description, priority, taskType)
 }
 
 func (km *KahnModel) ShowProjectForm() {

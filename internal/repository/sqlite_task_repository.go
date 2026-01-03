@@ -20,12 +20,12 @@ func NewSQLiteTaskRepository(db *sql.DB) *SQLiteTaskRepository {
 
 func (r *SQLiteTaskRepository) Create(task *domain.Task) error {
 	query := `
-		INSERT INTO tasks (id, project_id, name, desc, status, priority, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO tasks (id, project_id, name, desc, status, type, priority, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	_, err := r.base.db.Exec(query, task.ID, task.ProjectID, task.Name, task.Desc,
-		task.Status, task.Priority, task.CreatedAt, task.UpdatedAt)
+		task.Status, task.Type, task.Priority, task.CreatedAt, task.UpdatedAt)
 	if err != nil {
 		return r.base.WrapDBError("create", "task", task.ID, err)
 	}
@@ -35,7 +35,7 @@ func (r *SQLiteTaskRepository) Create(task *domain.Task) error {
 
 func (r *SQLiteTaskRepository) GetByID(id string) (*domain.Task, error) {
 	query := `
-		SELECT id, project_id, name, desc, status, priority, created_at, updated_at
+		SELECT id, project_id, name, desc, status, type, priority, created_at, updated_at
 		FROM tasks WHERE id = ?
 	`
 
@@ -45,7 +45,7 @@ func (r *SQLiteTaskRepository) GetByID(id string) (*domain.Task, error) {
 
 func (r *SQLiteTaskRepository) GetByProjectID(projectID string) ([]domain.Task, error) {
 	query := `
-		SELECT id, project_id, name, desc, status, priority, created_at, updated_at
+		SELECT id, project_id, name, desc, status, type, priority, created_at, updated_at
 		FROM tasks WHERE project_id = ? ORDER BY created_at DESC
 	`
 
@@ -65,14 +65,14 @@ func (r *SQLiteTaskRepository) GetByStatus(projectID string, status domain.Statu
 	if status == domain.NotStarted {
 		// Not Started: priority DESC, then created_at ASC (oldest highest priority first)
 		query = `
-			SELECT id, project_id, name, desc, status, priority, created_at, updated_at
+			SELECT id, project_id, name, desc, status, type, priority, created_at, updated_at
 			FROM tasks WHERE project_id = ? AND status = ? 
 			ORDER BY priority DESC, created_at ASC
 		`
 	} else {
 		// In Progress and Done: updated_at DESC (newest changes first)
 		query = `
-			SELECT id, project_id, name, desc, status, priority, created_at, updated_at
+			SELECT id, project_id, name, desc, status, type, priority, created_at, updated_at
 			FROM tasks WHERE project_id = ? AND status = ? 
 			ORDER BY updated_at DESC
 		`
@@ -90,13 +90,13 @@ func (r *SQLiteTaskRepository) GetByStatus(projectID string, status domain.Statu
 func (r *SQLiteTaskRepository) Update(task *domain.Task) error {
 	query := `
 		UPDATE tasks 
-		SET name = ?, desc = ?, status = ?, priority = ?, updated_at = ?
+		SET name = ?, desc = ?, status = ?, type = ?, priority = ?, updated_at = ?
 		WHERE id = ?
 	`
 
 	task.UpdatedAt = time.Now()
 	_, err := r.base.db.Exec(query, task.Name, task.Desc, task.Status,
-		task.Priority, task.UpdatedAt, task.ID)
+		task.Type, task.Priority, task.UpdatedAt, task.ID)
 	if err != nil {
 		return r.base.WrapDBError("update", "task", task.ID, err)
 	}

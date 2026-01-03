@@ -13,6 +13,7 @@ type Task struct {
 	Name      string    `json:"name"`
 	Desc      string    `json:"desc"`
 	Status    Status    `json:"status"`
+	Type      TaskType  `json:"type"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Priority  Priority  `json:"priority,omitempty"`
@@ -39,6 +40,27 @@ func (p Priority) String() string {
 	}
 }
 
+type TaskType int
+
+const (
+	RegularTask TaskType = iota
+	Bug
+	Feature
+)
+
+func (tt TaskType) String() string {
+	switch tt {
+	case RegularTask:
+		return "Task"
+	case Bug:
+		return "Bug"
+	case Feature:
+		return "Feature"
+	default:
+		return "Task"
+	}
+}
+
 func NewTask(name, description, projectID string) *Task {
 	now := time.Now()
 	return &Task{
@@ -47,6 +69,7 @@ func NewTask(name, description, projectID string) *Task {
 		Name:      name,
 		Desc:      description,
 		Status:    NotStarted,
+		Type:      RegularTask,
 		CreatedAt: now,
 		UpdatedAt: now,
 		Priority:  Low, // Changed default from Medium to Low
@@ -77,6 +100,10 @@ func (t *Task) Validate() error {
 	// Validate status is within valid range
 	if t.Status < NotStarted || t.Status > Done {
 		return &ValidationError{Field: "status", Message: "invalid status value"}
+	}
+	// Validate type is within valid range
+	if t.Type < RegularTask || t.Type > Feature {
+		return &ValidationError{Field: "type", Message: "invalid type value"}
 	}
 	return nil
 }
