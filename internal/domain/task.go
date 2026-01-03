@@ -2,6 +2,7 @@ package domain
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -53,6 +54,30 @@ func NewTask(name, description, projectID string) *Task {
 
 func generateTaskID() string {
 	return fmt.Sprintf("task_%d", time.Now().UnixNano())
+}
+
+func (t *Task) Validate() error {
+	if strings.TrimSpace(t.Name) == "" {
+		return &ValidationError{Field: "name", Message: "task name cannot be empty"}
+	}
+	if len(t.Name) > 100 {
+		return &ValidationError{Field: "name", Message: "task name too long (max 100 characters)"}
+	}
+	if len(t.Desc) > 500 {
+		return &ValidationError{Field: "description", Message: "task description too long (max 500 characters)"}
+	}
+	if t.ProjectID == "" {
+		return &ValidationError{Field: "project_id", Message: "project ID cannot be empty"}
+	}
+	// Validate priority is within valid range
+	if t.Priority < Low || t.Priority > High {
+		return &ValidationError{Field: "priority", Message: "invalid priority value"}
+	}
+	// Validate status is within valid range
+	if t.Status < NotStarted || t.Status > Done {
+		return &ValidationError{Field: "status", Message: "invalid status value"}
+	}
+	return nil
 }
 
 func (t Task) Title() string         { return t.Name }

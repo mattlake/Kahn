@@ -2,7 +2,6 @@ package services
 
 import (
 	"kahn/internal/domain"
-	"strings"
 )
 
 type TaskService struct {
@@ -18,14 +17,7 @@ func NewTaskService(taskRepo domain.TaskRepository, projectRepo domain.ProjectRe
 }
 
 func (ts *TaskService) CreateTask(name, description, projectID string, priority domain.Priority) (*domain.Task, error) {
-	if strings.TrimSpace(name) == "" {
-		return nil, &domain.ValidationError{Field: "name", Message: "task name cannot be empty"}
-	}
-
-	if projectID == "" {
-		return nil, &domain.ValidationError{Field: "project_id", Message: "project ID cannot be empty"}
-	}
-
+	// Verify project exists before creating task
 	project, err := ts.projectRepo.GetByID(projectID)
 	if err != nil {
 		return nil, &domain.RepositoryError{Operation: "get", Entity: "project", ID: projectID, Cause: err}
@@ -37,6 +29,11 @@ func (ts *TaskService) CreateTask(name, description, projectID string, priority 
 	task := domain.NewTask(name, description, projectID)
 	task.Priority = priority // Set the specified priority
 
+	// Use domain validation for data integrity
+	if err := task.Validate(); err != nil {
+		return nil, err
+	}
+
 	if err := ts.taskRepo.Create(task); err != nil {
 		return nil, &domain.RepositoryError{Operation: "create", Entity: "task", Cause: err}
 	}
@@ -45,10 +42,6 @@ func (ts *TaskService) CreateTask(name, description, projectID string, priority 
 }
 
 func (ts *TaskService) UpdateTask(id, name, description string, priority domain.Priority) (*domain.Task, error) {
-	if strings.TrimSpace(name) == "" {
-		return nil, &domain.ValidationError{Field: "name", Message: "task name cannot be empty"}
-	}
-
 	task, err := ts.taskRepo.GetByID(id)
 	if err != nil {
 		return nil, &domain.RepositoryError{Operation: "get", Entity: "task", ID: id, Cause: err}
@@ -57,9 +50,15 @@ func (ts *TaskService) UpdateTask(id, name, description string, priority domain.
 		return nil, &domain.ValidationError{Field: "id", Message: "task not found"}
 	}
 
+	// Update task fields
 	task.Name = name
 	task.Desc = description
 	task.Priority = priority // Update the priority
+
+	// Use domain validation for data integrity
+	if err := task.Validate(); err != nil {
+		return nil, err
+	}
 
 	if err := ts.taskRepo.Update(task); err != nil {
 		return nil, &domain.RepositoryError{Operation: "update", Entity: "task", ID: id, Cause: err}

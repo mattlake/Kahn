@@ -111,7 +111,7 @@ func handleDatabaseError(dbPath string, err error) error {
 			"Suggestions:\n"+
 			"  • Check file permissions\n"+
 			"  • Try a different location: kahn --db-path /tmp/kahn.db\n"+
-			"  • Run with different user if needed", dbPath, filepath.Dir(dbPath))
+			"  • Run with different user if needed", dbPath)
 	}
 
 	if os.IsNotExist(err) {

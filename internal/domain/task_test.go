@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -208,4 +209,65 @@ func TestTask_DeleteEdgeCases(t *testing.T) {
 	}
 	task3 := NewTask(longName, "Description", "proj_123")
 	assert.NotNil(t, task3, "Task with long name should be valid for deletion")
+}
+
+func TestTask_Validate(t *testing.T) {
+	tests := []struct {
+		name       string
+		task       *Task
+		wantErr    bool
+		errField   string
+		errMessage string
+	}{
+		// Valid cases
+		{"valid task", NewTask("Valid Task", "Description", "proj_123"), false, "", ""},
+		{"empty description", NewTask("Task", "", "proj_123"), false, "", ""},
+		{"max length name", NewTask(strings.Repeat("a", 100), "Description", "proj_123"), false, "", ""},
+		{"max length description", NewTask("Task", strings.Repeat("a", 500), "proj_123"), false, "", ""},
+		{"all valid priorities", NewTask("Task", "Description", "proj_123"), false, "", ""}, // Default Low is valid
+
+		// Invalid cases
+		{"empty name", NewTask("", "Description", "proj_123"), true, "name", "cannot be empty"},
+		{"whitespace name", NewTask("   ", "Description", "proj_123"), true, "name", "cannot be empty"},
+		{"name too long", NewTask(strings.Repeat("a", 101), "Description", "proj_123"), true, "name", "too long"},
+		{"description too long", NewTask("Task", strings.Repeat("a", 501), "proj_123"), true, "description", "too long"},
+		{"empty project ID", NewTask("Task", "Description", ""), true, "project_id", "cannot be empty"},
+		{"invalid priority low", &Task{Name: "Task", Desc: "Description", ProjectID: "proj_123", Priority: Priority(-1), Status: NotStarted}, true, "priority", "invalid priority"},
+		{"invalid priority high", &Task{Name: "Task", Desc: "Description", ProjectID: "proj_123", Priority: Priority(999), Status: NotStarted}, true, "priority", "invalid priority"},
+		{"invalid status", &Task{Name: "Task", Desc: "Description", ProjectID: "proj_123", Priority: Low, Status: Status(999)}, true, "status", "invalid status"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.task.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Task.Validate() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
+				assert.Contains(t, err.Error(), tt.errField)
+				assert.Contains(t, err.Error(), tt.errMessage)
+			}
+		})
+	}
+}
+
+func TestTask_ValidateEdgeCases(t *testing.T) {
+	// Test valid priority values
+	validPriorities := []Priority{Low, Medium, High}
+	for _, priority := range validPriorities {
+		task := NewTask("Test Task", "Description", "proj_123")
+		task.Priority = priority
+		err := task.Validate()
+		assert.NoError(t, err, "Priority %v should be valid", priority)
+	}
+
+	// Test valid status values
+	validStatuses := []Status{NotStarted, InProgress, Done}
+	for _, status := range validStatuses {
+		task := NewTask("Test Task", "Description", "proj_123")
+		task.Status = status
+		err := task.Validate()
+		assert.NoError(t, err, "Status %v should be valid", status)
+	}
 }
