@@ -56,7 +56,8 @@ func (p *Project) GetTasksByStatus(status Status) []Task {
 			tasks = append(tasks, task)
 		}
 	}
-	return tasks
+	// Apply sorting based on status to match repository behavior
+	return SortTasks(tasks, status)
 }
 
 func (p *Project) UpdateTaskStatus(taskID string, newStatus Status) bool {

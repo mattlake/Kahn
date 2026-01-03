@@ -2,6 +2,7 @@ package domain
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 )
@@ -84,3 +85,28 @@ func (t Task) Title() string         { return t.Name }
 func (t Task) Description() string   { return t.Desc }
 func (t Task) GetPriority() Priority { return t.Priority }
 func (t Task) FilterValue() string   { return t.Name }
+
+// SortTasks sorts a slice of tasks based on the status
+// For NotStarted: priority DESC, then created_at ASC (oldest highest priority first)
+// For InProgress and Done: updated_at DESC (newest changes first)
+func SortTasks(tasks []Task, status Status) []Task {
+	sorted := make([]Task, len(tasks))
+	copy(sorted, tasks)
+
+	if status == NotStarted {
+		// Sort by priority DESC, then created_at ASC
+		sort.Slice(sorted, func(i, j int) bool {
+			if sorted[i].Priority != sorted[j].Priority {
+				return sorted[i].Priority > sorted[j].Priority // Higher priority first
+			}
+			return sorted[i].CreatedAt.Before(sorted[j].CreatedAt) // Older first
+		})
+	} else {
+		// Sort by updated_at DESC
+		sort.Slice(sorted, func(i, j int) bool {
+			return sorted[i].UpdatedAt.After(sorted[j].UpdatedAt) // Newest first
+		})
+	}
+
+	return sorted
+}
