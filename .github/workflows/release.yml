@@ -123,9 +123,9 @@ jobs:
 
     - name: Prepare version
       id: version
+      shell: bash
       run: |
-        VERSION="${{ github.event.inputs.version }}"
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
         echo "filename=${{ matrix.filename }}" >> $GITHUB_OUTPUT
 
     - name: Build
