@@ -9,6 +9,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+var (
+	Version = "dev" // Set during build
+)
+
 func main() {
 	config, err := config.LoadConfig()
 	if err != nil {
@@ -21,7 +25,7 @@ func main() {
 	}
 	defer database.Close()
 
-	m := app.NewKahnModel(database)
+	m := app.NewKahnModel(database, Version)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)

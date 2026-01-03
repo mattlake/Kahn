@@ -19,17 +19,18 @@ func TestBoardComponent_RenderProjectHeader(t *testing.T) {
 		Color:       "#ff6b6b",
 	}
 
-	result := board.RenderProjectHeader(project, 80)
+	result := board.RenderProjectHeader(project, 80, "v1.0.0")
 
 	assert.NotEmpty(t, result, "RenderProjectHeader should not return empty string")
 	assert.Contains(t, result, "Test Project", "Should contain project name")
 	assert.Contains(t, result, "Project:", "Should contain project label")
+	assert.Contains(t, result, "v1.0.0", "Should contain version")
 }
 
 func TestBoardComponent_RenderProjectHeader_NilProject(t *testing.T) {
 	board := &BoardComponent{}
 
-	result := board.RenderProjectHeader(nil, 80)
+	result := board.RenderProjectHeader(nil, 80, "v1.0.0")
 
 	assert.Empty(t, result, "RenderProjectHeader with nil project should return empty string")
 }

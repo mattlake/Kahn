@@ -1,0 +1,222 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.2.3)'
+        required: true
+      dry_run:
+        description: 'Dry run (no release creation)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  GO_VERSION: '1.25.4'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-${{ env.GO_VERSION }}-
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Run tests
+      run: go test -v -race ./...
+
+    - name: Run tests with coverage
+      run: go test -cover ./...
+
+    - name: Verify formatting
+      run: |
+        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          echo "The following files are not formatted:"
+          gofmt -s -l .
+          exit 1
+        fi
+
+    - name: Run static analysis
+      run: go vet ./...
+
+  build:
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            ext: ""
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            ext: ""
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            ext: ""
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            ext: ""
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            ext: ".exe"
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-${{ env.GO_VERSION }}-
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Prepare version
+      id: version
+      run: |
+        VERSION="${{ github.event.inputs.version }}"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "filename=kahn-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" >> $GITHUB_OUTPUT
+
+    - name: Build
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        CGO_ENABLED: 1
+      run: |
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          export CC=x86_64-w64-mingw32-gcc
+        fi
+        
+        go build -ldflags "-X main.Version=${{ steps.version.outputs.version }}" -o ${{ steps.version.outputs.filename }} .
+        
+        # Generate checksum
+        if [ "${{ matrix.os }}" = "windows" ]; then
+          certutil -hashfile ${{ steps.version.outputs.filename }} SHA256 | findstr /v "hash" | tr -d ' \r\n' > ${{ steps.version.outputs.filename }}.sha256
+        else
+          sha256sum ${{ steps.version.outputs.filename }} | awk '{print $1}' > ${{ steps.version.outputs.filename }}.sha256
+        fi
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.version.outputs.filename }}
+        path: |
+          ${{ steps.version.outputs.filename }}
+          ${{ steps.version.outputs.filename }}.sha256
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event.inputs.dry_run == 'false'
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Prepare release
+      id: release
+      run: |
+        VERSION="${{ github.event.inputs.version }}"
+        
+        # Create release notes
+        echo "## Release $VERSION" > release_notes.md
+        echo "" >> release_notes.md
+        echo "### Changes" >> release_notes.md
+        echo "See commit history for detailed changes." >> release_notes.md
+        echo "" >> release_notes.md
+        echo "### Download" >> release_notes.md
+        echo "Choose the appropriate binary for your platform:" >> release_notes.md
+        echo "- Linux (amd64): \`kahn-linux-amd64\`" >> release_notes.md
+        echo "- Linux (arm64): \`kahn-linux-arm64\`" >> release_notes.md
+        echo "- macOS (Intel): \`kahn-darwin-amd64\`" >> release_notes.md
+        echo "- macOS (Apple Silicon): \`kahn-darwin-arm64\`" >> release_notes.md
+        echo "- Windows (amd64): \`kahn-windows-amd64.exe\`" >> release_notes.md
+        echo "" >> release_notes.md
+        echo "### Verification" >> release_notes.md
+        echo "Each binary has an accompanying \`.sha256\` file for verification." >> release_notes.md
+        
+        # Create combined checksums
+        find artifacts -name "*.sha256" -exec basename {} .sha256 \; | while read binary; do
+          if [ -f "artifacts/$binary/$binary.sha256" ]; then
+            cat "artifacts/$binary/$binary.sha256"
+          fi
+        done > checksums.txt
+        
+        # Format checksums properly
+        while read hash; do
+          if [ -f "artifacts/$hash/$hash" ] || [ -f "artifacts/$hash/$hash.exe" ]; then
+            binary=$hash
+            if [[ $binary == *.exe ]]; then
+              binary_without_ext="${binary%.exe}"
+              echo "$(cat artifacts/$binary_without_ext/$binary_without_ext.sha256)  $binary" >> combined_checksums.txt
+            else
+              echo "$(cat artifacts/$binary/$binary.sha256)  $binary" >> combined_checksums.txt
+            fi
+          fi
+        done < <(find artifacts -type f -name "*.sha256" | xargs -I {} basename {} .sha256)
+        
+        # Create proper checksums file
+        find artifacts -name "kahn-*" -type f | while read file; do
+          binary=$(basename "$file")
+          checksum_file="artifacts/$binary/$binary.sha256"
+          if [ -f "$checksum_file" ]; then
+            echo "$(cat "$checksum_file")  $binary" >> combined_checksums.txt
+          fi
+        done
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.event.inputs.version }}
+        name: Release ${{ github.event.inputs.version }}
+        body_path: release_notes.md
+        files: |
+          artifacts/**/kahn-*
+          combined_checksums.txt
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create Git Tag
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git tag -a ${{ github.event.inputs.version }} -m "Release ${{ github.event.inputs.version }}"
+        git push origin ${{ github.event.inputs.version }}
