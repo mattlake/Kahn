@@ -260,10 +260,10 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Create Git Tag
-      run: |
-        cd ${{ github.workspace }}
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git tag -a ${{ github.event.inputs.version }} -m "Release ${{ github.event.inputs.version }}"
-        git push origin ${{ github.event.inputs.version }}
+    # Git tag creation removed - handled by softprops/action-gh-release@v2
+    # - name: Create Git Tag
+    #   run: |
+    #     git -C ${{ github.workspace }}/.. config --local user.email "action@github.com"
+    #     git -C ${{ github.workspace }}/.. config --local user.name "GitHub Action"
+    #     git -C ${{ github.workspace }}/.. tag -a ${{ github.event.inputs.version }} -m "Release ${{ github.event.inputs.version }}"
+    #     git -C ${{ github.workspace }}/.. push origin ${{ github.event.inputs.version }}
