@@ -172,6 +172,7 @@ jobs:
           - binary: kahn-darwin-amd64
           - binary: kahn-darwin-arm64
           - binary: kahn-windows-amd64.exe
+      max-parallel: 1
 
     steps:
     - name: Download All Artifacts
@@ -242,9 +243,10 @@ jobs:
         name: Release ${{ github.event.inputs.version }}
         body_path: release_notes.md
         files: |
-          artifacts/**/${{ matrix.binary }}
+          artifacts/${{ matrix.binary }}
           checksums.txt
         draft: false
         prerelease: false
+        overwrite_files: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
