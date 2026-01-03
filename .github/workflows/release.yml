@@ -27,15 +27,16 @@ jobs:
       with:
         go-version: ${{ env.GO_VERSION }}
 
-    - name: Cache Go modules
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-${{ env.GO_VERSION }}-
+    # Cache disabled for reliability - eliminating cache corruption warnings
+    # - name: Cache Go modules
+    #   uses: actions/cache@v4
+    #   with:
+    #     path: |
+    #       ~/.cache/go-build
+    #       ~/go/pkg/mod
+    #     key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
+    #     restore-keys: |
+    #       ${{ runner.os }}-go-${{ env.GO_VERSION }}-
 
     - name: Download dependencies
       run: go mod download
@@ -107,15 +108,16 @@ jobs:
       with:
         go-version: ${{ env.GO_VERSION }}
 
-    - name: Cache Go modules
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-${{ env.GO_VERSION }}-
+    # Cache disabled for reliability - eliminating cache corruption warnings
+    # - name: Cache Go modules
+    #   uses: actions/cache@v4
+    #   with:
+    #     path: |
+    #       ~/.cache/go-build
+    #       ~/go/pkg/mod
+    #     key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
+    #     restore-keys: |
+    #       ${{ runner.os }}-go-${{ env.GO_VERSION }}-
 
     - name: Download dependencies
       run: go mod download
