@@ -94,8 +94,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up QEMU for ARM64
-      uses: docker/setup-qemu-action@v3
+    - name: Set up cross-compilation for ARM64
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-aarch64-linux-gnu
       if: matrix.os == 'linux' && matrix.arch == 'arm64'
 
     - name: Set up Go
@@ -128,15 +130,15 @@ jobs:
       shell: bash
       timeout-minutes: 10
       run: |
-        # Set target architecture for Linux ARM64 (other platforms build natively)
+        # Set up cross-compilation for ARM64 Linux only
         if [ "${{ matrix.os }}" = "linux" ] && [ "${{ matrix.arch }}" = "arm64" ]; then
           export GOOS=linux
           export GOARCH=arm64
           export CGO_ENABLED=1
-          # Use QEMU for ARM64 execution
+          export CC=aarch64-linux-gnu-gcc
         fi
         
-        # Native build - no cross-compilation needed for other platforms
+        # Native build for all other platforms (no GOOS/GOARCH needed)
         go build -ldflags "-X main.Version=${{ steps.version.outputs.version }}" -o ${{ steps.version.outputs.filename }} .
         
         # Verify binary was created
@@ -180,8 +182,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         path: artifacts
-        pattern: "kahn-*"
-        merge-multiple: false
+        merge-multiple: true
 
     - name: Prepare Release
       id: release
@@ -215,15 +216,14 @@ jobs:
         EOF
         
         # Process each binary and its checksum
-        find artifacts -name "kahn-*" -type f ! -name "*.sha256" | while read -r binary_path; do
-          binary=$(basename "$binary_path")
-          checksum_file="artifacts/${binary}/${binary}.sha256"
-          
-          if [[ -f "$checksum_file" ]]; then
-            checksum=$(cat "$checksum_file")
-            echo "${checksum}  ${binary}" >> checksums.txt
-          else
-            echo "Warning: Checksum file not found for ${binary}"
+        for binary in kahn-linux-amd64 kahn-linux-arm64 kahn-darwin-amd64 kahn-darwin-arm64 kahn-windows-amd64.exe; do
+          if [[ -f "artifacts/${binary}" ]]; then
+            checksum=$(cat "artifacts/${binary}.sha256" 2>/dev/null || echo "")
+            if [[ -n "$checksum" ]]; then
+              echo "${checksum}  ${binary}" >> checksums.txt
+            else
+              echo "Warning: Checksum file not found for ${binary}"
+            fi
           fi
         done
         
@@ -237,7 +237,7 @@ jobs:
         name: Release ${{ github.event.inputs.version }}
         body_path: release_notes.md
         files: |
-          artifacts/**/kahn-*
+          artifacts/kahn-*
           checksums.txt
         draft: false
         prerelease: false
