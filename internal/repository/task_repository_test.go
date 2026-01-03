@@ -13,71 +13,97 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTaskRepository_GetByStatus_Ordering(t *testing.T) {
-	// Setup in-memory database with migrations
+// setupTestRepository creates an in-memory database with migrations and returns a repository
+func setupTestRepository(t *testing.T) domain.TaskRepository {
 	db, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
-	defer db.Close()
 
 	// Run migrations
 	dbWrapper := &database.Database{Db: db}
 	err = dbWrapper.RunMigrations()
 	require.NoError(t, err)
 
-	// Create repository
-	repo := NewSQLiteTaskRepository(db)
-	projectID := "test_project"
+	return NewSQLiteTaskRepository(db)
+}
 
-	// Create test tasks with different priorities and creation times
-	now := time.Now()
-	tasks := []struct {
-		name      string
-		status    domain.Status
-		taskType  domain.TaskType
-		priority  domain.Priority
-		createdAt time.Time
-		updatedAt time.Time
-	}{
-		// Not Started tasks with different priorities and creation times
-		{"Low Priority Old", domain.NotStarted, domain.RegularTask, domain.Low, now.Add(-5 * time.Hour), now.Add(-5 * time.Hour)},
-		{"High Priority Old", domain.NotStarted, domain.Bug, domain.High, now.Add(-4 * time.Hour), now.Add(-4 * time.Hour)},
-		{"Medium Priority Old", domain.NotStarted, domain.Feature, domain.Medium, now.Add(-3 * time.Hour), now.Add(-3 * time.Hour)},
-		{"Low Priority New", domain.NotStarted, domain.RegularTask, domain.Low, now.Add(-2 * time.Hour), now.Add(-2 * time.Hour)},
-		{"High Priority New", domain.NotStarted, domain.Bug, domain.High, now.Add(-1 * time.Hour), now.Add(-1 * time.Hour)},
+// TaskTestData represents test data for task creation
+type TaskTestData struct {
+	Name      string
+	Status    domain.Status
+	TaskType  domain.TaskType
+	Priority  domain.Priority
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
 
-		// In Progress tasks with different update times
-		{"In Progress Oldest", domain.InProgress, domain.Feature, domain.Low, now.Add(-5 * time.Hour), now.Add(-5 * time.Hour)},
-		{"In Progress Middle", domain.InProgress, domain.RegularTask, domain.Medium, now.Add(-4 * time.Hour), now.Add(-3 * time.Hour)},
-		{"In Progress Newest", domain.InProgress, domain.Bug, domain.High, now.Add(-3 * time.Hour), now.Add(-1 * time.Hour)},
+// createTasksForStatus creates tasks with specific properties for testing status-based ordering
+func createTasksForStatus(t *testing.T, repo domain.TaskRepository, projectID string, status domain.Status, tasks []TaskTestData) []string {
+	var taskIDs []string
 
-		// Done tasks with different update times
-		{"Done Oldest", domain.Done, domain.Feature, domain.Low, now.Add(-5 * time.Hour), now.Add(-5 * time.Hour)},
-		{"Done Middle", domain.Done, domain.RegularTask, domain.Medium, now.Add(-4 * time.Hour), now.Add(-3 * time.Hour)},
-		{"Done Newest", domain.Done, domain.Bug, domain.High, now.Add(-3 * time.Hour), now.Add(-1 * time.Hour)},
-	}
-
-	// Insert test tasks
 	for i, taskData := range tasks {
 		task := &domain.Task{
 			ID:        "task_" + string(rune(i)),
 			ProjectID: projectID,
-			Name:      taskData.name,
-			Status:    taskData.status,
-			Type:      taskData.taskType,
-			Priority:  taskData.priority,
-			CreatedAt: taskData.createdAt,
-			UpdatedAt: taskData.updatedAt,
+			Name:      taskData.Name,
+			Status:    taskData.Status,
+			Type:      taskData.TaskType,
+			Priority:  taskData.Priority,
+			CreatedAt: taskData.CreatedAt,
+			UpdatedAt: taskData.UpdatedAt,
 		}
 		err := repo.Create(task)
 		require.NoError(t, err)
+		taskIDs = append(taskIDs, task.ID)
 	}
 
-	// Test Not Started ordering: priority DESC, then created_at ASC
+	return taskIDs
+}
+
+// getNotStartedTestData returns test data for NotStarted status ordering tests
+func getNotStartedTestData(baseTime time.Time) []TaskTestData {
+	return []TaskTestData{
+		{"Low Priority Old", domain.NotStarted, domain.RegularTask, domain.Low, baseTime.Add(-5 * time.Hour), baseTime.Add(-5 * time.Hour)},
+		{"High Priority Old", domain.NotStarted, domain.Bug, domain.High, baseTime.Add(-4 * time.Hour), baseTime.Add(-4 * time.Hour)},
+		{"Medium Priority Old", domain.NotStarted, domain.Feature, domain.Medium, baseTime.Add(-3 * time.Hour), baseTime.Add(-3 * time.Hour)},
+		{"Low Priority New", domain.NotStarted, domain.RegularTask, domain.Low, baseTime.Add(-2 * time.Hour), baseTime.Add(-2 * time.Hour)},
+		{"High Priority New", domain.NotStarted, domain.Bug, domain.High, baseTime.Add(-1 * time.Hour), baseTime.Add(-1 * time.Hour)},
+	}
+}
+
+// getInProgressTestData returns test data for InProgress status ordering tests
+func getInProgressTestData(baseTime time.Time) []TaskTestData {
+	return []TaskTestData{
+		{"In Progress Oldest", domain.InProgress, domain.Feature, domain.Low, baseTime.Add(-5 * time.Hour), baseTime.Add(-5 * time.Hour)},
+		{"In Progress Middle", domain.InProgress, domain.RegularTask, domain.Medium, baseTime.Add(-4 * time.Hour), baseTime.Add(-3 * time.Hour)},
+		{"In Progress Newest", domain.InProgress, domain.Bug, domain.High, baseTime.Add(-3 * time.Hour), baseTime.Add(-1 * time.Hour)},
+	}
+}
+
+// getDoneTestData returns test data for Done status ordering tests
+func getDoneTestData(baseTime time.Time) []TaskTestData {
+	return []TaskTestData{
+		{"Done Oldest", domain.Done, domain.Feature, domain.Low, baseTime.Add(-5 * time.Hour), baseTime.Add(-5 * time.Hour)},
+		{"Done Middle", domain.Done, domain.RegularTask, domain.Medium, baseTime.Add(-4 * time.Hour), baseTime.Add(-3 * time.Hour)},
+		{"Done Newest", domain.Done, domain.Bug, domain.High, baseTime.Add(-3 * time.Hour), baseTime.Add(-1 * time.Hour)},
+	}
+}
+
+func TestTaskRepository_GetByStatus_NotStarted_Ordering(t *testing.T) {
+	// Arrange
+	repo := setupTestRepository(t)
+	projectID := "test_project"
+
+	now := time.Now()
+	taskData := getNotStartedTestData(now)
+	createTasksForStatus(t, repo, projectID, domain.NotStarted, taskData)
+
+	// Act
 	notStartedTasks, err := repo.GetByStatus(projectID, domain.NotStarted)
+
+	// Assert
 	require.NoError(t, err)
 	assert.Len(t, notStartedTasks, 5, "Should have 5 NotStarted tasks")
 
-	// Verify order: High Priority tasks first (oldest creation time first), then Medium, then Low
 	expectedOrder := []string{
 		"High Priority Old",   // High priority, oldest
 		"High Priority New",   // High priority, newer
@@ -90,35 +116,59 @@ func TestTaskRepository_GetByStatus_Ordering(t *testing.T) {
 		assert.Equal(t, expectedName, notStartedTasks[i].Name,
 			"Task at position %d should be %s", i, expectedName)
 	}
+}
 
-	// Test In Progress ordering: updated_at DESC
+func TestTaskRepository_GetByStatus_InProgress_Ordering(t *testing.T) {
+	// Arrange
+	repo := setupTestRepository(t)
+	projectID := "test_project"
+
+	now := time.Now()
+	taskData := getInProgressTestData(now)
+	createTasksForStatus(t, repo, projectID, domain.InProgress, taskData)
+
+	// Act
 	inProgressTasks, err := repo.GetByStatus(projectID, domain.InProgress)
+
+	// Assert
 	require.NoError(t, err)
 	assert.Len(t, inProgressTasks, 3, "Should have 3 InProgress tasks")
 
-	expectedInProgressOrder := []string{
+	expectedOrder := []string{
 		"In Progress Newest", // Updated 1 hour ago (newest)
 		"In Progress Middle", // Updated 3 hours ago
 		"In Progress Oldest", // Updated 5 hours ago (oldest)
 	}
 
-	for i, expectedName := range expectedInProgressOrder {
+	for i, expectedName := range expectedOrder {
 		assert.Equal(t, expectedName, inProgressTasks[i].Name,
 			"InProgress task at position %d should be %s", i, expectedName)
 	}
+}
 
-	// Test Done ordering: updated_at DESC
+func TestTaskRepository_GetByStatus_Done_Ordering(t *testing.T) {
+	// Arrange
+	repo := setupTestRepository(t)
+	projectID := "test_project"
+
+	now := time.Now()
+	taskData := getDoneTestData(now)
+	createTasksForStatus(t, repo, projectID, domain.Done, taskData)
+
+	// Act
 	doneTasks, err := repo.GetByStatus(projectID, domain.Done)
+
+	// Assert
 	require.NoError(t, err)
 	assert.Len(t, doneTasks, 3, "Should have 3 Done tasks")
 
-	expectedDoneOrder := []string{
+	expectedOrder := []string{
 		"Done Newest", // Updated 1 hour ago (newest)
 		"Done Middle", // Updated 3 hours ago
 		"Done Oldest", // Updated 5 hours ago (oldest)
 	}
 
-	for i, expectedName := range expectedDoneOrder {
+	for i, expectedName := range expectedOrder {
 		assert.Equal(t, expectedName, doneTasks[i].Name,
 			"Done task at position %d should be %s", i, expectedName)
 	}
@@ -223,22 +273,11 @@ func TestTaskRepository_Update_UpdatedAt(t *testing.T) {
 	assert.Equal(t, domain.High, updatedTask.Priority, "Priority should be updated")
 }
 
-func TestTaskRepository_TaskType_CRUD(t *testing.T) {
-	// Setup in-memory database with migrations
-	db, err := sql.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
-	defer db.Close()
-
-	// Run migrations
-	dbWrapper := &database.Database{Db: db}
-	err = dbWrapper.RunMigrations()
-	require.NoError(t, err)
-
-	// Create repository
-	repo := NewSQLiteTaskRepository(db)
+func TestTaskRepository_CreateTasksWithDifferentTypes(t *testing.T) {
+	// Arrange
+	repo := setupTestRepository(t)
 	projectID := "test_project"
 
-	// Test creating tasks with different types
 	testTasks := []struct {
 		name     string
 		taskType domain.TaskType
@@ -248,7 +287,36 @@ func TestTaskRepository_TaskType_CRUD(t *testing.T) {
 		{"Feature Task", domain.Feature},
 	}
 
-	// Create tasks
+	// Act & Assert - Create tasks with different types
+	for i, taskData := range testTasks {
+		task := &domain.Task{
+			ID:        "task_" + string(rune(i)),
+			ProjectID: projectID,
+			Name:      taskData.name,
+			Status:    domain.NotStarted,
+			Type:      taskData.taskType,
+			Priority:  domain.Low,
+		}
+		err := repo.Create(task)
+		require.NoError(t, err, "Should be able to create task with type %v", taskData.taskType)
+	}
+}
+
+func TestTaskRepository_RetrieveTaskByType(t *testing.T) {
+	// Arrange
+	repo := setupTestRepository(t)
+	projectID := "test_project"
+
+	// Create test tasks with different types
+	testTasks := []struct {
+		name     string
+		taskType domain.TaskType
+	}{
+		{"Regular Task", domain.RegularTask},
+		{"Bug Task", domain.Bug},
+		{"Feature Task", domain.Feature},
+	}
+
 	taskIDs := []string{"task_regular", "task_bug", "task_feature"}
 	for i, taskData := range testTasks {
 		task := &domain.Task{
@@ -260,10 +328,10 @@ func TestTaskRepository_TaskType_CRUD(t *testing.T) {
 			Priority:  domain.Low,
 		}
 		err := repo.Create(task)
-		require.NoError(t, err, "Should be able to create task with type %v", taskData.taskType)
+		require.NoError(t, err)
 	}
 
-	// Test GetByID with different types
+	// Act & Assert - Test GetByID preserves types
 	for i, taskData := range testTasks {
 		retrievedTask, err := repo.GetByID(taskIDs[i])
 		require.NoError(t, err, "Should be able to retrieve task %d", i)
@@ -271,9 +339,25 @@ func TestTaskRepository_TaskType_CRUD(t *testing.T) {
 		assert.Equal(t, taskData.name, retrievedTask.Name, "Task name should match")
 		assert.Equal(t, taskData.taskType, retrievedTask.Type, "Task type should match")
 	}
+}
 
-	// Test GetByProjectID with different types
+func TestTaskRepository_GetByProjectID_TypePreservation(t *testing.T) {
+	// Arrange
+	repo := setupTestRepository(t)
+	projectID := "test_project"
+
+	// Create test tasks with different types
+	testTasks := []TaskTestData{
+		{"Regular Task", domain.NotStarted, domain.RegularTask, domain.Low, time.Now(), time.Now()},
+		{"Bug Task", domain.NotStarted, domain.Bug, domain.Medium, time.Now(), time.Now()},
+		{"Feature Task", domain.NotStarted, domain.Feature, domain.High, time.Now(), time.Now()},
+	}
+	createTasksForStatus(t, repo, projectID, domain.NotStarted, testTasks)
+
+	// Act
 	allTasks, err := repo.GetByProjectID(projectID)
+
+	// Assert
 	require.NoError(t, err, "Should be able to get all tasks for project")
 	assert.Len(t, allTasks, 3, "Should have 3 tasks")
 
@@ -285,15 +369,31 @@ func TestTaskRepository_TaskType_CRUD(t *testing.T) {
 	assert.Equal(t, 1, taskTypes[domain.RegularTask], "Should have 1 RegularTask")
 	assert.Equal(t, 1, taskTypes[domain.Bug], "Should have 1 Bug")
 	assert.Equal(t, 1, taskTypes[domain.Feature], "Should have 1 Feature")
+}
 
-	// Test updating task type
-	bugTask, err := repo.GetByID("task_bug") // Bug task
+func TestTaskRepository_UpdateTaskType(t *testing.T) {
+	// Arrange
+	repo := setupTestRepository(t)
+	projectID := "test_project"
+
+	// Create a bug task
+	bugTask := &domain.Task{
+		ID:        "task_bug",
+		ProjectID: projectID,
+		Name:      "Bug Task",
+		Status:    domain.NotStarted,
+		Type:      domain.Bug,
+		Priority:  domain.High,
+	}
+	err := repo.Create(bugTask)
 	require.NoError(t, err)
+
+	// Act - Change type from Bug to Feature
 	bugTask.Type = domain.Feature
 	err = repo.Update(bugTask)
 	require.NoError(t, err, "Should be able to update task type")
 
-	// Verify update
+	// Assert
 	updatedTask, err := repo.GetByID("task_bug")
 	require.NoError(t, err)
 	assert.Equal(t, domain.Feature, updatedTask.Type, "Task type should be updated to Feature")

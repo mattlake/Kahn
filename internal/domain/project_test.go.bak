@@ -239,16 +239,83 @@ func TestProject_Validate(t *testing.T) {
 	}
 }
 
-func TestProject_GetTasksByStatus_NotStarted_SortsByPriorityThenCreated(t *testing.T) {
-	// Arrange
-	project := createProjectWithTasksOfVaryingPriorities()
+func TestProject_CompleteWorkflow(t *testing.T) {
+	// Test a complete project workflow
+	project := NewProject("Workflow Project", "Testing complete workflow", "green")
 
-	// Act
+	// Initial state
+	assert.Empty(t, project.Tasks, "Initial project should have no tasks")
+
+	// Add tasks
+	task1 := NewTask("First Task", "First task description", project.ID)
+	time.Sleep(1 * time.Millisecond) // Ensure different timestamps
+	task2 := NewTask("Second Task", "Second task description", project.ID)
+
+	project.AddTask(*task1)
+	project.AddTask(*task2)
+
+	assert.Len(t, project.Tasks, 2, "Project should have 2 tasks")
+
+	// Update task statuses
+	project.UpdateTaskStatus(task1.ID, InProgress)
+	project.UpdateTaskStatus(task2.ID, Done)
+
 	notStartedTasks := project.GetTasksByStatus(NotStarted)
+	inProgressTasks := project.GetTasksByStatus(InProgress)
+	doneTasks := project.GetTasksByStatus(Done)
 
-	// Assert
+	assert.Len(t, notStartedTasks, 0, "Should have no NotStarted tasks")
+	assert.Len(t, inProgressTasks, 1, "Should have 1 InProgress task")
+	assert.Len(t, doneTasks, 1, "Should have 1 Done task")
+
+	// Remove a task
+	removed := project.RemoveTask(task1.ID)
+	assert.True(t, removed, "Task should be removed")
+	assert.Len(t, project.Tasks, 1, "Project should have 1 task remaining")
+
+	remainingTasks := project.GetTasksByStatus(Done)
+	assert.Len(t, remainingTasks, 1, "Should have 1 remaining Done task")
+}
+
+func TestProject_GetTasksByStatusSorting(t *testing.T) {
+	project := NewProject("Sorting Test Project", "Testing task sorting", "blue")
+
+	// Create base time for consistent ordering
+	baseTime := time.Now()
+
+	// Create tasks with different priorities and timestamps
+	highPriorityOld := NewTask("High Priority Old", "High priority oldest", project.ID)
+	highPriorityOld.Priority = High
+	highPriorityOld.CreatedAt = baseTime
+
+	highPriorityNew := NewTask("High Priority New", "High priority newest", project.ID)
+	highPriorityNew.Priority = High
+	highPriorityNew.CreatedAt = baseTime.Add(1 * time.Hour)
+
+	mediumPriorityOld := NewTask("Medium Priority Old", "Medium priority oldest", project.ID)
+	mediumPriorityOld.Priority = Medium
+	mediumPriorityOld.CreatedAt = baseTime.Add(30 * time.Minute)
+
+	lowPriorityOld := NewTask("Low Priority Old", "Low priority oldest", project.ID)
+	lowPriorityOld.Priority = Low
+	lowPriorityOld.CreatedAt = baseTime.Add(2 * time.Hour)
+
+	lowPriorityNew := NewTask("Low Priority New", "Low priority newest", project.ID)
+	lowPriorityNew.Priority = Low
+	lowPriorityNew.CreatedAt = baseTime.Add(3 * time.Hour)
+
+	// Add tasks in random order
+	project.AddTask(*lowPriorityNew)
+	project.AddTask(*highPriorityNew)
+	project.AddTask(*mediumPriorityOld)
+	project.AddTask(*lowPriorityOld)
+	project.AddTask(*highPriorityOld)
+
+	// Test NotStarted sorting (priority DESC, then created_at ASC)
+	notStartedTasks := project.GetTasksByStatus(NotStarted)
 	assert.Len(t, notStartedTasks, 5, "Should have 5 NotStarted tasks")
 
+	// Verify order: High Priority (oldest first), then Medium, then Low (oldest first)
 	expectedOrder := []string{
 		"High Priority Old",   // High priority, oldest
 		"High Priority New",   // High priority, newer
@@ -257,85 +324,35 @@ func TestProject_GetTasksByStatus_NotStarted_SortsByPriorityThenCreated(t *testi
 		"Low Priority New",    // Low priority, newer
 	}
 
-	actualOrder := getTaskNamesFromTasks(notStartedTasks)
-	assert.Equal(t, expectedOrder, actualOrder, "NotStarted tasks should be sorted by priority DESC, then created_at ASC")
-}
-
-func TestProject_GetTasksByStatus_InProgress_SortsByUpdatedDesc(t *testing.T) {
-	// Arrange
-	project := createProjectWithTasksOfVaryingPriorities()
-
-	// Update task statuses with specific timing to test updated_at ordering
-	// We need to find the actual task IDs after they're created
-	var highPriorityOldID, lowPriorityNewID string
-	for _, task := range project.Tasks {
-		if task.Name == "High Priority Old" {
-			highPriorityOldID = task.ID
-		} else if task.Name == "Low Priority New" {
-			lowPriorityNewID = task.ID
-		}
+	for i, expectedName := range expectedOrder {
+		assert.Equal(t, expectedName, notStartedTasks[i].Name, "Task %d should be %s", i, expectedName)
 	}
 
-	updates := []TaskUpdate{
-		{TaskID: highPriorityOldID, NewStatus: InProgress, Delay: 1 * time.Millisecond},
-		{TaskID: lowPriorityNewID, NewStatus: InProgress, Delay: 1 * time.Millisecond},
-	}
-	updateTaskStatusesWithTimestamps(project, updates)
+	// Update some tasks to different statuses and test their sorting
+	// Add small delays to ensure different UpdatedAt timestamps
+	time.Sleep(1 * time.Millisecond)
+	project.UpdateTaskStatus(highPriorityOld.ID, InProgress)
+	time.Sleep(1 * time.Millisecond)
+	project.UpdateTaskStatus(lowPriorityNew.ID, InProgress)
+	time.Sleep(1 * time.Millisecond)
+	project.UpdateTaskStatus(mediumPriorityOld.ID, Done)
 
-	// Act
+	// Test InProgress sorting (updated_at DESC)
 	inProgressTasks := project.GetTasksByStatus(InProgress)
-
-	// Assert
 	assert.Len(t, inProgressTasks, 2, "Should have 2 InProgress tasks")
 
-	// Most recently updated task should be first (lowPriorityNew was updated last)
+	// The most recently updated task should be first (lowPriorityNew was updated last)
 	assert.Equal(t, "Low Priority New", inProgressTasks[0].Name, "Most recently updated should be first")
 	assert.Equal(t, "High Priority Old", inProgressTasks[1].Name, "Less recently updated should be second")
 
 	// Verify updated_at timestamps are in descending order
 	assert.True(t, inProgressTasks[0].UpdatedAt.After(inProgressTasks[1].UpdatedAt),
 		"InProgress tasks should be sorted by updated_at DESC")
-}
 
-func TestProject_GetTasksByStatus_Done_SortsByUpdatedDesc(t *testing.T) {
-	// Arrange
-	project := createProjectWithTasksOfVaryingPriorities()
-
-	// Update one task to Done status
-	var mediumPriorityOldID string
-	for _, task := range project.Tasks {
-		if task.Name == "Medium Priority Old" {
-			mediumPriorityOldID = task.ID
-			break
-		}
-	}
-	project.UpdateTaskStatus(mediumPriorityOldID, Done)
-
-	// Act
+	// Test Done sorting (updated_at DESC)
 	doneTasks := project.GetTasksByStatus(Done)
-
-	// Assert
 	assert.Len(t, doneTasks, 1, "Should have 1 Done task")
 	assert.Equal(t, "Medium Priority Old", doneTasks[0].Name)
-}
-
-func TestProject_GetTasksByStatus_HandlesMultiplePriorityLevels(t *testing.T) {
-	// Arrange
-	project := createProjectWithTasksOfVaryingPriorities()
-
-	// Act
-	notStartedTasks := project.GetTasksByStatus(NotStarted)
-
-	// Assert
-	// Verify all priority levels are present and correctly grouped
-	priorities := make(map[Priority]int)
-	for _, task := range notStartedTasks {
-		priorities[task.Priority]++
-	}
-
-	assert.Equal(t, 2, priorities[High], "Should have 2 high priority tasks")
-	assert.Equal(t, 1, priorities[Medium], "Should have 1 medium priority task")
-	assert.Equal(t, 2, priorities[Low], "Should have 2 low priority tasks")
 }
 
 func TestSortTasks(t *testing.T) {

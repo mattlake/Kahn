@@ -122,165 +122,165 @@ func TestTaskService_MoveTaskToNextStatus(t *testing.T) {
 	})
 }
 
-func TestTaskService_TaskType_Functionality(t *testing.T) {
-	// Setup mocks
+func TestTaskService_CreateTask_WithDifferentTypes(t *testing.T) {
+	// Setup
 	taskRepo := NewMockTaskRepository()
 	projectRepo := NewMockProjectRepository()
-
-	// Create test project
 	testProject := domain.NewProject("Test Project", "Test Description", "blue")
 	projectRepo.Create(testProject)
-
 	service := NewTaskService(taskRepo, projectRepo)
 
-	t.Run("create task with RegularTask type", func(t *testing.T) {
-		// Act
-		task, err := service.CreateTask("Regular Task", "Description", testProject.ID, domain.RegularTask, domain.Low)
+	tests := []struct {
+		name        string
+		taskName    string
+		description string
+		taskType    domain.TaskType
+		priority    domain.Priority
+	}{
+		{"create task with RegularTask type", "Regular Task", "Description", domain.RegularTask, domain.Low},
+		{"create task with Bug type", "Bug Task", "Bug Description", domain.Bug, domain.High},
+		{"create task with Feature type", "Feature Task", "Feature Description", domain.Feature, domain.Medium},
+	}
 
-		// Assert
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
-		if task == nil {
-			t.Error("Expected task to be created")
-		}
-		if task.Type != domain.RegularTask {
-			t.Errorf("Expected task type RegularTask, got %v", task.Type)
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Act
+			task, err := service.CreateTask(tt.taskName, tt.description, testProject.ID, tt.taskType, tt.priority)
 
-	t.Run("create task with Bug type", func(t *testing.T) {
-		// Act
-		task, err := service.CreateTask("Bug Task", "Bug Description", testProject.ID, domain.Bug, domain.High)
-
-		// Assert
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
-		if task == nil {
-			t.Error("Expected task to be created")
-		}
-		if task.Type != domain.Bug {
-			t.Errorf("Expected task type Bug, got %v", task.Type)
-		}
-	})
-
-	t.Run("create task with Feature type", func(t *testing.T) {
-		// Act
-		task, err := service.CreateTask("Feature Task", "Feature Description", testProject.ID, domain.Feature, domain.Medium)
-
-		// Assert
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
-		if task == nil {
-			t.Error("Expected task to be created")
-		}
-		if task.Type != domain.Feature {
-			t.Errorf("Expected task type Feature, got %v", task.Type)
-		}
-	})
-
-	t.Run("update task type", func(t *testing.T) {
-		// Setup - create a task with RegularTask type
-		originalTask, err := service.CreateTask("Original Task", "Description", testProject.ID, domain.RegularTask, domain.Low)
-		if err != nil {
-			t.Fatalf("Failed to create original task: %v", err)
-		}
-
-		// Act - update to Bug type
-		updatedTask, err := service.UpdateTask(originalTask.ID, "Updated Task", "Updated Description", domain.Bug, domain.High)
-
-		// Assert
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
-		if updatedTask == nil {
-			t.Error("Expected task to be updated")
-		}
-		if updatedTask.Type != domain.Bug {
-			t.Errorf("Expected updated task type Bug, got %v", updatedTask.Type)
-		}
-		if updatedTask.Name != "Updated Task" {
-			t.Errorf("Expected updated name 'Updated Task', got '%s'", updatedTask.Name)
-		}
-		if updatedTask.Desc != "Updated Description" {
-			t.Errorf("Expected updated description 'Updated Description', got '%s'", updatedTask.Desc)
-		}
-		if updatedTask.Priority != domain.High {
-			t.Errorf("Expected updated priority High, got %v", updatedTask.Priority)
-		}
-	})
-
-	t.Run("get tasks by project with different types", func(t *testing.T) {
-		// Setup - create tasks with different types
-		task1, _ := service.CreateTask("Task 1", "Regular", testProject.ID, domain.RegularTask, domain.Low)
-		task2, _ := service.CreateTask("Task 2", "Bug", testProject.ID, domain.Bug, domain.Medium)
-		task3, _ := service.CreateTask("Task 3", "Feature", testProject.ID, domain.Feature, domain.High)
-
-		// Act
-		tasks, err := service.GetTasksByProject(testProject.ID)
-
-		// Assert
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
-		if len(tasks) < 3 {
-			t.Errorf("Expected at least 3 tasks, got %d", len(tasks))
-		}
-
-		// Verify we have all task types
-		typeCount := make(map[domain.TaskType]int)
-		for _, task := range tasks {
-			if task.ID == task1.ID || task.ID == task2.ID || task.ID == task3.ID {
-				typeCount[task.Type]++
+			// Assert
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
 			}
-		}
-
-		if typeCount[domain.RegularTask] == 0 {
-			t.Error("Expected at least one RegularTask")
-		}
-		if typeCount[domain.Bug] == 0 {
-			t.Error("Expected at least one Bug task")
-		}
-		if typeCount[domain.Feature] == 0 {
-			t.Error("Expected at least one Feature task")
-		}
-	})
-
-	t.Run("get tasks by status with different types", func(t *testing.T) {
-		// Setup - create tasks with different types and same status
-		task1, _ := service.CreateTask("Not Started Regular", "Regular", testProject.ID, domain.RegularTask, domain.Low)
-		task2, _ := service.CreateTask("Not Started Bug", "Bug", testProject.ID, domain.Bug, domain.Medium)
-		task3, _ := service.CreateTask("Not Started Feature", "Feature", testProject.ID, domain.Feature, domain.High)
-
-		// Act
-		tasks, err := service.GetTasksByStatus(testProject.ID, domain.NotStarted)
-
-		// Assert
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
-		if len(tasks) < 3 {
-			t.Errorf("Expected at least 3 NotStarted tasks, got %d", len(tasks))
-		}
-
-		// Verify we have all task types in NotStarted status
-		typeCount := make(map[domain.TaskType]int)
-		for _, task := range tasks {
-			if task.ID == task1.ID || task.ID == task2.ID || task.ID == task3.ID {
-				typeCount[task.Type]++
+			if task == nil {
+				t.Error("Expected task to be created")
 			}
-		}
+			if task.Type != tt.taskType {
+				t.Errorf("Expected task type %v, got %v", tt.taskType, task.Type)
+			}
+		})
+	}
+}
 
-		if typeCount[domain.RegularTask] == 0 {
-			t.Error("Expected at least one RegularTask in NotStarted")
+func TestTaskService_UpdateTask_TypeChange(t *testing.T) {
+	// Setup
+	taskRepo := NewMockTaskRepository()
+	projectRepo := NewMockProjectRepository()
+	testProject := domain.NewProject("Test Project", "Test Description", "blue")
+	projectRepo.Create(testProject)
+	service := NewTaskService(taskRepo, projectRepo)
+
+	// Create original task
+	originalTask, err := service.CreateTask("Original Task", "Description", testProject.ID, domain.RegularTask, domain.Low)
+	if err != nil {
+		t.Fatalf("Failed to create original task: %v", err)
+	}
+
+	// Act
+	updatedTask, err := service.UpdateTask(originalTask.ID, "Updated Task", "Updated Description", domain.Bug, domain.High)
+
+	// Assert
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	if updatedTask == nil {
+		t.Error("Expected task to be updated")
+	}
+	if updatedTask.Type != domain.Bug {
+		t.Errorf("Expected updated task type Bug, got %v", updatedTask.Type)
+	}
+	if updatedTask.Name != "Updated Task" {
+		t.Errorf("Expected updated name 'Updated Task', got '%s'", updatedTask.Name)
+	}
+	if updatedTask.Desc != "Updated Description" {
+		t.Errorf("Expected updated description 'Updated Description', got '%s'", updatedTask.Desc)
+	}
+	if updatedTask.Priority != domain.High {
+		t.Errorf("Expected updated priority High, got %v", updatedTask.Priority)
+	}
+}
+
+func TestTaskService_GetTasksByProject_TypePreservation(t *testing.T) {
+	// Setup
+	taskRepo := NewMockTaskRepository()
+	projectRepo := NewMockProjectRepository()
+	testProject := domain.NewProject("Test Project", "Test Description", "blue")
+	projectRepo.Create(testProject)
+	service := NewTaskService(taskRepo, projectRepo)
+
+	// Create tasks with different types
+	task1, _ := service.CreateTask("Task 1", "Regular", testProject.ID, domain.RegularTask, domain.Low)
+	task2, _ := service.CreateTask("Task 2", "Bug", testProject.ID, domain.Bug, domain.Medium)
+	task3, _ := service.CreateTask("Task 3", "Feature", testProject.ID, domain.Feature, domain.High)
+
+	// Act
+	tasks, err := service.GetTasksByProject(testProject.ID)
+
+	// Assert
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	if len(tasks) < 3 {
+		t.Errorf("Expected at least 3 tasks, got %d", len(tasks))
+	}
+
+	// Verify we have all task types
+	typeCount := make(map[domain.TaskType]int)
+	for _, task := range tasks {
+		if task.ID == task1.ID || task.ID == task2.ID || task.ID == task3.ID {
+			typeCount[task.Type]++
 		}
-		if typeCount[domain.Bug] == 0 {
-			t.Error("Expected at least one Bug task in NotStarted")
+	}
+
+	if typeCount[domain.RegularTask] == 0 {
+		t.Error("Expected at least one RegularTask")
+	}
+	if typeCount[domain.Bug] == 0 {
+		t.Error("Expected at least one Bug task")
+	}
+	if typeCount[domain.Feature] == 0 {
+		t.Error("Expected at least one Feature task")
+	}
+}
+
+func TestTaskService_GetTasksByStatus_TypePreservation(t *testing.T) {
+	// Setup
+	taskRepo := NewMockTaskRepository()
+	projectRepo := NewMockProjectRepository()
+	testProject := domain.NewProject("Test Project", "Test Description", "blue")
+	projectRepo.Create(testProject)
+	service := NewTaskService(taskRepo, projectRepo)
+
+	// Create tasks with different types and same status
+	task1, _ := service.CreateTask("Not Started Regular", "Regular", testProject.ID, domain.RegularTask, domain.Low)
+	task2, _ := service.CreateTask("Not Started Bug", "Bug", testProject.ID, domain.Bug, domain.Medium)
+	task3, _ := service.CreateTask("Not Started Feature", "Feature", testProject.ID, domain.Feature, domain.High)
+
+	// Act
+	tasks, err := service.GetTasksByStatus(testProject.ID, domain.NotStarted)
+
+	// Assert
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	if len(tasks) < 3 {
+		t.Errorf("Expected at least 3 NotStarted tasks, got %d", len(tasks))
+	}
+
+	// Verify we have all task types in NotStarted status
+	typeCount := make(map[domain.TaskType]int)
+	for _, task := range tasks {
+		if task.ID == task1.ID || task.ID == task2.ID || task.ID == task3.ID {
+			typeCount[task.Type]++
 		}
-		if typeCount[domain.Feature] == 0 {
-			t.Error("Expected at least one Feature task in NotStarted")
-		}
-	})
+	}
+
+	if typeCount[domain.RegularTask] == 0 {
+		t.Error("Expected at least one RegularTask in NotStarted")
+	}
+	if typeCount[domain.Bug] == 0 {
+		t.Error("Expected at least one Bug task in NotStarted")
+	}
+	if typeCount[domain.Feature] == 0 {
+		t.Error("Expected at least one Feature task in NotStarted")
+	}
 }
