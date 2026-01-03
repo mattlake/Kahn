@@ -81,7 +81,7 @@ func (km KahnModel) View() string {
 		taskLists[domain.InProgress] = km.navState.Tasks[domain.InProgress]
 		taskLists[domain.Done] = km.navState.Tasks[domain.Done]
 
-		return km.board.GetRenderer().RenderBoard(activeProj, taskLists, km.navState.GetActiveListIndex(), km.width)
+		return km.board.GetRenderer().RenderBoard(activeProj, taskLists, km.navState.GetActiveListIndex(), km.width, km.version)
 	}
 
 	return ""

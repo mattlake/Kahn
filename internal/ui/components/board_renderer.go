@@ -17,5 +17,5 @@ type BoardRenderer interface {
 	RenderTaskDeleteConfirm(task *domain.Task, width, height int) string
 
 	// RenderBoard renders the main kanban board with three columns
-	RenderBoard(project *domain.Project, taskLists [3]list.Model, activeListIndex domain.Status, width int) string
+	RenderBoard(project *domain.Project, taskLists [3]list.Model, activeListIndex domain.Status, width int, version string) string
 }

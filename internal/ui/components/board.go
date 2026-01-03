@@ -171,13 +171,13 @@ func (b *BoardComponent) RenderTaskDeleteConfirm(task *domain.Task, width, heigh
 }
 
 // RenderBoard renders the main kanban board with three columns
-func (b *BoardComponent) RenderBoard(project *domain.Project, taskLists [3]list.Model, activeListIndex domain.Status, width int) string {
+func (b *BoardComponent) RenderBoard(project *domain.Project, taskLists [3]list.Model, activeListIndex domain.Status, width int, version string) string {
 	if project == nil {
 		return ""
 	}
 
 	// Render project header
-	projectHeader := b.RenderProjectHeader(project, width, "dev")
+	projectHeader := b.RenderProjectHeader(project, width, version)
 
 	columnWidth := taskLists[0].Width()
 

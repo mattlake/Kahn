@@ -126,7 +126,7 @@ jobs:
         echo "Target filename: ${{ steps.version.outputs.filename }}"
         echo "Environment: GOOS=$GOOS GOARCH=$GOARCH CGO_ENABLED=$CGO_ENABLED"
         
-        go build -ldflags "-X main.Version=${{ steps.version.outputs.version }}" -o ${{ steps.version.outputs.filename }} .
+        go build -ldflags "-X 'main.Version=${{ steps.version.outputs.version }}'" -o ${{ steps.version.outputs.filename }} .
         
         # Verify binary was created
         if [[ ! -f "${{ steps.version.outputs.filename }}" ]]; then
