@@ -181,13 +181,20 @@ func (b *BoardComponent) RenderBoard(project *domain.Project, taskLists [3]list.
 
 	columnWidth := taskLists[0].Width()
 
-	notStartedView := styles.DefaultStyle.Width(columnWidth).Render(taskLists[domain.NotStarted].View())
-	inProgressView := styles.DefaultStyle.Width(columnWidth).Render(taskLists[domain.InProgress].View())
-	doneView := styles.DefaultStyle.Width(columnWidth).Render(taskLists[domain.Done].View())
+	// PERFORMANCE: Cache View() results to avoid duplicate calculations
+	// Each list's View() was being called twice (once for normal, once for focused)
+	notStartedContent := taskLists[domain.NotStarted].View()
+	inProgressContent := taskLists[domain.InProgress].View()
+	doneContent := taskLists[domain.Done].View()
 
-	focusedNotStartedView := styles.FocusedStyle.Width(columnWidth).Render(taskLists[domain.NotStarted].View())
-	focusedInProgressView := styles.FocusedStyle.Width(columnWidth).Render(taskLists[domain.InProgress].View())
-	focusedDoneView := styles.FocusedStyle.Width(columnWidth).Render(taskLists[domain.Done].View())
+	// Apply styles to cached content
+	notStartedView := styles.DefaultStyle.Width(columnWidth).Render(notStartedContent)
+	inProgressView := styles.DefaultStyle.Width(columnWidth).Render(inProgressContent)
+	doneView := styles.DefaultStyle.Width(columnWidth).Render(doneContent)
+
+	focusedNotStartedView := styles.FocusedStyle.Width(columnWidth).Render(notStartedContent)
+	focusedInProgressView := styles.FocusedStyle.Width(columnWidth).Render(inProgressContent)
+	focusedDoneView := styles.FocusedStyle.Width(columnWidth).Render(doneContent)
 
 	boardContent := ""
 	switch activeListIndex {

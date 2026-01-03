@@ -115,6 +115,8 @@ func (km *KahnModel) CreateTaskWithPriority(name, description string, priority d
 	}
 
 	activeProj.AddTask(*newTask)
+	// PERFORMANCE: Mark only NotStarted list as dirty since new tasks start there
+	km.navState.MarkListDirty(domain.NotStarted)
 	km.updateTaskLists()
 
 	return nil
@@ -128,8 +130,10 @@ func (km *KahnModel) UpdateTask(id, name, description string, priority domain.Pr
 
 	activeProj := km.GetActiveProject()
 	if activeProj != nil {
+		var taskStatus domain.Status
 		for i, t := range activeProj.Tasks {
 			if t.ID == id {
+				taskStatus = t.Status // Save status before update
 				activeProj.Tasks[i].Name = task.Name
 				activeProj.Tasks[i].Desc = task.Desc
 				activeProj.Tasks[i].Priority = task.Priority
@@ -137,6 +141,8 @@ func (km *KahnModel) UpdateTask(id, name, description string, priority domain.Pr
 				break
 			}
 		}
+		// PERFORMANCE: Mark only the task's current status list as dirty
+		km.navState.MarkListDirty(taskStatus)
 		km.updateTaskLists()
 	}
 
@@ -150,7 +156,17 @@ func (km *KahnModel) DeleteTask(id string) error {
 
 	activeProj := km.GetActiveProject()
 	if activeProj != nil {
+		// Find task status before deletion for dirty flag
+		var taskStatus domain.Status
+		for _, t := range activeProj.Tasks {
+			if t.ID == id {
+				taskStatus = t.Status
+				break
+			}
+		}
 		activeProj.RemoveTask(id)
+		// PERFORMANCE: Mark only the deleted task's status list as dirty
+		km.navState.MarkListDirty(taskStatus)
 		km.updateTaskLists()
 	}
 
@@ -163,12 +179,24 @@ func (km *KahnModel) MoveTaskToNextStatus(id string) error {
 		return nil
 	}
 
+	// Find current status before movement for dirty flags
+	var oldStatus domain.Status
+	for _, t := range activeProj.Tasks {
+		if t.ID == id {
+			oldStatus = t.Status
+			break
+		}
+	}
+
 	task, err := km.taskService.MoveTaskToNextStatus(id)
 	if err != nil {
 		return err
 	}
 
 	activeProj.UpdateTaskStatus(id, task.Status)
+	// PERFORMANCE: Mark both old and new status lists as dirty
+	km.navState.MarkListDirty(oldStatus)
+	km.navState.MarkListDirty(task.Status)
 	km.updateTaskLists()
 	return nil
 }
@@ -179,12 +207,24 @@ func (km *KahnModel) MoveTaskToPreviousStatus(id string) error {
 		return nil
 	}
 
+	// Find current status before movement for dirty flags
+	var oldStatus domain.Status
+	for _, t := range activeProj.Tasks {
+		if t.ID == id {
+			oldStatus = t.Status
+			break
+		}
+	}
+
 	task, err := km.taskService.MoveTaskToPreviousStatus(id)
 	if err != nil {
 		return err
 	}
 
 	activeProj.UpdateTaskStatus(id, task.Status)
+	// PERFORMANCE: Mark both old and new status lists as dirty
+	km.navState.MarkListDirty(oldStatus)
+	km.navState.MarkListDirty(task.Status)
 	km.updateTaskLists()
 	return nil
 }
@@ -368,7 +408,12 @@ func (km *KahnModel) PrevList() {
 }
 
 func (km *KahnModel) updateTaskLists() {
-	km.navState.UpdateTaskLists(km.GetActiveProject(), km.taskService)
+	// PERFORMANCE: Use incremental updates when dirty flags are set
+	if km.navState.dirtyFlags != nil && len(km.navState.dirtyFlags) > 0 {
+		km.navState.UpdateDirtyLists(km.GetActiveProject(), km.taskService)
+	} else {
+		km.navState.UpdateTaskLists(km.GetActiveProject(), km.taskService)
+	}
 }
 
 func (km *KahnModel) executeTaskDeletion() tea.Model {

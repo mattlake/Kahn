@@ -8,6 +8,21 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// PERFORMANCE: Pre-allocated style objects to avoid recreating on every render
+var (
+	// Selection styling
+	selectedStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(colors.Blue)).
+			Bold(true)
+
+	// Priority color styles (cached) - using values instead of pointers
+	priorityStyles = map[domain.Priority]lipgloss.Style{
+		domain.Low:    lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Green)),
+		domain.Medium: lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Peach)),
+		domain.High:   lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Red)),
+	}
+)
+
 // TaskWithTitle wraps a domain.Task with priority-formatted title
 // This allows us to keep Task.Title() pure while modifying display
 type TaskWithTitle struct {
@@ -18,19 +33,14 @@ type TaskWithTitle struct {
 }
 
 // Title returns the priority-formatted title for display
-// Smart rendering based on selection state and list activity
+// PERFORMANCE: Uses cached style objects to avoid allocations
 func (t TaskWithTitle) Title() string {
 	if t.isSelected && t.isActiveList {
-		// Blue selection styling for both priority and title
-		return lipgloss.NewStyle().
-			Foreground(lipgloss.Color(colors.Blue)).
-			Bold(true).
-			Render(t.priorityText + t.Task.Title())
+		// PERFORMANCE: Use cached selected style instead of creating new object
+		return selectedStyle.Render(t.priorityText + t.Task.Title())
 	} else {
-		// Individual priority colors for unselected, default text for title
-		priorityStyled := lipgloss.NewStyle().
-			Foreground(lipgloss.Color(getPriorityColor(t.Task.Priority))).
-			Render(t.priorityText)
+		// PERFORMANCE: Use cached priority style instead of creating new object
+		priorityStyled := priorityStyles[t.Task.Priority].Render(t.priorityText)
 		return priorityStyled + t.Task.Title()
 	}
 }

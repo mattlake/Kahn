@@ -13,6 +13,8 @@ type NavigationState struct {
 	showProjectSwitch bool
 	activeListIndex   domain.Status
 	Tasks             []list.Model
+	// PERFORMANCE: Dirty flag tracking for incremental updates
+	dirtyFlags map[domain.Status]bool
 }
 
 // NewNavigationState creates a new navigation state
@@ -115,41 +117,120 @@ func (ns *NavigationState) UpdateTaskLists(project *domain.Project, taskService 
 	inProgressIndex := ns.Tasks[domain.InProgress].Index()
 	doneIndex := ns.Tasks[domain.Done].Index()
 
-	// Convert tasks to list items and update
-	notStartedTasks, err := taskService.GetTasksByStatus(project.ID, domain.NotStarted)
+	// PERFORMANCE: Single database query to get all tasks for project
+	// This replaces 3 separate GetTasksByStatus calls with 1 GetTasksByProject call (66% reduction in DB calls)
+	allTasks, err := taskService.GetTasksByProject(project.ID)
 	if err != nil {
-		// Handle error - maybe set empty lists
+		// Handle error - set empty lists
 		ns.Tasks[domain.NotStarted].SetItems([]list.Item{})
-	} else {
-		project.Tasks = notStartedTasks
-		ns.Tasks[domain.NotStarted].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.NotStarted)))
-	}
-
-	inProgressTasks, err := taskService.GetTasksByStatus(project.ID, domain.InProgress)
-	if err != nil {
 		ns.Tasks[domain.InProgress].SetItems([]list.Item{})
-	} else {
-		project.Tasks = inProgressTasks
-		ns.Tasks[domain.InProgress].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.InProgress)))
+		ns.Tasks[domain.Done].SetItems([]list.Item{})
+		return
 	}
 
-	doneTasks, err := taskService.GetTasksByStatus(project.ID, domain.Done)
-	if err != nil {
-		ns.Tasks[domain.Done].SetItems([]list.Item{})
-	} else {
-		project.Tasks = doneTasks
-		ns.Tasks[domain.Done].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.Done)))
-	}
+	// Update project tasks with all tasks from database
+	project.Tasks = allTasks
+
+	// Convert tasks to list items and update each status list
+	// This preserves the existing filtering and UI behavior while using single DB query
+	ns.Tasks[domain.NotStarted].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.NotStarted)))
+	ns.Tasks[domain.InProgress].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.InProgress)))
+	ns.Tasks[domain.Done].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.Done)))
 
 	// Update selection states after refresh
 	ns.Tasks[domain.NotStarted].SetItems(styles.UpdateTaskSelection(ns.Tasks[domain.NotStarted].Items(), notStartedIndex, ns.activeListIndex == domain.NotStarted))
 	ns.Tasks[domain.InProgress].SetItems(styles.UpdateTaskSelection(ns.Tasks[domain.InProgress].Items(), inProgressIndex, ns.activeListIndex == domain.InProgress))
 	ns.Tasks[domain.Done].SetItems(styles.UpdateTaskSelection(ns.Tasks[domain.Done].Items(), doneIndex, ns.activeListIndex == domain.Done))
+
+	// PERFORMANCE: Clear all dirty flags after full update
+	ns.clearAllDirtyFlags()
 }
 
 // GetActiveList returns the currently active list model
 func (ns *NavigationState) GetActiveList() *list.Model {
 	return &ns.Tasks[ns.activeListIndex]
+}
+
+// PERFORMANCE: Dirty flag management methods for incremental updates
+
+// MarkListDirty marks a specific status list as needing updates
+func (ns *NavigationState) MarkListDirty(status domain.Status) {
+	if ns.dirtyFlags == nil {
+		ns.dirtyFlags = make(map[domain.Status]bool)
+	}
+	ns.dirtyFlags[status] = true
+}
+
+// MarkAllListsDirty marks all status lists as needing updates
+func (ns *NavigationState) MarkAllListsDirty() {
+	if ns.dirtyFlags == nil {
+		ns.dirtyFlags = make(map[domain.Status]bool)
+	}
+	ns.dirtyFlags[domain.NotStarted] = true
+	ns.dirtyFlags[domain.InProgress] = true
+	ns.dirtyFlags[domain.Done] = true
+}
+
+// clearAllDirtyFlags clears all dirty flags
+func (ns *NavigationState) clearAllDirtyFlags() {
+	if ns.dirtyFlags != nil {
+		ns.dirtyFlags = make(map[domain.Status]bool)
+	}
+}
+
+// IsListDirty checks if a specific status list needs updates
+func (ns *NavigationState) IsListDirty(status domain.Status) bool {
+	if ns.dirtyFlags == nil {
+		return false
+	}
+	return ns.dirtyFlags[status]
+}
+
+// UpdateDirtyLists updates only the lists marked as dirty (PERFORMANCE optimization)
+func (ns *NavigationState) UpdateDirtyLists(project *domain.Project, taskService *services.TaskService) {
+	if project == nil {
+		return
+	}
+
+	// If no dirty flags, treat as all dirty (fallback behavior)
+	if ns.dirtyFlags == nil || len(ns.dirtyFlags) == 0 {
+		ns.UpdateTaskLists(project, taskService)
+		return
+	}
+
+	// Get all tasks once ( PERFORMANCE: single DB query )
+	allTasks, err := taskService.GetTasksByProject(project.ID)
+	if err != nil {
+		// Handle error - clear dirty flags to avoid infinite loops
+		ns.clearAllDirtyFlags()
+		return
+	}
+
+	// Update project tasks
+	project.Tasks = allTasks
+
+	// Save selection states for lists that will be updated
+	selections := map[domain.Status]int{
+		domain.NotStarted: ns.Tasks[domain.NotStarted].Index(),
+		domain.InProgress: ns.Tasks[domain.InProgress].Index(),
+		domain.Done:       ns.Tasks[domain.Done].Index(),
+	}
+
+	// Update only dirty lists
+	for status, isDirty := range ns.dirtyFlags {
+		if isDirty {
+			ns.Tasks[status].SetItems(convertTasksToListItems(project.GetTasksByStatus(status)))
+			// Update selection state for the updated list
+			ns.Tasks[status].SetItems(styles.UpdateTaskSelection(
+				ns.Tasks[status].Items(),
+				selections[status],
+				ns.activeListIndex == status,
+			))
+		}
+	}
+
+	// Clear dirty flags after processing
+	ns.clearAllDirtyFlags()
 }
 
 // UpdateListSizes updates the sizes of all task lists
