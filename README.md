@@ -7,28 +7,34 @@ Terminal-based kanban task management application built with Go.
 - Task prioritization with Low/Medium/High levels
 - SQLite persistence with WAL mode for performance
 - Clean terminal UI with keyboard navigation
-- Configuration via file, environment variables, or flags
+- Multiplatform support (Linux, macOS, Windows)
+- Flexible configuration via file, environment variables, or flags
+- Configurable database location
 
 ## Requirements
 - Go 1.25.4 or higher
-
-## Installation
-
-### Build from Source
-```bash
-git clone github.com/mattlake/kahn
-cd kahn
-go build -o kahn .
-```
+- C compiler (GCC/Clang on Unix, MinGW/TDM-GCC on Windows)
 
 ## Quick Start
 
+### Linux / macOS / WSL2
 ```bash
-# Run the application
+# Clone, build, run
+git clone https://github.com/mattlake/kahn
+cd kahn
+go build -o kahn .
 ./kahn
+```
 
-# The app creates a default project on first run
-# Use 'n' to create your first task
+### Windows (Choose One)
+
+**Native Windows Build**
+```powershell
+# Clone, build, run
+git clone https://github.com/mattlake/kahn
+cd kahn
+go build -o kahn.exe
+.\kahn.exe
 ```
 
 ## Usage
@@ -55,33 +61,72 @@ go build -o kahn .
 
 ## Configuration
 
-Kahn uses Viper for configuration. Create `~/.kahn/config.toml`:
+### Database Location
 
+**Default Database Path:**
+- **Windows**: `%USERPROFILE%\.kahn\kahn.db`
+- **Linux/macOS/WSL2**: `~/.kahn/kahn.db`
+
+### Database Path Configuration
+
+You can customize the database location as shown below:
+
+**Linux/macOS/WSL2 (`~/.kahn/config.toml`):**
 ```toml
 [database]
+# Home directory location
 path = "~/.kahn/kahn.db"
-journal_mode = "WAL"
-busy_timeout = 5000
+
+# Custom absolute path
+path = "/home/yourname/tasks/my-kahn.db"
+
+# Using shell expansion
+path = "~/Dropbox/tasks/kahn.db"
+
+# System-wide shared database
+path = "/opt/kahn/shared.db"
 ```
 
-Configuration sources (priority order):
-1. Command-line flags
-2. Environment variables (`KAHN_` prefix)
-3. Config files
-4. Default values
+**Windows (`%USERPROFILE%\.kahn\config.toml`):**
+```toml
+[database]
+# Default Windows path (auto-expanded)
+path = "~/.kahn/kahn.db"
+
+# Custom path with forward slashes
+path = "C:/Users/YourName/Documents/Tasks/kahn.db"
+
+# Different drive
+path = "D:/Work/Project Management/kahn.db"
+```
+
+### Path Format Guidelines
+
+**Recommended Practices:**
+- **Windows**: Use forward slashes `"C:/Users/Name/tasks.db"`
+- **Cross-platform**: Tilde expansion works everywhere `~/.kahn/`
+- **Absolute paths**: Use platform-appropriate format
+- **Relative paths**: Work relative to execution directory `./tasks.db`
+
+### Config File Locations
+Search order: `./config.toml` → `~/.kahn/config.toml` → `/etc/kahn/config.toml`
+
+### Configuration Priority (High to Low)
+1. **Command-line flags** (highest priority)
+2. **Environment variables** (`KAHN_` prefix)
+3. **Config files**
+4. **Default values** (lowest priority)
 
 ## License
 
-This project is licensed under the Non-Profit Open Software License 3.0 (NPOSL-3.0).
+This project is licensed under the MIT License.
 
 This license permits:
-- ✅ Free usage and modification
-- ✅ Redistribution for non-commercial purposes
-- ✅ Private and educational use
+- ✅ Free commercial use and modification
+- ✅ Distribution and private use
+- ✅ Sublicensing and patent rights
+- ✅ No liability warranty
 
-This license prohibits:
-- ❌ Commercial selling or profit-making
-- ❌ Commercial distribution
-- ❌ Commercial exploitation
+The only requirement is including the original copyright notice in redistributions.
 
-The software is provided **without warranty**. See the [LICENSE](LICENSE) file for full details.
+See the [LICENSE](LICENSE) file for full details.

@@ -109,7 +109,7 @@ func handleDatabaseError(dbPath string, err error) error {
 	if os.IsPermission(err) {
 		return fmt.Errorf("database permission denied at %s\n"+
 			"Suggestions:\n"+
-			"  • Check file permissions: chmod 755 %s\n"+
+			"  • Check file permissions\n"+
 			"  • Try a different location: kahn --db-path /tmp/kahn.db\n"+
 			"  • Run with different user if needed", dbPath, filepath.Dir(dbPath))
 	}
