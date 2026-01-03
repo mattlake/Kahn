@@ -98,6 +98,8 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y gcc-aarch64-linux-gnu
+        echo "Cross-compiler installed"
+        aarch64-linux-gnu-gcc --version || echo "Cross-compiler not found"
       if: matrix.os == 'linux' && matrix.arch == 'arm64'
 
     - name: Set up Go
@@ -130,12 +132,16 @@ jobs:
       shell: bash
       timeout-minutes: 10
       run: |
+        echo "Building for ${{ matrix.os }}/${{ matrix.arch }}"
+        
         # Set up cross-compilation for ARM64 Linux only
         if [ "${{ matrix.os }}" = "linux" ] && [ "${{ matrix.arch }}" = "arm64" ]; then
           export GOOS=linux
           export GOARCH=arm64
           export CGO_ENABLED=1
           export CC=aarch64-linux-gnu-gcc
+          echo "Cross-compilation setup for ARM64 Linux"
+          env | grep -E "(GOOS|GOARCH|CC|CGO)" || true
         fi
         
         # Native build for all other platforms (no GOOS/GOARCH needed)
@@ -144,11 +150,16 @@ jobs:
         # Verify binary was created
         if [[ ! -f "${{ steps.version.outputs.filename }}" ]]; then
           echo "Build failed - binary not created"
+          echo "Current directory contents:"
+          ls -la
           exit 1
         fi
         
         echo "Build completed successfully"
         ls -la ${{ steps.version.outputs.filename }}
+        
+        # Verify binary works (basic test)
+        file ${{ steps.version.outputs.filename }} || echo "File command failed"
 
     - name: Generate Checksum
       shell: bash
