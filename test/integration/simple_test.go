@@ -23,7 +23,7 @@ func TestKahnModelCreation(t *testing.T) {
 	defer db.Close()
 
 	// Test that we can create a KahnModel
-	model := app.NewKahnModel(db)
+	model := app.NewKahnModel(db, "test")
 	if model == nil {
 		t.Fatal("NewKahnModel should not return nil")
 	}

@@ -188,7 +188,7 @@ func (km *KahnModel) handleResize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	activeProj := km.GetActiveProject()
 	projectHeaderHeight := 0
 	if activeProj != nil {
-		projectHeader := km.board.GetRenderer().RenderProjectHeader(activeProj, availableWidth-3)
+		projectHeader := km.board.GetRenderer().RenderProjectHeader(activeProj, availableWidth-3, km.version)
 		projectHeaderHeight = lipgloss.Height(projectHeader)
 	}
 

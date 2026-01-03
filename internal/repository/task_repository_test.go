@@ -8,14 +8,14 @@ import (
 	"kahn/internal/database"
 	"kahn/internal/domain"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	_ "modernc.org/sqlite"
 )
 
 // setupTestRepository creates an in-memory database with migrations and returns a repository
 func setupTestRepository(t *testing.T) domain.TaskRepository {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:")
 	require.NoError(t, err)
 
 	// Run migrations
@@ -176,7 +176,7 @@ func TestTaskRepository_GetByStatus_Done_Ordering(t *testing.T) {
 
 func TestTaskRepository_UpdateStatus_UpdatedAt(t *testing.T) {
 	// Setup in-memory database with migrations
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:")
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -225,7 +225,7 @@ func TestTaskRepository_UpdateStatus_UpdatedAt(t *testing.T) {
 
 func TestTaskRepository_Update_UpdatedAt(t *testing.T) {
 	// Setup in-memory database with migrations
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:")
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -401,7 +401,7 @@ func TestTaskRepository_UpdateTaskType(t *testing.T) {
 
 func TestTaskRepository_Migration_DefaultType(t *testing.T) {
 	// Setup in-memory database with migrations
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:")
 	require.NoError(t, err)
 	defer db.Close()
 

@@ -24,7 +24,7 @@ func TestTaskType_BasicWorkflow(t *testing.T) {
 	defer db.Close()
 
 	// Create model
-	model := app.NewKahnModel(db)
+	model := app.NewKahnModel(db, "test")
 	if model == nil {
 		t.Fatal("NewKahnModel should not return nil")
 	}

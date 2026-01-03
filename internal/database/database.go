@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 type Database struct {
@@ -32,7 +32,7 @@ func NewDatabase(config *config.Config) (*Database, error) {
 	dsn := buildConnectionString(config.Database)
 
 	// Open database connection
-	db, err := sql.Open("sqlite3", dsn)
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, handleDatabaseError(config.Database.Path, err)
 	}

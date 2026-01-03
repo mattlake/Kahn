@@ -1,0 +1,250 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.2.3)'
+        required: true
+      dry_run:
+        description: 'Dry run (no release creation)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  GO_VERSION: '1.25.5'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Run tests
+      run: go test -v -race ./...
+
+    - name: Generate coverage
+      run: go test -coverprofile=coverage.out ./...
+
+    - name: Verify formatting
+      run: |
+        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          echo "The following files are not formatted:"
+          gofmt -s -l .
+          exit 1
+        fi
+
+    - name: Run static analysis
+      run: go vet ./...
+
+  build:
+    needs: test
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          # Native builds (no cross-compilation)
+            - os: linux
+              arch: amd64
+              runner: ubuntu-latest
+              filename: kahn-linux-amd64
+            - os: darwin
+              arch: amd64
+              runner: macos-latest
+              filename: kahn-darwin-amd64
+            - os: darwin
+              arch: arm64
+              runner: macos-latest
+              filename: kahn-darwin-arm64
+            - os: windows
+              arch: amd64
+              runner: windows-latest
+              filename: kahn-windows-amd64.exe
+            
+            # Linux ARM64 build
+            - os: linux
+              arch: arm64
+              runner: ubuntu-latest
+              filename: kahn-linux-arm64
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+
+        
+    - name: Prepare version
+      id: version
+      shell: bash
+      run: |
+        echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        echo "filename=${{ matrix.filename }}" >> $GITHUB_OUTPUT
+
+    - name: Build
+      shell: bash
+      timeout-minutes: 10
+      run: |
+        # No cross-compilation setup needed with CGO-free SQLite
+        
+        # Set OS-specific environment
+        if [ "${{ matrix.os }}" = "darwin" ] && [ "${{ matrix.arch }}" = "arm64" ]; then
+          export GOOS=darwin
+          export GOARCH=arm64
+        elif [ "${{ matrix.os }}" = "darwin" ] && [ "${{ matrix.arch }}" = "amd64" ]; then
+          export GOOS=darwin
+          export GOARCH=amd64
+        elif [ "${{ matrix.os }}" = "windows" ]; then
+          export GOOS=windows
+          export GOARCH=amd64
+        elif [ "${{ matrix.os }}" = "linux" ] && [ "${{ matrix.arch }}" = "amd64" ]; then
+          export GOOS=linux
+          export GOARCH=amd64
+        elif [ "${{ matrix.os }}" = "linux" ] && [ "${{ matrix.arch }}" = "arm64" ]; then
+          export GOOS=linux
+          export GOARCH=arm64
+        fi
+        
+        # Since we're using CGO-free SQLite, we can disable CGO for all builds
+        export CGO_ENABLED=0
+        
+        echo "Building for ${{ matrix.os }}/${{ matrix.arch }} on ${{ matrix.runner }}"
+        echo "Target filename: ${{ steps.version.outputs.filename }}"
+        echo "Environment: GOOS=$GOOS GOARCH=$GOARCH CGO_ENABLED=$CGO_ENABLED"
+        
+        go build -ldflags "-X main.Version=${{ steps.version.outputs.version }}" -o ${{ steps.version.outputs.filename }} .
+        
+        # Verify binary was created
+        if [[ ! -f "${{ steps.version.outputs.filename }}" ]]; then
+          echo "Build failed - binary not created"
+          exit 1
+        fi
+        
+        echo "Build completed successfully"
+        ls -la ${{ steps.version.outputs.filename }}
+        
+        # Verify binary works (basic test)
+        file ${{ steps.version.outputs.filename }} || echo "File command failed"
+
+    - name: Generate Checksum
+      shell: bash
+      run: |
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          # Windows PowerShell checksum generation
+          powershell -Command "Get-FileHash -Algorithm SHA256 '${{ matrix.filename }}' | Select-Object -ExpandProperty Hash" > "${{ matrix.filename }}.sha256"
+        else
+          # Unix checksum generation
+          sha256sum ${{ matrix.filename }} | awk '{print $1}' > "${{ matrix.filename }}.sha256"
+        fi
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.filename }}
+        path: |
+          ${{ matrix.filename }}
+          ${{ matrix.filename }}.sha256
+        retention-days: 90
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event.inputs.dry_run != 'true'
+    strategy:
+      matrix:
+        include:
+          - binary: kahn-linux-amd64
+          - binary: kahn-linux-arm64
+          - binary: kahn-darwin-amd64
+          - binary: kahn-darwin-arm64
+          - binary: kahn-windows-amd64.exe
+
+    steps:
+    - name: Download All Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+        merge-multiple: true
+
+    - name: Prepare Release
+      id: release
+      run: |
+        VERSION="${{ github.event.inputs.version }}"
+        
+        # Create release notes
+        cat > release_notes.md << EOF
+        ## Release $VERSION
+        
+        ### Changes
+        See commit history for detailed changes.
+        
+        ### Download
+        Choose to appropriate binary for your platform:
+        - Linux (amd64): \`kahn-linux-amd64\`
+        - Linux (arm64): \`kahn-linux-arm64\`
+        - macOS (Intel): \`kahn-darwin-amd64\`
+        - macOS (Apple Silicon): \`kahn-darwin-arm64\`
+        - Windows (amd64): \`kahn-windows-amd64.exe\`
+        
+        ### macOS Architecture Selection
+        **Intel Macs**: Download \`kahn-darwin-amd64\`
+        **Apple Silicon Macs**: Download \`kahn-darwin-arm64\`
+        
+        **To check your Mac type**: 
+        - Click Apple Logo → "About This Mac" → Look for "Chip" or "Processor"
+        - Or run: \`uname -m\` (should show "x86_64" for Intel, "arm64" for Apple Silicon)
+        - Or run: \`arch\` (should show "i386" for Intel, "arm64" for Apple Silicon)
+        
+        ### Changes
+        See commit history for detailed changes.
+        
+        EOF
+        
+        # Create combined checksums file
+        cat > checksums.txt << EOF
+        # SHA256 Checksums
+        
+        EOF
+        
+        # Process each binary and its checksum
+        for binary in kahn-linux-amd64 kahn-linux-arm64 kahn-darwin-amd64 kahn-darwin-arm64 kahn-windows-amd64.exe; do
+          if [[ -f "artifacts/${binary}" ]]; then
+            echo "Found artifact: artifacts/${binary}"
+            if [[ -f "artifacts/${binary}.sha256" ]]; then
+              checksum=$(cat "artifacts/${binary}.sha256")
+              echo "${checksum}  ${binary}" >> checksums.txt
+            else
+              echo "Warning: Checksum file not found for ${binary}"
+            fi
+          else
+            echo "Warning: Binary not found: artifacts/${binary}"
+          fi
+        done
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.event.inputs.version }}
+        name: Release ${{ github.event.inputs.version }}
+        body_path: release_notes.md
+        files: |
+          artifacts/**/${{ matrix.binary }}
+          checksums.txt
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

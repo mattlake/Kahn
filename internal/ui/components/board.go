@@ -25,7 +25,7 @@ func NewBoard() *Board {
 type BoardComponent struct{}
 
 // RenderProjectHeader renders the top project header
-func (b *BoardComponent) RenderProjectHeader(project *domain.Project, width int) string {
+func (b *BoardComponent) RenderProjectHeader(project *domain.Project, width int, version string) string {
 	if project == nil {
 		return ""
 	}
@@ -42,7 +42,7 @@ func (b *BoardComponent) RenderProjectHeader(project *domain.Project, width int)
 
 	helpText := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(colors.Subtext1)).
-		Render("Navigate: ←→/h/l | Move Task: space | Switch Project: p | Add Task: n | Edit Task: e | Delete Task: d | Quit: q")
+		Render(fmt.Sprintf("Kahn %s | Nav: ←→/h/l | Move: space | Project: p | Add: n | Edit: e | Delete: d | Quit: q", version))
 
 	// Create a more prominent header with better visual hierarchy
 	headerContent := lipgloss.JoinHorizontal(
@@ -177,7 +177,7 @@ func (b *BoardComponent) RenderBoard(project *domain.Project, taskLists [3]list.
 	}
 
 	// Render project header
-	projectHeader := b.RenderProjectHeader(project, width)
+	projectHeader := b.RenderProjectHeader(project, width, "dev")
 
 	columnWidth := taskLists[0].Width()
 

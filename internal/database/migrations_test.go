@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"testing"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	_ "modernc.org/sqlite"
 )
 
 func TestGetMigrations(t *testing.T) {
@@ -30,7 +30,7 @@ func TestGetMigrations(t *testing.T) {
 
 func TestRunMigrations(t *testing.T) {
 	// Create in-memory database
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:")
 	require.NoError(t, err, "Should be able to open in-memory database")
 	defer db.Close()
 
@@ -134,7 +134,7 @@ func TestMigration_Indexes(t *testing.T) {
 	}
 }
 func setupTestDB(t *testing.T) *sql.DB {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:")
 	require.NoError(t, err, "Failed to open in-memory database")
 
 	// Test the connection

@@ -26,6 +26,7 @@ type KahnModel struct {
 	projectService  *services.ProjectService
 	board           *components.Board
 	projectSwitcher *components.ProjectSwitcher
+	version         string
 
 	// Refactored state management
 	formState    *FormState
@@ -530,7 +531,7 @@ func (km *KahnModel) IsShowingProjectSwitch() bool {
 	return km.navState.IsShowingProjectSwitch()
 }
 
-func NewKahnModel(database *database.Database) *KahnModel {
+func NewKahnModel(database *database.Database, version string) *KahnModel {
 	// Create delegates for different list states
 	activeDelegate := styles.NewActiveListDelegate()
 	inactiveDelegate := styles.NewInactiveListDelegate()
@@ -642,6 +643,7 @@ func NewKahnModel(database *database.Database) *KahnModel {
 		projectService:  projectService,
 		board:           components.NewBoard(),
 		projectSwitcher: components.NewProjectSwitcher(),
+		version:         version,
 		formState:       formState,
 		confirmState:    confirmState,
 		navState:        navState,
