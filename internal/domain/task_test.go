@@ -223,15 +223,15 @@ func TestTask_Validate(t *testing.T) {
 		// Valid cases
 		{"valid task", NewTask("Valid Task", "Description", "proj_123"), false, "", ""},
 		{"empty description", NewTask("Task", "", "proj_123"), false, "", ""},
-		{"max length name", NewTask(strings.Repeat("a", 100), "Description", "proj_123"), false, "", ""},
-		{"max length description", NewTask("Task", strings.Repeat("a", 500), "proj_123"), false, "", ""},
+		{"max length name", NewTask(strings.Repeat("a", MaxTaskNameLength), "Description", "proj_123"), false, "", ""},
+		{"max length description", NewTask("Task", strings.Repeat("a", MaxTaskDescriptionLength), "proj_123"), false, "", ""},
 		{"all valid priorities", NewTask("Task", "Description", "proj_123"), false, "", ""}, // Default Low is valid
 
 		// Invalid cases
 		{"empty name", NewTask("", "Description", "proj_123"), true, "name", "cannot be empty"},
 		{"whitespace name", NewTask("   ", "Description", "proj_123"), true, "name", "cannot be empty"},
-		{"name too long", NewTask(strings.Repeat("a", 101), "Description", "proj_123"), true, "name", "too long"},
-		{"description too long", NewTask("Task", strings.Repeat("a", 501), "proj_123"), true, "description", "too long"},
+		{"name too long", NewTask(strings.Repeat("a", MaxTaskNameLength+1), "Description", "proj_123"), true, "name", "too long"},
+		{"description too long", NewTask("Task", strings.Repeat("a", MaxTaskDescriptionLength+1), "proj_123"), true, "description", "too long"},
 		{"empty project ID", NewTask("Task", "Description", ""), true, "project_id", "cannot be empty"},
 		{"invalid priority low", &Task{Name: "Task", Desc: "Description", ProjectID: "proj_123", Priority: Priority(-1), Status: NotStarted}, true, "priority", "invalid priority"},
 		{"invalid priority high", &Task{Name: "Task", Desc: "Description", ProjectID: "proj_123", Priority: Priority(999), Status: NotStarted}, true, "priority", "invalid priority"},

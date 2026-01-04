@@ -61,6 +61,12 @@ func (tt TaskType) String() string {
 	}
 }
 
+// Validation length constants for tasks
+const (
+	MaxTaskNameLength        = 100
+	MaxTaskDescriptionLength = 500
+)
+
 func NewTask(name, description, projectID string) *Task {
 	now := time.Now()
 	return &Task{
@@ -84,11 +90,11 @@ func (t *Task) Validate() error {
 	if strings.TrimSpace(t.Name) == "" {
 		return &ValidationError{Field: "name", Message: "task name cannot be empty"}
 	}
-	if len(t.Name) > 100 {
-		return &ValidationError{Field: "name", Message: "task name too long (max 100 characters)"}
+	if len(t.Name) > MaxTaskNameLength {
+		return &ValidationError{Field: "name", Message: fmt.Sprintf("task name too long (max %d characters)", MaxTaskNameLength)}
 	}
-	if len(t.Desc) > 500 {
-		return &ValidationError{Field: "description", Message: "task description too long (max 500 characters)"}
+	if len(t.Desc) > MaxTaskDescriptionLength {
+		return &ValidationError{Field: "description", Message: fmt.Sprintf("task description too long (max %d characters)", MaxTaskDescriptionLength)}
 	}
 	if t.ProjectID == "" {
 		return &ValidationError{Field: "project_id", Message: "project ID cannot be empty"}

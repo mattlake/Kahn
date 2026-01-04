@@ -11,6 +11,15 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Default configuration constants
+const (
+	DefaultDatabasePath = "~/.kahn/kahn.db"
+	DefaultBusyTimeout  = 5000 // milliseconds
+	DefaultJournalMode  = "WAL"
+	DefaultCacheSize    = 10000 // number of pages
+	DefaultForeignKeys  = true
+)
+
 type Config struct {
 	Database struct {
 		Path        string `mapstructure:"path"`
@@ -32,11 +41,11 @@ func LoadConfig() (*Config, error) {
 	config := &Config{}
 
 	// Set default values
-	viper.SetDefault("database.path", "~/.kahn/kahn.db")
-	viper.SetDefault("database.busy_timeout", 5000)
-	viper.SetDefault("database.journal_mode", "WAL")
-	viper.SetDefault("database.cache_size", 10000)
-	viper.SetDefault("database.foreign_keys", true)
+	viper.SetDefault("database.path", DefaultDatabasePath)
+	viper.SetDefault("database.busy_timeout", DefaultBusyTimeout)
+	viper.SetDefault("database.journal_mode", DefaultJournalMode)
+	viper.SetDefault("database.cache_size", DefaultCacheSize)
+	viper.SetDefault("database.foreign_keys", DefaultForeignKeys)
 
 	// Set up command-line flags
 	pflag.String("config", "", "Path to config file")

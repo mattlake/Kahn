@@ -82,10 +82,10 @@ func TestLoadConfig_DefaultValues(t *testing.T) {
 	// Test default values (path gets expanded)
 	expectedPath := filepath.Join(os.Getenv("HOME"), ".kahn", "kahn.db")
 	assert.Equal(t, expectedPath, config.Database.Path, "Default database path should match expanded version")
-	assert.Equal(t, 5000, config.Database.BusyTimeout, "Default busy timeout should match")
-	assert.Equal(t, "WAL", config.Database.JournalMode, "Default journal mode should match")
-	assert.Equal(t, 10000, config.Database.CacheSize, "Default cache size should match")
-	assert.True(t, config.Database.ForeignKeys, "Default foreign keys should be true")
+	assert.Equal(t, DefaultBusyTimeout, config.Database.BusyTimeout, "Default busy timeout should match")
+	assert.Equal(t, DefaultJournalMode, config.Database.JournalMode, "Default journal mode should match")
+	assert.Equal(t, DefaultCacheSize, config.Database.CacheSize, "Default cache size should match")
+	assert.Equal(t, DefaultForeignKeys, config.Database.ForeignKeys, "Default foreign keys should be true")
 }
 
 func TestExpandPath(t *testing.T) {

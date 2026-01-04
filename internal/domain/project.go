@@ -33,6 +33,12 @@ func generateProjectID() string {
 	return fmt.Sprintf("proj_%d", time.Now().UnixNano())
 }
 
+// Validation length constants for projects
+const (
+	MaxProjectNameLength        = 50
+	MaxProjectDescriptionLength = 200
+)
+
 func (p *Project) AddTask(task Task) {
 	task.ProjectID = p.ID
 	p.Tasks = append(p.Tasks, task)
@@ -77,11 +83,11 @@ func (p *Project) Validate() error {
 	if strings.TrimSpace(p.Name) == "" {
 		return fmt.Errorf("project name is required")
 	}
-	if len(p.Name) > 50 {
-		return fmt.Errorf("project name too long (max 50 characters)")
+	if len(p.Name) > MaxProjectNameLength {
+		return fmt.Errorf("project name too long (max %d characters)", MaxProjectNameLength)
 	}
-	if len(p.Description) > 200 {
-		return fmt.Errorf("project description too long (max 200 characters)")
+	if len(p.Description) > MaxProjectDescriptionLength {
+		return fmt.Errorf("project description too long (max %d characters)", MaxProjectDescriptionLength)
 	}
 	return nil
 }

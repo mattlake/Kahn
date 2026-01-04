@@ -221,12 +221,12 @@ func TestProject_Validate(t *testing.T) {
 		},
 		{
 			name:        "Maximum valid name length",
-			project:     createTestProject(string(make([]byte, 50)), "Valid Description", "blue"),
+			project:     createTestProject(string(make([]byte, MaxProjectNameLength)), "Valid Description", "blue"),
 			expectError: false,
 		},
 		{
 			name:        "Maximum valid description length",
-			project:     createTestProject("Valid Name", string(make([]byte, 200)), "blue"),
+			project:     createTestProject("Valid Name", string(make([]byte, MaxProjectDescriptionLength)), "blue"),
 			expectError: false,
 		},
 		{
