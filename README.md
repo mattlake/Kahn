@@ -1,6 +1,6 @@
 # Kahn
 
-[![Go Version](https://img.shields.io/badge/Go-1.25.4+-blue.svg)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/Go-1.25.5+-blue.svg)](https://golang.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)](https://github.com/mattlake/kahn/actions)
 
@@ -21,7 +21,7 @@ Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea).
 - Flexible configuration via file, environment variables, or flags
 
 ## Requirements (when built from source)
-- Go 1.25.4 or higher
+- Go 1.25.5 or higher
 - C compiler (GCC/Clang on Unix, MinGW/TDM-GCC on Windows)
 
 ## Installation
