@@ -6,12 +6,10 @@ import (
 	"time"
 )
 
-// SQLiteTaskRepository handles task persistence using SQLite
 type SQLiteTaskRepository struct {
 	base *BaseRepository // Composition, not embedding
 }
 
-// NewSQLiteTaskRepository creates a new task repository
 func NewSQLiteTaskRepository(db *sql.DB) *SQLiteTaskRepository {
 	return &SQLiteTaskRepository{
 		base: NewBaseRepository(db), // Composition

@@ -72,7 +72,7 @@ func NewTask(name, description, projectID string) *Task {
 		Type:      RegularTask,
 		CreatedAt: now,
 		UpdatedAt: now,
-		Priority:  Low, // Changed default from Medium to Low
+		Priority:  Low,
 	}
 }
 

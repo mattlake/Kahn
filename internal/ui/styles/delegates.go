@@ -122,10 +122,3 @@ func NewInactiveListDelegate() list.DefaultDelegate {
 
 	return delegate
 }
-
-// NewTitleOnlyDelegate creates a list delegate that only displays task titles
-// without descriptions, providing a cleaner visual foundation for future UI improvements
-// Kept for backward compatibility
-func NewTitleOnlyDelegate() list.DefaultDelegate {
-	return NewActiveListDelegate()
-}

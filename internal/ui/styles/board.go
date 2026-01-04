@@ -5,7 +5,6 @@ import (
 	"kahn/internal/ui/colors"
 )
 
-// Lipgloss styles with Catppuccin colors - minimal viewport edge margins
 var DefaultStyle = lipgloss.NewStyle().
 	Border(lipgloss.RoundedBorder()).
 	BorderForeground(lipgloss.Color(colors.Text)).

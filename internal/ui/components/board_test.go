@@ -8,7 +8,7 @@ import (
 	"kahn/internal/domain"
 )
 
-func TestBoardComponent_RenderProjectHeader(t *testing.T) {
+func TestBoardComponent_RenderProjectFooter(t *testing.T) {
 	board := &BoardComponent{}
 
 	// Test with valid project
@@ -19,20 +19,20 @@ func TestBoardComponent_RenderProjectHeader(t *testing.T) {
 		Color:       "#ff6b6b",
 	}
 
-	result := board.RenderProjectHeader(project, 80, "v1.0.0")
+	result := board.RenderProjectFooter(project, 80, "v1.0.0")
 
-	assert.NotEmpty(t, result, "RenderProjectHeader should not return empty string")
+	assert.NotEmpty(t, result, "RenderProjectFooter should not return empty string")
 	assert.Contains(t, result, "Test Project", "Should contain project name")
 	assert.Contains(t, result, "Project:", "Should contain project label")
 	assert.Contains(t, result, "v1.0.0", "Should contain version")
 }
 
-func TestBoardComponent_RenderProjectHeader_NilProject(t *testing.T) {
+func TestBoardComponent_RenderProjectFooter_NilProject(t *testing.T) {
 	board := &BoardComponent{}
 
-	result := board.RenderProjectHeader(nil, 80, "v1.0.0")
+	result := board.RenderProjectFooter(nil, 80, "v1.0.0")
 
-	assert.Empty(t, result, "RenderProjectHeader with nil project should return empty string")
+	assert.Empty(t, result, "RenderProjectFooter with nil project should return empty string")
 }
 
 func TestBoardComponent_RenderNoProjectsBoard(t *testing.T) {
@@ -90,7 +90,7 @@ func TestBoardComponent_RenderBoard(t *testing.T) {
 	taskLists[domain.InProgress] = defaultList
 	taskLists[domain.Done] = defaultList
 
-	result := board.RenderBoard(project, taskLists, domain.NotStarted, 80)
+	result := board.RenderBoard(project, taskLists, domain.NotStarted, 80, "v1.0.0")
 
 	assert.NotEmpty(t, result, "RenderBoard should not return empty string")
 	assert.Contains(t, result, "Test Project", "Should contain project name")
@@ -106,7 +106,7 @@ func TestBoardComponent_RenderBoard_NilProject(t *testing.T) {
 	taskLists[domain.InProgress] = defaultList
 	taskLists[domain.Done] = defaultList
 
-	result := board.RenderBoard(nil, taskLists, domain.NotStarted, 80)
+	result := board.RenderBoard(nil, taskLists, domain.NotStarted, 80, "v1.0.0")
 
 	assert.Empty(t, result, "RenderBoard with nil project should return empty string")
 }

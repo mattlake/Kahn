@@ -8,16 +8,14 @@ import (
 	"kahn/internal/ui/styles"
 )
 
-// NavigationState manages navigation and project switching
 type NavigationState struct {
 	showProjectSwitch bool
 	activeListIndex   domain.Status
 	Tasks             []list.Model
-	// PERFORMANCE: Dirty flag tracking for incremental updates
+
 	dirtyFlags map[domain.Status]bool
 }
 
-// NewNavigationState creates a new navigation state
 func NewNavigationState(tasks []list.Model) *NavigationState {
 	return &NavigationState{
 		Tasks:           tasks,
@@ -25,12 +23,10 @@ func NewNavigationState(tasks []list.Model) *NavigationState {
 	}
 }
 
-// ShowProjectSwitch shows the project switcher
 func (ns *NavigationState) ShowProjectSwitch() {
 	ns.showProjectSwitch = true
 }
 
-// HideProjectSwitch hides the project switcher
 func (ns *NavigationState) HideProjectSwitch() {
 	ns.showProjectSwitch = false
 }
@@ -40,17 +36,14 @@ func (ns *NavigationState) IsShowingProjectSwitch() bool {
 	return ns.showProjectSwitch
 }
 
-// GetActiveListIndex returns the currently active list index
 func (ns *NavigationState) GetActiveListIndex() domain.Status {
 	return ns.activeListIndex
 }
 
-// SetActiveListIndex sets the active list index
 func (ns *NavigationState) SetActiveListIndex(index domain.Status) {
 	ns.activeListIndex = index
 }
 
-// NextList moves focus to the next list
 func (ns *NavigationState) NextList() {
 	// Switch old active list to inactive delegate
 	oldActiveIndex := ns.activeListIndex
@@ -78,7 +71,6 @@ func (ns *NavigationState) NextList() {
 	styles.ApplyFocusedTitleStyles(ns.Tasks[:], ns.activeListIndex)
 }
 
-// PrevList moves focus to the previous list
 func (ns *NavigationState) PrevList() {
 	// Switch old active list to inactive delegate
 	oldActiveIndex := ns.activeListIndex
@@ -106,7 +98,6 @@ func (ns *NavigationState) PrevList() {
 	styles.ApplyFocusedTitleStyles(ns.Tasks[:], ns.activeListIndex)
 }
 
-// UpdateTaskLists updates the task lists with new data
 func (ns *NavigationState) UpdateTaskLists(project *domain.Project, taskService *services.TaskService) {
 	if project == nil {
 		return
@@ -117,8 +108,6 @@ func (ns *NavigationState) UpdateTaskLists(project *domain.Project, taskService 
 	inProgressIndex := ns.Tasks[domain.InProgress].Index()
 	doneIndex := ns.Tasks[domain.Done].Index()
 
-	// PERFORMANCE: Single database query to get all tasks for project
-	// This replaces 3 separate GetTasksByStatus calls with 1 GetTasksByProject call (66% reduction in DB calls)
 	allTasks, err := taskService.GetTasksByProject(project.ID)
 	if err != nil {
 		// Handle error - set empty lists
@@ -142,18 +131,13 @@ func (ns *NavigationState) UpdateTaskLists(project *domain.Project, taskService 
 	ns.Tasks[domain.InProgress].SetItems(styles.UpdateTaskSelection(ns.Tasks[domain.InProgress].Items(), inProgressIndex, ns.activeListIndex == domain.InProgress))
 	ns.Tasks[domain.Done].SetItems(styles.UpdateTaskSelection(ns.Tasks[domain.Done].Items(), doneIndex, ns.activeListIndex == domain.Done))
 
-	// PERFORMANCE: Clear all dirty flags after full update
 	ns.clearAllDirtyFlags()
 }
 
-// GetActiveList returns the currently active list model
 func (ns *NavigationState) GetActiveList() *list.Model {
 	return &ns.Tasks[ns.activeListIndex]
 }
 
-// PERFORMANCE: Dirty flag management methods for incremental updates
-
-// MarkListDirty marks a specific status list as needing updates
 func (ns *NavigationState) MarkListDirty(status domain.Status) {
 	if ns.dirtyFlags == nil {
 		ns.dirtyFlags = make(map[domain.Status]bool)
@@ -161,7 +145,6 @@ func (ns *NavigationState) MarkListDirty(status domain.Status) {
 	ns.dirtyFlags[status] = true
 }
 
-// MarkAllListsDirty marks all status lists as needing updates
 func (ns *NavigationState) MarkAllListsDirty() {
 	if ns.dirtyFlags == nil {
 		ns.dirtyFlags = make(map[domain.Status]bool)
@@ -171,14 +154,12 @@ func (ns *NavigationState) MarkAllListsDirty() {
 	ns.dirtyFlags[domain.Done] = true
 }
 
-// clearAllDirtyFlags clears all dirty flags
 func (ns *NavigationState) clearAllDirtyFlags() {
 	if ns.dirtyFlags != nil {
 		ns.dirtyFlags = make(map[domain.Status]bool)
 	}
 }
 
-// IsListDirty checks if a specific status list needs updates
 func (ns *NavigationState) IsListDirty(status domain.Status) bool {
 	if ns.dirtyFlags == nil {
 		return false
@@ -186,7 +167,6 @@ func (ns *NavigationState) IsListDirty(status domain.Status) bool {
 	return ns.dirtyFlags[status]
 }
 
-// UpdateDirtyLists updates only the lists marked as dirty (PERFORMANCE optimization)
 func (ns *NavigationState) UpdateDirtyLists(project *domain.Project, taskService *services.TaskService) {
 	if project == nil {
 		return
@@ -198,7 +178,6 @@ func (ns *NavigationState) UpdateDirtyLists(project *domain.Project, taskService
 		return
 	}
 
-	// Get all tasks once ( PERFORMANCE: single DB query )
 	allTasks, err := taskService.GetTasksByProject(project.ID)
 	if err != nil {
 		// Handle error - clear dirty flags to avoid infinite loops
@@ -233,7 +212,6 @@ func (ns *NavigationState) UpdateDirtyLists(project *domain.Project, taskService
 	ns.clearAllDirtyFlags()
 }
 
-// UpdateListSizes updates the sizes of all task lists
 func (ns *NavigationState) UpdateListSizes(width, height int) {
 	columnWidth := max(20, (width-3)/3)
 
@@ -242,7 +220,6 @@ func (ns *NavigationState) UpdateListSizes(width, height int) {
 	ns.Tasks[domain.Done].SetSize(columnWidth, height)
 }
 
-// UpdateActiveList updates only the active list with the given message
 func (ns *NavigationState) UpdateActiveList(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	ns.Tasks[ns.activeListIndex], cmd = ns.Tasks[ns.activeListIndex].Update(msg)

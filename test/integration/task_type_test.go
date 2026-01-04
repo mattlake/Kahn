@@ -51,7 +51,6 @@ func TestTaskType_BasicWorkflow(t *testing.T) {
 		t.Fatal("Should have active project")
 	}
 
-	// Count task types - all should be RegularTask (type 0) since CreateTaskWithPriority always creates RegularTask
 	typeCount := make(map[int]int)
 	for _, task := range activeProject.Tasks {
 		typeCount[int(task.Type)]++
@@ -60,6 +59,5 @@ func TestTaskType_BasicWorkflow(t *testing.T) {
 	if typeCount[0] == 0 { // RegularTask
 		t.Error("Should have regular tasks")
 	}
-	// Note: Bug and Feature tasks are not created by CreateTaskWithPriority method
-	// This test validates the current behavior where all tasks are RegularTask
+
 }

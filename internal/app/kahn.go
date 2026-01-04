@@ -28,7 +28,6 @@ type KahnModel struct {
 	projectSwitcher *components.ProjectSwitcher
 	version         string
 
-	// Refactored state management
 	formState    *FormState
 	confirmState *ConfirmationState
 	navState     *NavigationState
@@ -116,7 +115,7 @@ func (km *KahnModel) CreateTaskWithPriority(name, description string, priority d
 	}
 
 	activeProj.AddTask(*newTask)
-	// PERFORMANCE: Mark only NotStarted list as dirty since new tasks start there
+
 	km.navState.MarkListDirty(domain.NotStarted)
 	km.updateTaskLists()
 
@@ -142,7 +141,7 @@ func (km *KahnModel) UpdateTask(id, name, description string, priority domain.Pr
 				break
 			}
 		}
-		// PERFORMANCE: Mark only the task's current status list as dirty
+
 		km.navState.MarkListDirty(taskStatus)
 		km.updateTaskLists()
 	}
@@ -166,7 +165,7 @@ func (km *KahnModel) DeleteTask(id string) error {
 			}
 		}
 		activeProj.RemoveTask(id)
-		// PERFORMANCE: Mark only the deleted task's status list as dirty
+
 		km.navState.MarkListDirty(taskStatus)
 		km.updateTaskLists()
 	}
@@ -195,7 +194,6 @@ func (km *KahnModel) MoveTaskToNextStatus(id string) error {
 	}
 
 	activeProj.UpdateTaskStatus(id, task.Status)
-	// PERFORMANCE: Mark both old and new status lists as dirty
 	km.navState.MarkListDirty(oldStatus)
 	km.navState.MarkListDirty(task.Status)
 	km.updateTaskLists()
@@ -223,7 +221,6 @@ func (km *KahnModel) MoveTaskToPreviousStatus(id string) error {
 	}
 
 	activeProj.UpdateTaskStatus(id, task.Status)
-	// PERFORMANCE: Mark both old and new status lists as dirty
 	km.navState.MarkListDirty(oldStatus)
 	km.navState.MarkListDirty(task.Status)
 	km.updateTaskLists()
@@ -409,7 +406,7 @@ func (km *KahnModel) PrevList() {
 }
 
 func (km *KahnModel) updateTaskLists() {
-	// PERFORMANCE: Use incremental updates when dirty flags are set
+
 	if km.navState.dirtyFlags != nil && len(km.navState.dirtyFlags) > 0 {
 		km.navState.UpdateDirtyLists(km.GetActiveProject(), km.taskService)
 	} else {

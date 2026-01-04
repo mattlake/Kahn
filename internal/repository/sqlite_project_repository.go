@@ -5,12 +5,10 @@ import (
 	"kahn/internal/domain"
 )
 
-// SQLiteProjectRepository handles project persistence using SQLite
 type SQLiteProjectRepository struct {
 	base *BaseRepository // Composition, not embedding
 }
 
-// NewSQLiteProjectRepository creates a new project repository
 func NewSQLiteProjectRepository(db *sql.DB) *SQLiteProjectRepository {
 	return &SQLiteProjectRepository{
 		base: NewBaseRepository(db), // Composition

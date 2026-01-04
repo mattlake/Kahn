@@ -9,28 +9,23 @@ import (
 	"kahn/internal/ui/styles"
 )
 
-// Board handles main kanban board rendering
 type Board struct {
 	renderer BoardRenderer
 }
 
-// NewBoard creates a new board component
 func NewBoard() *Board {
 	return &Board{
 		renderer: &BoardComponent{},
 	}
 }
 
-// BoardComponent implements BoardRenderer interface
 type BoardComponent struct{}
 
-// RenderProjectHeader renders the top project header
-func (b *BoardComponent) RenderProjectHeader(project *domain.Project, width int, version string) string {
+func (b *BoardComponent) RenderProjectFooter(project *domain.Project, width int, version string) string {
 	if project == nil {
 		return ""
 	}
 
-	// Create a more prominent project indicator
 	projectLabel := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(colors.Subtext1)).
 		Render("Project:")
@@ -44,8 +39,7 @@ func (b *BoardComponent) RenderProjectHeader(project *domain.Project, width int,
 		Foreground(lipgloss.Color(colors.Subtext1)).
 		Render(fmt.Sprintf("Kahn %s | Nav: ←→/h/l | Move: space | Project: p | Add: n | Edit: e | Delete: d | Quit: q", version))
 
-	// Create a more prominent header with better visual hierarchy
-	headerContent := lipgloss.JoinHorizontal(
+	footerContent := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		projectLabel,
 		lipgloss.NewStyle().Render(" "),
@@ -58,10 +52,9 @@ func (b *BoardComponent) RenderProjectHeader(project *domain.Project, width int,
 		Margin(0, 0).
 		Padding(0, 1).
 		Width(width).
-		Render(headerContent)
+		Render(footerContent)
 }
 
-// RenderNoProjectsBoard renders empty state when no projects exist
 func (b *BoardComponent) RenderNoProjectsBoard(width, height int) string {
 	title := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(colors.Mauve)).
@@ -107,7 +100,6 @@ func (b *BoardComponent) RenderNoProjectsBoard(width, height int) string {
 	)
 }
 
-// RenderTaskDeleteConfirm renders task deletion confirmation dialog
 func (b *BoardComponent) RenderTaskDeleteConfirm(task *domain.Task, width, height int) string {
 	if task == nil {
 		return ""
@@ -170,24 +162,19 @@ func (b *BoardComponent) RenderTaskDeleteConfirm(task *domain.Task, width, heigh
 	)
 }
 
-// RenderBoard renders the main kanban board with three columns
 func (b *BoardComponent) RenderBoard(project *domain.Project, taskLists [3]list.Model, activeListIndex domain.Status, width int, version string) string {
 	if project == nil {
 		return ""
 	}
 
-	// Render project header
-	projectHeader := b.RenderProjectHeader(project, width, version)
+	projectFooter := b.RenderProjectFooter(project, width, version)
 
 	columnWidth := taskLists[0].Width()
 
-	// PERFORMANCE: Cache View() results to avoid duplicate calculations
-	// Each list's View() was being called twice (once for normal, once for focused)
 	notStartedContent := taskLists[domain.NotStarted].View()
 	inProgressContent := taskLists[domain.InProgress].View()
 	doneContent := taskLists[domain.Done].View()
 
-	// Apply styles to cached content
 	notStartedView := styles.DefaultStyle.Width(columnWidth).Render(notStartedContent)
 	inProgressView := styles.DefaultStyle.Width(columnWidth).Render(inProgressContent)
 	doneView := styles.DefaultStyle.Width(columnWidth).Render(doneContent)
@@ -224,11 +211,10 @@ func (b *BoardComponent) RenderBoard(project *domain.Project, taskLists [3]list.
 	return lipgloss.JoinVertical(
 		lipgloss.Top,
 		boardContent,
-		projectHeader,
+		projectFooter,
 	)
 }
 
-// GetRenderer returns the board renderer interface
 func (b *Board) GetRenderer() BoardRenderer {
 	return b.renderer
 }

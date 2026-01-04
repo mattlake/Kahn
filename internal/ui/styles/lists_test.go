@@ -54,7 +54,7 @@ func TestApplyListTitleStyles_InsufficientLists(t *testing.T) {
 
 	// Should not panic
 	assert.NotPanics(t, func() {
-		ApplyTitleStyles(taskLists, domain.NotStarted)
+		ApplyFocusedTitleStyles(taskLists, domain.NotStarted)
 	}, "Should not panic with insufficient lists")
 }
 

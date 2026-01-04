@@ -2,7 +2,6 @@ package domain
 
 import "time"
 
-// createTestTask creates a test task with the given parameters
 func createTestTask(name, description, projectID string, status Status) *Task {
 	now := time.Now()
 	task := &Task{
@@ -18,7 +17,6 @@ func createTestTask(name, description, projectID string, status Status) *Task {
 	return task
 }
 
-// createTestProject creates a test project with the given parameters
 func createTestProject(name, description, color string) *Project {
 	project := &Project{
 		ID:          "test_proj_" + time.Now().Format("20060102150405.000000000"),
@@ -32,7 +30,6 @@ func createTestProject(name, description, color string) *Project {
 	return project
 }
 
-// createTestTaskWithPriority creates a test task with specific priority and timestamps
 func createTestTaskWithPriority(name, description, projectID string, status Status, priority Priority, createdAt, updatedAt time.Time) *Task {
 	task := &Task{
 		ID:        "test_task_" + createdAt.Format("20060102150405.000000000"),
@@ -48,7 +45,6 @@ func createTestTaskWithPriority(name, description, projectID string, status Stat
 	return task
 }
 
-// createProjectWithTasksOfVaryingPriorities creates a project with 5 tasks having different priorities and timestamps
 func createProjectWithTasksOfVaryingPriorities() *Project {
 	project := createTestProject("Sorting Test Project", "Testing task sorting", "blue")
 
@@ -74,14 +70,12 @@ func createProjectWithTasksOfVaryingPriorities() *Project {
 	return project
 }
 
-// TaskUpdate represents a task status update with timing
 type TaskUpdate struct {
 	TaskID    string
 	NewStatus Status
 	Delay     time.Duration
 }
 
-// updateTaskStatusesWithTimestamps updates task statuses with specific delays for testing timestamp ordering
 func updateTaskStatusesWithTimestamps(project *Project, updates []TaskUpdate) {
 	for _, update := range updates {
 		if update.Delay > 0 {
@@ -91,7 +85,6 @@ func updateTaskStatusesWithTimestamps(project *Project, updates []TaskUpdate) {
 	}
 }
 
-// getTaskNamesFromTasks extracts task names for easier assertion
 func getTaskNamesFromTasks(tasks []Task) []string {
 	names := make([]string, len(tasks))
 	for i, task := range tasks {

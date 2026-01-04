@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	Version = "dev" // Set during build
+	Version = "dev"
 )
 
 func main() {

@@ -7,7 +7,6 @@ import (
 	"kahn/internal/ui/styles"
 )
 
-// handleFormInput processes input when a form is active
 func (km *KahnModel) handleFormInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	action := km.inputHandler.HandleKeyMsg(msg, km)
 	if action.Handled {
@@ -26,7 +25,6 @@ func (km *KahnModel) handleFormInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// handleProjectSwitch processes input during project switching
 func (km *KahnModel) handleProjectSwitch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if km.navState.IsShowingProjectSwitch() && km.inputHandler.GetMode() != input.ProjectSwitchMode {
 		km.inputHandler.SetMode(input.ProjectSwitchMode)
@@ -96,7 +94,6 @@ func (km *KahnModel) handleProjectSwitch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return km, nil
 }
 
-// handleTaskDeleteConfirm processes input during task deletion confirmation
 func (km *KahnModel) handleTaskDeleteConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if km.inputHandler.GetMode() != input.TaskDeleteConfirmMode {
 		km.inputHandler.SetMode(input.TaskDeleteConfirmMode)
@@ -112,7 +109,6 @@ func (km *KahnModel) handleTaskDeleteConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd
 	return km, nil
 }
 
-// handleNormalMode processes input in normal browsing mode
 func (km *KahnModel) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if km.inputHandler.GetMode() != input.NormalMode {
 		km.inputHandler.SetMode(input.NormalMode)
@@ -175,7 +171,6 @@ func (km *KahnModel) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return km, nil
 }
 
-// handleResize processes window resize events
 func (km *KahnModel) handleResize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	km.width = msg.Width
 	km.height = msg.Height
@@ -184,16 +179,16 @@ func (km *KahnModel) handleResize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	availableWidth := msg.Width - frameWidth/2
 	availableHeight := msg.Height - frameHeight
 
-	// Calculate project header height dynamically
+	// Calculate project footer height dynamically
 	activeProj := km.GetActiveProject()
-	projectHeaderHeight := 0
+	projectFooterHeight := 0
 	if activeProj != nil {
-		projectHeader := km.board.GetRenderer().RenderProjectHeader(activeProj, availableWidth-3, km.version)
-		projectHeaderHeight = lipgloss.Height(projectHeader)
+		projectFooter := km.board.GetRenderer().RenderProjectFooter(activeProj, availableWidth-3, km.version)
+		projectFooterHeight = lipgloss.Height(projectFooter)
 	}
 
-	// Set list heights accounting for both frame and project header
-	listHeight := availableHeight - projectHeaderHeight
+	// Set list heights accounting for both frame and project footer
+	listHeight := availableHeight - projectFooterHeight
 	km.navState.UpdateListSizes(availableWidth, listHeight)
 	return km, nil
 }

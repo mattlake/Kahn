@@ -7,8 +7,8 @@ import (
 
 // BoardRenderer defines the interface for board-related UI rendering
 type BoardRenderer interface {
-	// RenderProjectHeader renders the top project header with name and help text
-	RenderProjectHeader(project *domain.Project, width int, version string) string
+	// RenderProjectFooter renders the bottom project footer with name and help text
+	RenderProjectFooter(project *domain.Project, width int, version string) string
 
 	// RenderNoProjectsBoard renders the empty state when no projects exist
 	RenderNoProjectsBoard(width, height int) string

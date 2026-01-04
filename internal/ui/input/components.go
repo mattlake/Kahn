@@ -18,7 +18,6 @@ const (
 	ProjectCreateForm
 )
 
-// InputComponents holds the text input components for forms
 type InputComponents struct {
 	NameInput     textinput.Model
 	DescInput     textinput.Model
@@ -29,7 +28,6 @@ type InputComponents struct {
 	FocusedField  int    // 0=name, 1=desc, 2=priority, 3=type (exported)
 }
 
-// NewInputComponents creates and initializes input components for forms
 func NewInputComponents() InputComponents {
 	return InputComponents{
 		formType:     TaskCreateForm,
@@ -38,7 +36,6 @@ func NewInputComponents() InputComponents {
 	}
 }
 
-// SetupForTaskCreate configures components for task creation
 func (ic *InputComponents) SetupForTaskCreate() {
 	ic.formType = TaskCreateForm
 	ic.FocusedField = 0
@@ -94,7 +91,6 @@ func (ic *InputComponents) createDescInput(placeholder string) textinput.Model {
 	return input
 }
 
-// Reset resets all input components
 func (ic *InputComponents) Reset() {
 	ic.NameInput.Reset()
 	ic.DescInput.Reset()
@@ -104,17 +100,14 @@ func (ic *InputComponents) Reset() {
 	ic.taskID = ""
 }
 
-// FocusPriority sets focus to priority field
 func (ic *InputComponents) FocusPriority() {
 	ic.FocusedField = 2
 }
 
-// BlurPriority removes focus from priority field
 func (ic *InputComponents) BlurPriority() {
 	// No specific blur needed for priority field
 }
 
-// CyclePriorityUp cycles priority up (Low -> Medium -> High -> Low)
 func (ic *InputComponents) CyclePriorityUp() {
 	switch ic.PriorityValue {
 	case domain.Low:
@@ -138,7 +131,6 @@ func (ic *InputComponents) CyclePriorityDown() {
 	}
 }
 
-// CycleTypeUp cycles type up (RegularTask -> Bug -> Feature -> RegularTask)
 func (ic *InputComponents) CycleTypeUp() {
 	switch ic.TypeValue {
 	case domain.RegularTask:
@@ -150,7 +142,6 @@ func (ic *InputComponents) CycleTypeUp() {
 	}
 }
 
-// CycleTypeDown cycles type down (Feature -> Bug -> RegularTask -> Feature)
 func (ic *InputComponents) CycleTypeDown() {
 	switch ic.TypeValue {
 	case domain.RegularTask:
@@ -162,12 +153,10 @@ func (ic *InputComponents) CycleTypeDown() {
 	}
 }
 
-// IsTaskForm returns true if the current form is a task form
 func (ic *InputComponents) IsTaskForm() bool {
 	return ic.formType == TaskCreateForm || ic.formType == TaskEditForm
 }
 
-// Validate performs basic validation without field-specific errors
 func (ic *InputComponents) Validate() error {
 	_, _, errorMsg := ic.ValidateForSubmit()
 	if errorMsg != "" {
@@ -206,7 +195,6 @@ func (ic *InputComponents) ValidateForSubmit() (bool, string, string) {
 	return true, "", ""
 }
 
-// Render renders the form with inline error display
 func (ic *InputComponents) Render(errorMsg string, errorField string, width, height int) string {
 	title := ic.getFormTitle()
 	nameLabel := ic.getNameLabel()
