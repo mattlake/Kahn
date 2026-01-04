@@ -8,6 +8,10 @@ A fast, elegant terminal-based kanban task management application built with Go,
 
 Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea).
 
+## Screenshots
+
+![Kahn kanban board interface showing three columns with sample tasks](https://private-user-images.githubusercontent.com/4520628/531735641-45eacb93-cfd1-453a-b1b3-c218816b0c99.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3Njc1MzkwODAsIm5iZiI6MTc2NzUzODc4MCwicGF0aCI6Ii80NTIwNjI4LzUzMTczNTY0MS00NWVhY2I5My1jZmQxLTQ1M2EtYjFiMy1jMjE4ODE2YjBjOTkucG5nP1gtQW16LUFsZ29yaXRobT1BV1M0LUhNQUMtU0hBMjU2JlgtQW16LUNyZWRlbnRpYWw9QUtJQVZDT0RZTFNBNTNQUUs0WkElMkYyMDI2MDEwNCUyRnVzLWVhc3QtMSUyRnMzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNjAxMDRUMTQ1OTQwWiZYLUFtei1FeHBpcmVzPTMwMCZYLUFtei1TaWduYXR1cmU9MjZhNmJmNzIyNDU4M2UzNDBiNTQxODAyOTZhNTEwZTVjZjViMDRiNDU5NDM2NDMwZTU4OGY4NDlmYjg5NGU5ZSZYLUFtei1TaWduZWRIZWFkZXJzPWhvc3QifQ.Pjt2tB2LFz-2geHNxaQ9wD0SXYYq47mqFtljFHqQAPc)
+
 ## Features
 - Project management with custom names and descriptions
 - Three-column kanban board (Not Started, In Progress, Done)
