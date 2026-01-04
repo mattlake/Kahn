@@ -16,8 +16,58 @@ type Database struct {
 	Db *sql.DB
 }
 
+// validateDatabasePath validates that the database path is safe and prevents directory traversal
+func validateDatabasePath(dbPath string) error {
+	// Check for suspicious patterns first (before any path processing)
+	suspiciousPatterns := []string{
+		"../..",
+		"../../",
+		"../../../",
+		"../../../../",
+		"../../../..",
+		"../../../../..",
+	}
+
+	for _, pattern := range suspiciousPatterns {
+		if strings.Contains(dbPath, pattern) {
+			return fmt.Errorf("database path contains suspicious directory traversal pattern: %s", dbPath)
+		}
+	}
+
+	// Clean the path to resolve any .. sequences
+	cleanPath := filepath.Clean(dbPath)
+
+	// Check for directory traversal attempts
+	if strings.Contains(cleanPath, "..") {
+		return fmt.Errorf("database path contains directory traversal attempts: %s", dbPath)
+	}
+
+	// Check for absolute paths that try to escape common safe directories
+	if filepath.IsAbs(cleanPath) {
+		// Allow absolute paths in home directory and temp directory
+		homeDir, _ := os.UserHomeDir()
+		tempDir := os.TempDir()
+
+		// Normalize paths for comparison
+		homeDir = filepath.Clean(homeDir)
+		tempDir = filepath.Clean(tempDir)
+		cleanPath = filepath.Clean(cleanPath)
+
+		if !strings.HasPrefix(cleanPath, homeDir) && !strings.HasPrefix(cleanPath, tempDir) && cleanPath != "/tmp" {
+			return fmt.Errorf("database path must be within user home or temp directory: %s", dbPath)
+		}
+	}
+
+	return nil
+}
+
 // NewDatabase creates a new database connection with optimized settings
 func NewDatabase(config *config.Config) (*Database, error) {
+	// Validate database path for security
+	if err := validateDatabasePath(config.Database.Path); err != nil {
+		return nil, fmt.Errorf("invalid database path: %w", err)
+	}
+
 	// Ensure database directory exists
 	dbDir := filepath.Dir(config.Database.Path)
 	if err := os.MkdirAll(dbDir, 0755); err != nil {

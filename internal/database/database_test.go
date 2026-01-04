@@ -8,6 +8,82 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestValidateDatabasePath(t *testing.T) {
+	tests := []struct {
+		name        string
+		path        string
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "Valid relative path",
+			path:        "./test.db",
+			expectError: false,
+		},
+		{
+			name:        "Valid absolute path in home",
+			path:        "/Users/matt/.kahn/test.db",
+			expectError: false,
+		},
+		{
+			name:        "Valid temp directory path",
+			path:        "/var/folders/ry/8051prmd0s74n_d98lypj1wc0000gn/T/kahn_test.db",
+			expectError: false,
+		},
+		{
+			name:        "Directory traversal with ..",
+			path:        "../test.db",
+			expectError: true,
+			errorMsg:    "directory traversal attempts",
+		},
+		{
+			name:        "Directory traversal with ../..",
+			path:        "../../test.db",
+			expectError: true,
+			errorMsg:    "suspicious directory traversal pattern",
+		},
+		{
+			name:        "Directory traversal with ../test/../",
+			path:        "../test/../test.db",
+			expectError: true,
+			errorMsg:    "directory traversal attempts",
+		},
+		{
+			name:        "Suspicious pattern",
+			path:        "../../../etc/passwd",
+			expectError: true,
+			errorMsg:    "suspicious directory traversal pattern",
+		},
+		{
+			name:        "Absolute path outside safe directories",
+			path:        "/etc/passwd",
+			expectError: true,
+			errorMsg:    "must be within user home or temp directory",
+		},
+		{
+			name:        "Another unsafe absolute path",
+			path:        "/usr/local/bin/test.db",
+			expectError: true,
+			errorMsg:    "must be within user home or temp directory",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateDatabasePath(tt.path)
+
+			if tt.expectError {
+				assert.Error(t, err, "Should return error for path: %s", tt.path)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg, "Error message should contain expected text")
+				}
+			} else {
+				assert.NoError(t, err, "Should not return error for valid path: %s", tt.path)
+			}
+		})
+	}
+}
+
 func TestNewDatabase(t *testing.T) {
 	config := createTestConfig()
 
@@ -28,19 +104,19 @@ func TestNewDatabase(t *testing.T) {
 	assert.NoError(t, err, "Database should close without error")
 }
 
-func TestNewDatabase_InvalidPath(t *testing.T) {
-	// Create config with invalid database path
+func TestNewDatabase_SecurityValidation(t *testing.T) {
+	// Create config with dangerous database path
 	config := &config.Config{}
-	config.Database.Path = "/invalid/path/that/does/not/exist/kahn.db"
+	config.Database.Path = "../../../etc/passwd" // Dangerous path
 	config.Database.BusyTimeout = 5000
 	config.Database.JournalMode = "WAL"
 	config.Database.CacheSize = 10000
 	config.Database.ForeignKeys = true
 
 	database, err := NewDatabase(config)
-	assert.Error(t, err, "NewDatabase should return error for invalid path")
-	assert.Nil(t, database, "Database should be nil for invalid path")
-	assert.Contains(t, err.Error(), "database directory cannot be created", "Error should mention directory creation")
+	assert.Error(t, err, "NewDatabase should return error for dangerous path")
+	assert.Nil(t, database, "Database should be nil for dangerous path")
+	assert.Contains(t, err.Error(), "invalid database path", "Error should mention invalid path")
 }
 
 func TestDatabase_BeginTransaction(t *testing.T) {
@@ -91,6 +167,16 @@ func TestDatabase_Close_NilDB(t *testing.T) {
 
 	err := database.Close()
 	assert.NoError(t, err, "Close with nil DB should not return error")
+}
+
+func TestNewDatabase_InvalidPath(t *testing.T) {
+	config := createTestConfig()
+	config.Database.Path = "../../../etc/passwd" // Dangerous path
+
+	database, err := NewDatabase(config)
+	assert.Error(t, err, "NewDatabase should return error for invalid path")
+	assert.Nil(t, database, "Database should be nil for invalid path")
+	assert.Contains(t, err.Error(), "invalid database path", "Error should mention invalid path")
 }
 
 func createTestConfig() *config.Config {
