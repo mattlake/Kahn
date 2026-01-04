@@ -24,7 +24,7 @@ func NewProjectSwitcher() *ProjectSwitcher {
 type ProjectSwitcherRenderer interface {
 	RenderProjectSwitcher(projects []domain.Project, activeProjectID string, showDeleteConfirm bool, projectToDelete string, width, height int) string
 	RenderNoProjectsMessage(width, height int) string
-	RenderProjectDeleteConfirm(project *domain.Project, width, height int) string
+	RenderProjectDeleteConfirm(project *domain.Project, errorMessage string, width, height int) string
 }
 
 // ProjectSwitcherComponent implements ProjectSwitcherRenderer interface
@@ -42,7 +42,7 @@ func (psc *ProjectSwitcherComponent) RenderProjectSwitcher(projects []domain.Pro
 				break
 			}
 		}
-		return psc.RenderProjectDeleteConfirm(projectToDeletePtr, width, height)
+		return psc.RenderProjectDeleteConfirm(projectToDeletePtr, "", width, height)
 	}
 
 	if len(projects) == 0 {
@@ -145,7 +145,7 @@ func (psc *ProjectSwitcherComponent) RenderNoProjectsMessage(width, height int) 
 }
 
 // RenderProjectDeleteConfirm renders the project deletion confirmation dialog
-func (psc *ProjectSwitcherComponent) RenderProjectDeleteConfirm(project *domain.Project, width, height int) string {
+func (psc *ProjectSwitcherComponent) RenderProjectDeleteConfirm(project *domain.Project, errorMessage string, width, height int) string {
 	if project == nil {
 		return ""
 	}
@@ -160,21 +160,40 @@ func (psc *ProjectSwitcherComponent) RenderProjectDeleteConfirm(project *domain.
 		Bold(true).
 		Render(project.Name)
 
-	warningMessage := deleteStyles.Message.Width(60).Render(fmt.Sprintf("Delete project \"%s\" and ALL its tasks?", projectName))
-	subWarning := deleteStyles.Message.Width(60).Render("This action cannot be undone.")
-	instructions := deleteStyles.Message.Width(60).Render("[y] Yes, Delete • [n] No, Cancel")
+	var content string
 
-	content := lipgloss.JoinVertical(
-		lipgloss.Left,
-		"",
-		title,
-		"",
-		warningMessage,
-		"",
-		subWarning,
-		"",
-		instructions,
-	)
+	if errorMessage != "" {
+		// Show error message
+		errorText := deleteStyles.Message.Width(60).Foreground(lipgloss.Color("#ff5555")).Render("❌ " + errorMessage)
+		okText := deleteStyles.Message.Width(60).Render("[ESC] Continue")
+
+		content = lipgloss.JoinVertical(
+			lipgloss.Left,
+			"",
+			title,
+			"",
+			errorText,
+			"",
+			okText,
+		)
+	} else {
+		// Show normal confirmation dialog
+		warningMessage := deleteStyles.Message.Width(60).Render(fmt.Sprintf("Delete project \"%s\" and ALL its tasks?", projectName))
+		subWarning := deleteStyles.Message.Width(60).Render("This action cannot be undone.")
+		instructions := deleteStyles.Message.Width(60).Render("[y] Yes, Delete • [n] No, Cancel")
+
+		content = lipgloss.JoinVertical(
+			lipgloss.Left,
+			"",
+			title,
+			"",
+			warningMessage,
+			"",
+			subWarning,
+			"",
+			instructions,
+		)
+	}
 
 	form := deleteStyles.Form.
 		Width(70).
@@ -195,6 +214,28 @@ func (ps *ProjectSwitcher) GetRenderer() ProjectSwitcherRenderer {
 
 // RenderSwitcher is a convenience method that matches the original Model method signature
 func (ps *ProjectSwitcher) RenderSwitcher(projects []domain.Project, activeProjectID string, showDeleteConfirm bool, projectToDelete string, width, height int) string {
+	return ps.renderer.RenderProjectSwitcher(projects, activeProjectID, showDeleteConfirm, projectToDelete, width, height)
+}
+
+// RenderSwitcherWithError renders the project switcher with error information
+func (ps *ProjectSwitcher) RenderSwitcherWithError(projects []domain.Project, activeProjectID string, showDeleteConfirm bool, projectToDelete, errorMessage string, width, height int) string {
+	// Show confirmation dialog if active
+	if showDeleteConfirm {
+		// Find the project to delete
+		var projectToDeletePtr *domain.Project
+		for _, proj := range projects {
+			if proj.ID == projectToDelete {
+				projectToDeletePtr = &proj
+				break
+			}
+		}
+		return ps.renderer.RenderProjectDeleteConfirm(projectToDeletePtr, errorMessage, width, height)
+	}
+
+	if len(projects) == 0 {
+		return ps.renderer.RenderNoProjectsMessage(width, height)
+	}
+
 	return ps.renderer.RenderProjectSwitcher(projects, activeProjectID, showDeleteConfirm, projectToDelete, width, height)
 }
 

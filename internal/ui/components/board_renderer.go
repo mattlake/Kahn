@@ -16,6 +16,9 @@ type BoardRenderer interface {
 	// RenderTaskDeleteConfirm renders the task deletion confirmation dialog
 	RenderTaskDeleteConfirm(task *domain.Task, width, height int) string
 
+	// RenderTaskDeleteConfirmWithError renders the task deletion confirmation with error information
+	RenderTaskDeleteConfirmWithError(task *domain.Task, errorMessage string, width, height int) string
+
 	// RenderBoard renders the main kanban board with three columns
 	RenderBoard(project *domain.Project, taskLists [3]list.Model, activeListIndex domain.Status, width int, version string) string
 }

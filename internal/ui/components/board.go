@@ -162,6 +162,96 @@ func (b *BoardComponent) RenderTaskDeleteConfirm(task *domain.Task, width, heigh
 	)
 }
 
+func (b *BoardComponent) RenderTaskDeleteConfirmWithError(task *domain.Task, errorMessage string, width, height int) string {
+	if task == nil {
+		return ""
+	}
+
+	title := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(colors.Red)).
+		Bold(true).
+		Align(lipgloss.Center).
+		Width(60).
+		Render("⚠️  Delete Task")
+
+	var content string
+
+	if errorMessage != "" {
+		// Show error message
+		errorText := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#ff5555")).
+			Align(lipgloss.Center).
+			Width(60).
+			Render("❌ " + errorMessage)
+
+		okText := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(colors.Subtext1)).
+			Align(lipgloss.Center).
+			Width(60).
+			Render("[ESC] Continue")
+
+		content = lipgloss.JoinVertical(
+			lipgloss.Left,
+			"",
+			title,
+			"",
+			errorText,
+			"",
+			okText,
+		)
+	} else {
+		// Show normal confirmation dialog
+		taskName := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(colors.Text)).
+			Bold(true).
+			Render(task.Name)
+
+		warningMessage := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(colors.Text)).
+			Align(lipgloss.Center).
+			Width(60).
+			Render(fmt.Sprintf("Delete task \"%s\"?", taskName))
+
+		subWarning := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(colors.Subtext1)).
+			Align(lipgloss.Center).
+			Width(60).
+			Render("This action cannot be undone.")
+
+		instructions := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(colors.Subtext1)).
+			Align(lipgloss.Center).
+			Width(60).
+			Render("[y] Yes, Delete • [n] No, Cancel")
+
+		content = lipgloss.JoinVertical(
+			lipgloss.Left,
+			"",
+			title,
+			"",
+			warningMessage,
+			"",
+			subWarning,
+			"",
+			instructions,
+		)
+	}
+
+	form := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(colors.Red)).
+		Padding(2, 3).
+		Width(70).
+		Height(12).
+		Render(content)
+
+	return lipgloss.Place(
+		width, height,
+		lipgloss.Center, lipgloss.Center,
+		form,
+	)
+}
+
 func (b *BoardComponent) RenderBoard(project *domain.Project, taskLists [3]list.Model, activeListIndex domain.Status, width int, version string) string {
 	if project == nil {
 		return ""

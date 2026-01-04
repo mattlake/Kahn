@@ -5,6 +5,7 @@ type ConfirmationState struct {
 	showProjectDeleteConfirm bool
 	taskToDelete             string
 	projectToDelete          string
+	errorMessage             string
 }
 
 func NewConfirmationState() *ConfirmationState {
@@ -26,6 +27,7 @@ func (cs *ConfirmationState) HideAllConfirmations() {
 	cs.showProjectDeleteConfirm = false
 	cs.taskToDelete = ""
 	cs.projectToDelete = ""
+	cs.errorMessage = ""
 }
 
 func (cs *ConfirmationState) IsShowingTaskDeleteConfirm() bool {
@@ -44,12 +46,26 @@ func (cs *ConfirmationState) GetProjectToDelete() string {
 	return cs.projectToDelete
 }
 
+func (cs *ConfirmationState) SetError(message string) {
+	cs.errorMessage = message
+}
+
+func (cs *ConfirmationState) GetError() string {
+	return cs.errorMessage
+}
+
+func (cs *ConfirmationState) HasError() bool {
+	return cs.errorMessage != ""
+}
+
 func (cs *ConfirmationState) ClearTaskDelete() {
 	cs.showTaskDeleteConfirm = false
 	cs.taskToDelete = ""
+	cs.errorMessage = ""
 }
 
 func (cs *ConfirmationState) ClearProjectDelete() {
 	cs.showProjectDeleteConfirm = false
 	cs.projectToDelete = ""
+	cs.errorMessage = ""
 }

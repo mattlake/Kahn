@@ -44,7 +44,7 @@ func (km KahnModel) View() string {
 		return comps.Render(formError, formErrorField, km.width, km.height)
 	}
 	if km.navState.IsShowingProjectSwitch() {
-		return km.projectSwitcher.RenderSwitcher(km.Projects, km.ActiveProjectID, km.confirmState.IsShowingProjectDeleteConfirm(), km.confirmState.GetProjectToDelete(), km.width, km.height)
+		return km.projectSwitcher.RenderSwitcherWithError(km.Projects, km.ActiveProjectID, km.confirmState.IsShowingProjectDeleteConfirm(), km.confirmState.GetProjectToDelete(), km.confirmState.GetError(), km.width, km.height)
 	}
 	if km.confirmState.IsShowingTaskDeleteConfirm() {
 		var taskToDelete *domain.Task
@@ -66,7 +66,7 @@ func (km KahnModel) View() string {
 			}
 		}
 
-		return km.board.GetRenderer().RenderTaskDeleteConfirm(taskToDelete, km.width, km.height)
+		return km.board.GetRenderer().RenderTaskDeleteConfirmWithError(taskToDelete, km.confirmState.GetError(), km.width, km.height)
 	}
 
 	if len(km.Projects) == 0 {
@@ -422,7 +422,7 @@ func (km *KahnModel) executeTaskDeletion() tea.Model {
 	}
 
 	if err := km.taskService.DeleteTask(taskToDelete); err != nil {
-		km.confirmState.ClearTaskDelete()
+		km.confirmState.SetError("Failed to delete task: " + err.Error())
 		return km
 	}
 
@@ -444,7 +444,7 @@ func (km *KahnModel) executeProjectDeletion() tea.Model {
 	}
 
 	if err := km.projectService.DeleteProject(projectToDelete); err != nil {
-		km.confirmState.ClearProjectDelete()
+		km.confirmState.SetError("Failed to delete project: " + err.Error())
 		return km
 	}
 
