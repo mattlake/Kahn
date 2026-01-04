@@ -2,6 +2,8 @@ package database
 
 import (
 	"kahn/internal/config"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,6 +11,10 @@ import (
 )
 
 func TestValidateDatabasePath(t *testing.T) {
+	// Get current environment paths for dynamic test generation
+	homeDir, _ := os.UserHomeDir()
+	tempDir := os.TempDir()
+
 	tests := []struct {
 		name        string
 		path        string
@@ -22,12 +28,22 @@ func TestValidateDatabasePath(t *testing.T) {
 		},
 		{
 			name:        "Valid absolute path in home",
-			path:        "/Users/matt/.kahn/test.db",
+			path:        filepath.Join(homeDir, ".kahn", "test.db"),
 			expectError: false,
 		},
 		{
 			name:        "Valid temp directory path",
-			path:        "/var/folders/ry/8051prmd0s74n_d98lypj1wc0000gn/T/kahn_test.db",
+			path:        filepath.Join(tempDir, "kahn_test.db"),
+			expectError: false,
+		},
+		{
+			name:        "Valid absolute path in home",
+			path:        filepath.Join(homeDir, ".kahn", "test.db"),
+			expectError: false,
+		},
+		{
+			name:        "Valid temp directory path",
+			path:        filepath.Join(tempDir, "kahn_test.db"),
 			expectError: false,
 		},
 		{
