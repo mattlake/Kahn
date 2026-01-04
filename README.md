@@ -1,59 +1,60 @@
 # Kahn
-Terminal-based kanban task management application built with Go.
+
+[![Go Version](https://img.shields.io/badge/Go-1.25.4+-blue.svg)](https://golang.org)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)](https://github.com/mattlake/kahn/actions)
+
+A fast, elegant terminal-based kanban task management application built with Go, providing efficient task management without leaving your command line.
+
+Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea).
 
 ## Features
 - Project management with custom names and descriptions
 - Three-column kanban board (Not Started, In Progress, Done)
 - Task prioritization with Low/Medium/High levels
-- SQLite persistence with WAL mode for performance
 - Clean terminal UI with keyboard navigation
 - Multiplatform support (Linux, macOS, Windows)
 - Flexible configuration via file, environment variables, or flags
-- Configurable database location
 
-## Requirements
+## Requirements (when built from source)
 - Go 1.25.4 or higher
 - C compiler (GCC/Clang on Unix, MinGW/TDM-GCC on Windows)
 
-## Quick Start
+## Installation
 
-### Linux / macOS / WSL2
+### From Source
 ```bash
-# Clone, build, run
 git clone https://github.com/mattlake/kahn
 cd kahn
-go build -o kahn .
-./kahn
+go install .
 ```
 
-### Windows (Choose One)
-
-**Native Windows Build**
-```powershell
-# Clone, build, run
-git clone https://github.com/mattlake/kahn
-cd kahn
-go build -o kahn.exe
-.\kahn.exe
-```
+### From Releases
+Download pre-compiled binaries from the [Releases](https://github.com/mattlake/kahn/releases) page for your platform.
 
 ## Usage
 
 ### Navigation
-- `h/l` - Navigate between kanban columns
-- `j/k` - Navigate tasks within a column
-- `space` - Move selected task to next status
-- `backspace` - Move selected task to previous status
+| Key(s) | Action |
+|--------|--------|
+| `h` / `l` | Navigate between kanban columns |
+| `j` / `k` | Navigate tasks within a column |
+| `space` | Move selected task to next status |
+| `backspace` | Move selected task to previous status |
 
 ### Task Management
-- `n` - Create new task
-- `e` - Edit selected task
-- `d` - Delete selected task
+| Key(s) | Action |
+|--------|--------|
+| `n` | Create new task |
+| `e` | Edit selected task |
+| `d` | Delete selected task |
 
 ### Project Management
-- `p` - Switch between projects
-- `p` → `n` - Create new project
-- `p` → `d` - Delete current project
+| Key(s) | Action |
+|--------|--------|
+| `p` | Switch between projects |
+| `p` → `n` | Create new project |
+| `p` → `d` | Delete current project |
 
 ### Other
 - `q` - Quit application
@@ -100,14 +101,6 @@ path = "C:/Users/YourName/Documents/Tasks/kahn.db"
 path = "D:/Work/Project Management/kahn.db"
 ```
 
-### Path Format Guidelines
-
-**Recommended Practices:**
-- **Windows**: Use forward slashes `"C:/Users/Name/tasks.db"`
-- **Cross-platform**: Tilde expansion works everywhere `~/.kahn/`
-- **Absolute paths**: Use platform-appropriate format
-- **Relative paths**: Work relative to execution directory `./tasks.db`
-
 ### Config File Locations
 Search order: `./config.toml` → `~/.kahn/config.toml` → `/etc/kahn/config.toml`
 
@@ -116,6 +109,47 @@ Search order: `./config.toml` → `~/.kahn/config.toml` → `/etc/kahn/config.to
 2. **Environment variables** (`KAHN_` prefix)
 3. **Config files**
 4. **Default values** (lowest priority)
+
+### Environment Variables
+
+You can use environment variables with the `KAHN_` prefix:
+
+```bash
+export KAHN_DATABASE_PATH="/custom/path/kahn.db"
+export KAHN_DATABASE_BUSY_TIMEOUT="3000"
+```
+
+## Contributing
+
+We welcome contributions! Please follow these guidelines:
+
+1. **Fork** the repository and create a feature branch
+2. **Add tests** for new functionality
+3. **Ensure all tests pass** with `go test ./...`
+4. **Format code** with `go fmt ./...`
+5. **Submit a pull request** with a clear description
+
+### Development Guidelines
+- Follow the existing code style and patterns
+- Write comprehensive tests for new features
+- Use table-driven tests for multiple scenarios
+- Document public APIs and complex logic
+
+## Troubleshooting
+
+### Common Issues
+
+**Database Permission Errors**
+```bash
+# Ensure the ~/.kahn directory exists and has proper permissions
+mkdir -p ~/.kahn
+chmod 755 ~/.kahn
+```
+
+### Having Issues?
+
+- Open an issue on [GitHub](https://github.com/mattlake/kahn/issues)
+- Check existing issues for solutions
 
 ## License
 
