@@ -2,6 +2,7 @@ package domain
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -73,7 +74,7 @@ func (p *Project) UpdateTaskStatus(taskID string, newStatus Status) bool {
 }
 
 func (p *Project) Validate() error {
-	if p.Name == "" {
+	if strings.TrimSpace(p.Name) == "" {
 		return fmt.Errorf("project name is required")
 	}
 	if len(p.Name) > 50 {

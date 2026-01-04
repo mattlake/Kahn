@@ -202,6 +202,12 @@ func TestProject_Validate(t *testing.T) {
 			errorMsg:    "project name is required",
 		},
 		{
+			name:        "Whitespace name",
+			project:     createTestProject("   ", "Valid Description", "blue"),
+			expectError: true,
+			errorMsg:    "project name is required",
+		},
+		{
 			name:        "Name too long",
 			project:     createTestProject(string(make([]byte, 51)), "Valid Description", "blue"),
 			expectError: true,
@@ -221,6 +227,11 @@ func TestProject_Validate(t *testing.T) {
 		{
 			name:        "Maximum valid description length",
 			project:     createTestProject("Valid Name", string(make([]byte, 200)), "blue"),
+			expectError: false,
+		},
+		{
+			name:        "Name with spaces within length",
+			project:     createTestProject("  My Project  ", "Valid Description", "blue"),
 			expectError: false,
 		},
 	}
