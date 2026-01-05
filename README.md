@@ -10,7 +10,7 @@ Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea).
 
 ## Screenshots
 
-![Kahn kanban board interface showing three columns with sample tasks]https://github.com/user-attachments/assets/2fb93e7a-c419-4247-b31f-d4e6758c1905
+![Kahn kanban board interface showing three columns with sample tasks](https://github.com/user-attachments/assets/2fb93e7a-c419-4247-b31f-d4e6758c1905)
 
 ## Features
 - Project management with custom names and descriptions
