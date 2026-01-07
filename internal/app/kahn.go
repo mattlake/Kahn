@@ -16,8 +16,6 @@ import (
 )
 
 type KahnModel struct {
-	Projects        []domain.Project
-	ActiveProjectID string
 	width           int
 	height          int
 	database        *database.Database
@@ -28,75 +26,96 @@ type KahnModel struct {
 	projectSwitcher *components.ProjectSwitcher
 	version         string
 
-	formState    *FormState
-	confirmState *ConfirmationState
-	navState     *NavigationState
+	// State managers
+	uiStateManager  *UIStateManager
+	projectManager  *ProjectManager
+	taskListManager *TaskListManager
 }
 
 func (km KahnModel) Init() tea.Cmd {
 	return nil
 }
 
+// renderForm renders the form view (task or project forms)
+func (km *KahnModel) renderForm() string {
+	formState := km.uiStateManager.FormState()
+	comps := formState.GetActiveInputComponents()
+	formError, formErrorField := formState.GetError()
+	return comps.Render(formError, formErrorField, km.width, km.height)
+}
+
+// renderProjectSwitcher renders the project switcher with delete confirmation
+func (km *KahnModel) renderProjectSwitcher() string {
+	confirmState := km.uiStateManager.ConfirmationState()
+	return km.projectSwitcher.RenderSwitcherWithError(
+		km.projectManager.GetProjectsAsDomain(),
+		km.projectManager.GetActiveProjectID(),
+		confirmState.IsShowingProjectDeleteConfirm(),
+		confirmState.GetProjectToDelete(),
+		confirmState.GetError(),
+		km.width,
+		km.height,
+	)
+}
+
+// renderTaskDeleteConfirm renders the task deletion confirmation dialog
+func (km *KahnModel) renderTaskDeleteConfirm() string {
+	confirmState := km.uiStateManager.ConfirmationState()
+	taskToDelete := km.findTaskForDeletion()
+	return km.board.GetRenderer().RenderTaskDeleteConfirmWithError(taskToDelete, confirmState.GetError(), km.width, km.height)
+}
+
+// renderProjectDeleteConfirm renders the project deletion confirmation dialog
+func (km *KahnModel) renderProjectDeleteConfirm() string {
+	confirmState := km.uiStateManager.ConfirmationState()
+	return km.board.GetRenderer().RenderTaskDeleteConfirmWithError(nil, confirmState.GetError(), km.width, km.height)
+}
+
+// renderNoProjects renders the no projects state
+func (km *KahnModel) renderNoProjects() string {
+	return km.board.GetRenderer().RenderNoProjectsBoard(km.width, km.height)
+}
+
+// renderBoard renders the main board view with task lists
+func (km *KahnModel) renderBoard() string {
+	if !km.projectManager.HasProjects() {
+		return km.renderNoProjects()
+	}
+
+	activeProj := km.projectManager.GetActiveProject()
+	if activeProj == nil {
+		return ""
+	}
+
+	taskLists := km.getTaskListsForBoard()
+	navState := km.uiStateManager.NavigationState()
+	return km.board.GetRenderer().RenderBoard(activeProj, taskLists, navState.GetActiveListIndex(), km.width, km.version)
+}
+
+// View renders the appropriate view based on current UI state
 func (km KahnModel) View() string {
-	if km.formState.IsShowingForm() {
-		comps := km.formState.GetActiveInputComponents()
-		formError, formErrorField := km.formState.GetError()
-		return comps.Render(formError, formErrorField, km.width, km.height)
+	switch km.uiStateManager.GetCurrentViewState() {
+	case FormView:
+		return km.renderForm()
+	case ProjectSwitchView:
+		return km.renderProjectSwitcher()
+	case TaskDeleteConfirmView:
+		return km.renderTaskDeleteConfirm()
+	case ProjectDeleteConfirmView:
+		return km.renderProjectDeleteConfirm()
+	case NoProjectsView:
+		return km.renderNoProjects()
+	default: // BoardView
+		return km.renderBoard()
 	}
-	if km.navState.IsShowingProjectSwitch() {
-		return km.projectSwitcher.RenderSwitcherWithError(km.Projects, km.ActiveProjectID, km.confirmState.IsShowingProjectDeleteConfirm(), km.confirmState.GetProjectToDelete(), km.confirmState.GetError(), km.width, km.height)
-	}
-	if km.confirmState.IsShowingTaskDeleteConfirm() {
-		var taskToDelete *domain.Task
-		activeProj := km.GetActiveProject()
-		if activeProj != nil {
-			for _, task := range activeProj.Tasks {
-				if task.ID == km.confirmState.GetTaskToDelete() {
-					taskToDelete = &task
-					break
-				}
-			}
-		}
-
-		if taskToDelete == nil {
-			if selectedItem := km.navState.GetActiveList().SelectedItem(); selectedItem != nil {
-				if taskWrapper, ok := selectedItem.(styles.TaskWithTitle); ok {
-					taskToDelete = &taskWrapper.Task
-				}
-			}
-		}
-
-		return km.board.GetRenderer().RenderTaskDeleteConfirmWithError(taskToDelete, km.confirmState.GetError(), km.width, km.height)
-	}
-
-	if len(km.Projects) == 0 {
-		return km.board.GetRenderer().RenderNoProjectsBoard(km.width, km.height)
-	}
-
-	activeProj := km.GetActiveProject()
-	if activeProj != nil {
-		var taskLists [3]list.Model
-		taskLists[domain.NotStarted] = km.navState.Tasks[domain.NotStarted]
-		taskLists[domain.InProgress] = km.navState.Tasks[domain.InProgress]
-		taskLists[domain.Done] = km.navState.Tasks[domain.Done]
-
-		return km.board.GetRenderer().RenderBoard(activeProj, taskLists, km.navState.GetActiveListIndex(), km.width, km.version)
-	}
-
-	return ""
 }
 
 func (km *KahnModel) GetActiveProject() *domain.Project {
-	for i, proj := range km.Projects {
-		if proj.ID == km.ActiveProjectID {
-			return &km.Projects[i]
-		}
-	}
-	return nil
+	return km.projectManager.GetActiveProject()
 }
 
 func (km *KahnModel) GetActiveProjectID() string {
-	return km.ActiveProjectID
+	return km.projectManager.GetActiveProjectID()
 }
 
 func (km *KahnModel) CreateTask(name, description string) error {
@@ -109,14 +128,14 @@ func (km *KahnModel) CreateTaskWithPriority(name, description string, priority d
 		return nil
 	}
 
-	newTask, err := km.taskService.CreateTask(name, description, km.ActiveProjectID, domain.RegularTask, priority)
+	newTask, err := km.taskService.CreateTask(name, description, km.GetActiveProjectID(), domain.RegularTask, priority)
 	if err != nil {
 		return err
 	}
 
 	activeProj.AddTask(*newTask)
 
-	km.navState.MarkListDirty(domain.NotStarted)
+	km.taskListManager.MarkListDirty(domain.NotStarted)
 	km.updateTaskLists()
 
 	return nil
@@ -142,7 +161,7 @@ func (km *KahnModel) UpdateTask(id, name, description string, priority domain.Pr
 			}
 		}
 
-		km.navState.MarkListDirty(taskStatus)
+		km.taskListManager.MarkListDirty(taskStatus)
 		km.updateTaskLists()
 	}
 
@@ -166,7 +185,7 @@ func (km *KahnModel) DeleteTask(id string) error {
 		}
 		activeProj.RemoveTask(id)
 
-		km.navState.MarkListDirty(taskStatus)
+		km.taskListManager.MarkListDirty(taskStatus)
 		km.updateTaskLists()
 	}
 
@@ -194,8 +213,8 @@ func (km *KahnModel) MoveTaskToNextStatus(id string) error {
 	}
 
 	activeProj.UpdateTaskStatus(id, task.Status)
-	km.navState.MarkListDirty(oldStatus)
-	km.navState.MarkListDirty(task.Status)
+	km.taskListManager.MarkListDirty(oldStatus)
+	km.taskListManager.MarkListDirty(task.Status)
 	km.updateTaskLists()
 	return nil
 }
@@ -221,14 +240,14 @@ func (km *KahnModel) MoveTaskToPreviousStatus(id string) error {
 	}
 
 	activeProj.UpdateTaskStatus(id, task.Status)
-	km.navState.MarkListDirty(oldStatus)
-	km.navState.MarkListDirty(task.Status)
+	km.taskListManager.MarkListDirty(oldStatus)
+	km.taskListManager.MarkListDirty(task.Status)
 	km.updateTaskLists()
 	return nil
 }
 
 func (km *KahnModel) GetSelectedTask() (input.TaskInterface, bool) {
-	selectedItem := km.navState.GetActiveList().SelectedItem()
+	selectedItem := km.taskListManager.GetActiveList().SelectedItem()
 	if selectedItem == nil {
 		return nil, false
 	}
@@ -242,108 +261,61 @@ func (km *KahnModel) GetSelectedTask() (input.TaskInterface, bool) {
 }
 
 func (km *KahnModel) GetProjects() []input.ProjectInterface {
-	var projects []input.ProjectInterface
-	for i := range km.Projects {
-		projects = append(projects, &domain.ProjectWrapper{Project: &km.Projects[i]})
-	}
-	return projects
+	return km.projectManager.GetProjects()
 }
 
 func (km *KahnModel) CreateProject(name, description string) error {
-	newProject, err := km.projectService.CreateProject(name, description)
-	if err != nil {
-		return err
-	}
-
-	km.Projects = append(km.Projects, *newProject)
-	km.ActiveProjectID = newProject.ID
-	km.updateTaskLists()
-
-	return nil
+	return km.projectManager.CreateProject(name, description)
 }
 
 func (km *KahnModel) DeleteProject(id string) error {
-	if err := km.projectService.DeleteProject(id); err != nil {
-		return err
-	}
-
-	if len(km.Projects) == 1 {
-		km.Projects = []domain.Project{}
-		km.ActiveProjectID = ""
-		km.navState.Tasks[domain.NotStarted].SetItems([]list.Item{})
-		km.navState.Tasks[domain.InProgress].SetItems([]list.Item{})
-		km.navState.Tasks[domain.Done].SetItems([]list.Item{})
-	} else {
-		var newProjects []domain.Project
-		var wasActiveProject bool
-		for _, proj := range km.Projects {
-			if proj.ID != id {
-				newProjects = append(newProjects, proj)
-			} else {
-				wasActiveProject = (proj.ID == km.ActiveProjectID)
-			}
-		}
-		km.Projects = newProjects
-
-		if wasActiveProject && len(km.Projects) > 0 {
-			km.ActiveProjectID = km.Projects[0].ID
-			km.updateTaskLists()
-		}
-	}
-
-	return nil
+	return km.projectManager.DeleteProject(id)
 }
 
 func (km *KahnModel) SwitchToProject(id string) error {
-	km.ActiveProjectID = id
-	km.updateTaskLists()
-	return nil
+	return km.projectManager.SwitchToProject(id)
 }
 
 func (km *KahnModel) GetSelectedProjectIndex() int {
-	for i, proj := range km.Projects {
-		if proj.ID == km.ActiveProjectID {
-			return i
-		}
-	}
-	return 0
+	return km.projectManager.GetSelectedProjectIndex()
 }
 
 func (km *KahnModel) GetFormError() string {
-	errorMsg, _ := km.formState.GetError()
+	errorMsg, _ := km.uiStateManager.FormState().GetError()
 	return errorMsg
 }
 
 func (km *KahnModel) GetFormErrorField() string {
-	_, errorField := km.formState.GetError()
+	_, errorField := km.uiStateManager.FormState().GetError()
 	return errorField
 }
 
 func (km *KahnModel) ClearFormError() {
-	km.formState.ClearError()
+	km.uiStateManager.FormState().ClearError()
 }
 
 func (km *KahnModel) GetActiveInputComponents() *input.InputComponents {
-	return km.formState.GetActiveInputComponents()
+	return km.uiStateManager.FormState().GetActiveInputComponents()
 }
 
 func (km *KahnModel) GetActiveFormType() input.FormType {
-	return km.formState.GetActiveFormType()
+	return km.uiStateManager.FormState().GetActiveFormType()
 }
 
 func (km *KahnModel) SubmitCurrentForm() error {
-	isValid, errorField, errorMsg := km.formState.ValidateForSubmit()
+	formState := km.uiStateManager.FormState()
+	isValid, errorField, errorMsg := formState.ValidateForSubmit()
 	if !isValid {
-		km.formState.SetError(errorMsg, errorField)
+		formState.SetError(errorMsg, errorField)
 		return fmt.Errorf("validation failed: %s", errorMsg)
 	}
 
-	km.formState.ClearError()
-	name, desc, taskType, priority := km.formState.GetFormData()
+	formState.ClearError()
+	name, desc, taskType, priority := formState.GetFormData()
 
-	switch km.formState.GetActiveFormType() {
+	switch formState.GetActiveFormType() {
 	case input.TaskCreateForm:
-		newTask, err := km.taskService.CreateTask(name, desc, km.ActiveProjectID, taskType, priority)
+		newTask, err := km.taskService.CreateTask(name, desc, km.GetActiveProjectID(), taskType, priority)
 		if err == nil {
 			activeProj := km.GetActiveProject()
 			if activeProj != nil {
@@ -352,77 +324,100 @@ func (km *KahnModel) SubmitCurrentForm() error {
 			}
 		}
 	case input.TaskEditForm:
-		taskID := km.formState.GetTaskID()
+		taskID := formState.GetTaskID()
 		err := km.UpdateTask(taskID, name, desc, priority, taskType)
 		return err
 	case input.ProjectCreateForm:
-		newProject, err := km.projectService.CreateProject(name, desc)
-		if err == nil {
-			km.Projects = append(km.Projects, *newProject)
-			km.ActiveProjectID = newProject.ID
-			km.updateTaskLists()
-		}
-		return err
+		return km.projectManager.CreateProject(name, desc)
 	}
 	return nil
 }
 
 func (km *KahnModel) CancelCurrentForm() {
-	km.formState.HideForm()
+	km.uiStateManager.HideAllStates()
 }
 
 func (km *KahnModel) ShowTaskForm() {
-	km.formState.ShowTaskForm()
+	km.uiStateManager.ShowTaskForm()
 }
 
 func (km *KahnModel) ShowTaskEditForm(taskID string, name, description string, priority domain.Priority, taskType domain.TaskType) {
-	km.formState.ShowTaskEditForm(taskID, name, description, priority, taskType)
+	km.uiStateManager.ShowTaskEditForm(taskID, name, description, priority, taskType)
 }
 
 func (km *KahnModel) ShowProjectForm() {
-	km.formState.ShowProjectForm()
+	km.uiStateManager.ShowProjectForm()
 }
 
 func (km *KahnModel) ShowProjectSwitcher() {
-	km.navState.ShowProjectSwitch()
+	km.uiStateManager.ShowProjectSwitcher()
 }
 
 func (km *KahnModel) ShowTaskDeleteConfirm(taskID string) {
-	km.confirmState.ShowTaskDeleteConfirm(taskID)
+	km.uiStateManager.ShowTaskDeleteConfirm(taskID)
 }
 
 func (km *KahnModel) HideAllForms() {
-	km.formState.HideForm()
-	km.navState.HideProjectSwitch()
-	km.confirmState.HideAllConfirmations()
+	km.uiStateManager.HideAllStates()
 }
 
 func (km *KahnModel) NextList() {
-	km.navState.NextList()
+	km.taskListManager.NextList()
 }
 
 func (km *KahnModel) PrevList() {
-	km.navState.PrevList()
+	km.taskListManager.PrevList()
 }
 
 func (km *KahnModel) updateTaskLists() {
+	km.taskListManager.UpdateTaskListsConditional(km.GetActiveProject())
+}
 
-	if km.navState.dirtyFlags != nil && len(km.navState.dirtyFlags) > 0 {
-		km.navState.UpdateDirtyLists(km.GetActiveProject(), km.taskService)
-	} else {
-		km.navState.UpdateTaskLists(km.GetActiveProject(), km.taskService)
+// findTaskForDeletion finds the task to be deleted either from active project or selected item
+func (km *KahnModel) findTaskForDeletion() *domain.Task {
+	confirmState := km.uiStateManager.ConfirmationState()
+	taskID := confirmState.GetTaskToDelete()
+
+	// First try to find in active project
+	activeProj := km.projectManager.GetActiveProject()
+	if activeProj != nil {
+		for _, task := range activeProj.Tasks {
+			if task.ID == taskID {
+				return &task
+			}
+		}
+	}
+
+	// Fallback to selected item
+	if selectedItem := km.taskListManager.GetActiveList().SelectedItem(); selectedItem != nil {
+		if taskWrapper, ok := selectedItem.(styles.TaskWithTitle); ok {
+			return &taskWrapper.Task
+		}
+	}
+
+	return nil
+}
+
+// getTaskListsForBoard builds the task lists array needed for board rendering
+func (km *KahnModel) getTaskListsForBoard() [3]list.Model {
+	navState := km.uiStateManager.NavigationState()
+	return [3]list.Model{
+		navState.Tasks[domain.NotStarted],
+		navState.Tasks[domain.InProgress],
+		navState.Tasks[domain.Done],
 	}
 }
 
 func (km *KahnModel) executeTaskDeletion() tea.Model {
-	taskToDelete := km.confirmState.GetTaskToDelete()
+	confirmState := km.uiStateManager.ConfirmationState()
+	taskToDelete := confirmState.GetTaskToDelete()
 	if taskToDelete == "" {
-		km.confirmState.ClearTaskDelete()
+		confirmState.ClearTaskDelete()
 		return km
 	}
 
 	if err := km.taskService.DeleteTask(taskToDelete); err != nil {
-		km.confirmState.SetError("Failed to delete task: " + err.Error())
+		confirmState.SetError("Failed to delete task: " + err.Error())
 		return km
 	}
 
@@ -432,61 +427,38 @@ func (km *KahnModel) executeTaskDeletion() tea.Model {
 		km.updateTaskLists()
 	}
 
-	km.confirmState.ClearTaskDelete()
+	confirmState.ClearTaskDelete()
 	return km
 }
 
 func (km *KahnModel) executeProjectDeletion() tea.Model {
-	projectToDelete := km.confirmState.GetProjectToDelete()
+	confirmState := km.uiStateManager.ConfirmationState()
+	projectToDelete := confirmState.GetProjectToDelete()
 	if projectToDelete == "" {
-		km.confirmState.ClearProjectDelete()
+		confirmState.ClearProjectDelete()
 		return km
 	}
 
-	if err := km.projectService.DeleteProject(projectToDelete); err != nil {
-		km.confirmState.SetError("Failed to delete project: " + err.Error())
-		return km
+	// The project manager handles the deletion logic
+	err := km.projectManager.DeleteProject(projectToDelete)
+	if err != nil {
+		confirmState.SetError("Failed to delete project: " + err.Error())
 	}
 
-	if len(km.Projects) == 1 {
-		km.Projects = []domain.Project{}
-		km.ActiveProjectID = ""
-
-		km.navState.Tasks[domain.NotStarted].SetItems([]list.Item{})
-		km.navState.Tasks[domain.InProgress].SetItems([]list.Item{})
-		km.navState.Tasks[domain.Done].SetItems([]list.Item{})
-	} else {
-		var newProjects []domain.Project
-		var wasActiveProject bool
-		for _, proj := range km.Projects {
-			if proj.ID != projectToDelete {
-				newProjects = append(newProjects, proj)
-			} else {
-				wasActiveProject = (proj.ID == km.ActiveProjectID)
-			}
-		}
-		km.Projects = newProjects
-
-		if wasActiveProject && len(km.Projects) > 0 {
-			km.ActiveProjectID = km.Projects[0].ID
-			km.updateTaskLists()
-		}
-	}
-
-	km.confirmState.ClearProjectDelete()
+	confirmState.ClearProjectDelete()
 	return km
 }
 
 func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if km.formState.IsShowingForm() {
+		if km.uiStateManager.FormState().IsShowingForm() {
 			return km.handleFormInput(msg)
 		}
-		if km.navState.IsShowingProjectSwitch() || km.confirmState.IsShowingProjectDeleteConfirm() {
+		if km.uiStateManager.NavigationState().IsShowingProjectSwitch() || km.uiStateManager.ConfirmationState().IsShowingProjectDeleteConfirm() {
 			return km.handleProjectSwitch(msg)
 		}
-		if km.confirmState.IsShowingTaskDeleteConfirm() {
+		if km.uiStateManager.ConfirmationState().IsShowingTaskDeleteConfirm() {
 			return km.handleTaskDeleteConfirm(msg)
 		}
 		return km.handleNormalMode(msg)
@@ -497,35 +469,35 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (km *KahnModel) GetTaskToDelete() string {
-	return km.confirmState.GetTaskToDelete()
+	return km.uiStateManager.ConfirmationState().GetTaskToDelete()
 }
 
 func (km *KahnModel) GetProjectToDelete() string {
-	return km.confirmState.GetProjectToDelete()
+	return km.uiStateManager.ConfirmationState().GetProjectToDelete()
 }
 
 func (km *KahnModel) IsShowingTaskDeleteConfirm() bool {
-	return km.confirmState.IsShowingTaskDeleteConfirm()
+	return km.uiStateManager.ConfirmationState().IsShowingTaskDeleteConfirm()
 }
 
 func (km *KahnModel) IsShowingProjectDeleteConfirm() bool {
-	return km.confirmState.IsShowingProjectDeleteConfirm()
+	return km.uiStateManager.ConfirmationState().IsShowingProjectDeleteConfirm()
 }
 
 func (km *KahnModel) GetTaskItems(status domain.Status) []list.Item {
-	return km.navState.Tasks[status].Items()
+	return km.taskListManager.GetTaskItems(status)
 }
 
 func (km *KahnModel) GetActiveListIndex() domain.Status {
-	return km.navState.GetActiveListIndex()
+	return km.taskListManager.GetActiveListIndex()
 }
 
 func (km *KahnModel) IsShowingForm() bool {
-	return km.formState.IsShowingForm()
+	return km.uiStateManager.FormState().IsShowingForm()
 }
 
 func (km *KahnModel) IsShowingProjectSwitch() bool {
-	return km.navState.IsShowingProjectSwitch()
+	return km.uiStateManager.NavigationState().IsShowingProjectSwitch()
 }
 
 func NewKahnModel(database *database.Database, version string) *KahnModel {
@@ -553,67 +525,23 @@ func NewKahnModel(database *database.Database, version string) *KahnModel {
 	taskService := services.NewTaskService(taskRepo, projectRepo)
 	projectService := services.NewProjectService(projectRepo, taskRepo)
 
-	projects, err := projectService.GetAllProjects()
-	if err != nil {
-		projects = []domain.Project{}
-	}
+	// Create state management components
+	formState := NewFormState(taskInputComponents, projectInputComponents)
+	confirmState := NewConfirmationState()
+	navState := NewNavigationState(taskLists)
 
-	for i := range projects {
-		tasks, err := taskService.GetTasksByProject(projects[i].ID)
-		if err != nil {
-			projects[i].Tasks = []domain.Task{}
-		} else {
-			projects[i].Tasks = tasks
-		}
-	}
+	// Create managers
+	taskListManager := NewTaskListManager(navState, taskService)
+	projectManager := NewProjectManager(projectService, taskService, taskListManager)
+	uiStateManager := NewUIStateManager(formState, confirmState, navState)
 
-	if len(projects) == 0 {
-		newProject, err := projectService.CreateProject("Default Project", "A default project for your tasks")
-		if err != nil {
-			projects = []domain.Project{}
-		} else {
-			projects = []domain.Project{*newProject}
-		}
-	}
-
-	var activeProjectID string
-	if len(projects) > 0 {
-		activeProjectID = projects[0].ID
-	}
+	// Initialize projects through project manager
+	projectManager.InitializeProjects()
 
 	// Apply list titles and styles
 	taskLists[domain.NotStarted].Title = domain.NotStarted.ToString()
-	if len(projects) > 0 {
-		notStartedTasks, err := taskService.GetTasksByStatus(projects[0].ID, domain.NotStarted)
-		if err != nil {
-			projects[0].Tasks = []domain.Task{}
-		} else {
-			projects[0].Tasks = notStartedTasks
-		}
-		taskLists[domain.NotStarted].SetItems(convertTasksToListItems(projects[0].GetTasksByStatus(domain.NotStarted)))
-	}
-
 	taskLists[domain.InProgress].Title = domain.InProgress.ToString()
-	if len(projects) > 0 {
-		inProgressTasks, err := taskService.GetTasksByStatus(projects[0].ID, domain.InProgress)
-		if err != nil {
-			projects[0].Tasks = []domain.Task{}
-		} else {
-			projects[0].Tasks = inProgressTasks
-		}
-		taskLists[domain.InProgress].SetItems(convertTasksToListItems(projects[0].GetTasksByStatus(domain.InProgress)))
-	}
-
 	taskLists[domain.Done].Title = domain.Done.ToString()
-	if len(projects) > 0 {
-		doneTasks, err := taskService.GetTasksByStatus(projects[0].ID, domain.Done)
-		if err != nil {
-			projects[0].Tasks = []domain.Task{}
-		} else {
-			projects[0].Tasks = doneTasks
-		}
-		taskLists[domain.Done].SetItems(convertTasksToListItems(projects[0].GetTasksByStatus(domain.Done)))
-	}
 
 	// Update selection states after initialization
 	// NotStarted is the active list by default, others are inactive
@@ -624,14 +552,7 @@ func NewKahnModel(database *database.Database, version string) *KahnModel {
 	// Apply title styles to all lists based on active list index
 	styles.ApplyFocusedTitleStyles(taskLists, domain.NotStarted) // Default to NotStarted as initial active list
 
-	// Initialize state management
-	formState := NewFormState(taskInputComponents, projectInputComponents)
-	confirmState := NewConfirmationState()
-	navState := NewNavigationState(taskLists)
-
 	return &KahnModel{
-		Projects:        projects,
-		ActiveProjectID: activeProjectID,
 		width:           80,
 		height:          24,
 		database:        database,
@@ -641,8 +562,8 @@ func NewKahnModel(database *database.Database, version string) *KahnModel {
 		board:           components.NewBoard(),
 		projectSwitcher: components.NewProjectSwitcher(),
 		version:         version,
-		formState:       formState,
-		confirmState:    confirmState,
-		navState:        navState,
+		uiStateManager:  uiStateManager,
+		projectManager:  projectManager,
+		taskListManager: taskListManager,
 	}
 }
