@@ -3,7 +3,6 @@ package domain
 import (
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 )
 
@@ -87,29 +86,28 @@ func generateTaskID() string {
 }
 
 func (t *Task) Validate() error {
-	if strings.TrimSpace(t.Name) == "" {
-		return &ValidationError{Field: "name", Message: "task name cannot be empty"}
+	validator := NewFieldValidator()
+
+	if err := validator.ValidateNotEmpty("name", t.Name, "task"); err != nil {
+		return err
 	}
-	if len(t.Name) > MaxTaskNameLength {
-		return &ValidationError{Field: "name", Message: fmt.Sprintf("task name too long (max %d characters)", MaxTaskNameLength)}
+	if err := validator.ValidateMaxLength("name", t.Name, MaxTaskNameLength, "task"); err != nil {
+		return err
 	}
-	if len(t.Desc) > MaxTaskDescriptionLength {
-		return &ValidationError{Field: "description", Message: fmt.Sprintf("task description too long (max %d characters)", MaxTaskDescriptionLength)}
+	if err := validator.ValidateMaxLength("description", t.Desc, MaxTaskDescriptionLength, "task"); err != nil {
+		return err
 	}
-	if t.ProjectID == "" {
-		return &ValidationError{Field: "project_id", Message: "project ID cannot be empty"}
+	if err := validator.ValidateRequiredID(t.ProjectID, "task"); err != nil {
+		return NewValidationError("project_id", "project ID cannot be empty")
 	}
-	// Validate priority is within valid range
-	if t.Priority < Low || t.Priority > High {
-		return &ValidationError{Field: "priority", Message: "invalid priority value"}
+	if err := validator.ValidateEnum("priority", int(t.Priority), int(Low), int(High), "task"); err != nil {
+		return err
 	}
-	// Validate status is within valid range
-	if t.Status < NotStarted || t.Status > Done {
-		return &ValidationError{Field: "status", Message: "invalid status value"}
+	if err := validator.ValidateEnum("status", int(t.Status), int(NotStarted), int(Done), "task"); err != nil {
+		return err
 	}
-	// Validate type is within valid range
-	if t.Type < RegularTask || t.Type > Feature {
-		return &ValidationError{Field: "type", Message: "invalid type value"}
+	if err := validator.ValidateEnum("type", int(t.Type), int(RegularTask), int(Feature), "task"); err != nil {
+		return err
 	}
 	return nil
 }

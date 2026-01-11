@@ -2,24 +2,26 @@ package services
 
 import (
 	"kahn/internal/domain"
-	"strings"
 )
 
 type ProjectService struct {
 	projectRepo domain.ProjectRepository
 	taskRepo    domain.TaskRepository
+	validator   *ServiceValidator
 }
 
 func NewProjectService(projectRepo domain.ProjectRepository, taskRepo domain.TaskRepository) *ProjectService {
 	return &ProjectService{
 		projectRepo: projectRepo,
 		taskRepo:    taskRepo,
+		validator:   NewServiceValidator(),
 	}
 }
 
 func (ps *ProjectService) CreateProject(name, description string) (*domain.Project, error) {
-	if strings.TrimSpace(name) == "" {
-		return nil, &domain.ValidationError{Field: "name", Message: "project name cannot be empty"}
+	validator := domain.NewFieldValidator()
+	if err := validator.ValidateNotEmpty("name", name, "project"); err != nil {
+		return nil, err
 	}
 
 	project := domain.NewProject(name, description, "#89b4fa")
@@ -29,20 +31,20 @@ func (ps *ProjectService) CreateProject(name, description string) (*domain.Proje
 	}
 
 	if err := ps.projectRepo.Create(project); err != nil {
-		return nil, &domain.RepositoryError{Operation: "create", Entity: "project", Cause: err}
+		return nil, domain.NewRepositoryError("create", "project", project.ID, err)
 	}
 
 	return project, nil
 }
 
 func (ps *ProjectService) GetProject(id string) (*domain.Project, error) {
-	if id == "" {
-		return nil, &domain.ValidationError{Field: "id", Message: "project ID cannot be empty"}
+	if err := ps.validator.ValidateEntityID(id, "project"); err != nil {
+		return nil, err
 	}
 
 	project, err := ps.projectRepo.GetByID(id)
 	if err != nil {
-		return nil, &domain.RepositoryError{Operation: "get", Entity: "project", ID: id, Cause: err}
+		return nil, domain.NewRepositoryError("get", "project", id, err)
 	}
 
 	return project, nil
@@ -51,71 +53,62 @@ func (ps *ProjectService) GetProject(id string) (*domain.Project, error) {
 func (ps *ProjectService) GetAllProjects() ([]domain.Project, error) {
 	projects, err := ps.projectRepo.GetAll()
 	if err != nil {
-		return nil, &domain.RepositoryError{Operation: "get all", Entity: "projects", Cause: err}
+		return nil, domain.NewRepositoryError("get all", "projects", "", err)
 	}
 
 	return projects, nil
 }
 
 func (ps *ProjectService) UpdateProject(id, name, description string) (*domain.Project, error) {
-	if strings.TrimSpace(name) == "" {
-		return nil, &domain.ValidationError{Field: "name", Message: "project name cannot be empty"}
+	validator := domain.NewFieldValidator()
+	if err := validator.ValidateNotEmpty("name", name, "project"); err != nil {
+		return nil, err
 	}
 
-	project, err := ps.projectRepo.GetByID(id)
+	project, err := ps.validator.ValidateProjectExists(ps.projectRepo, id)
 	if err != nil {
-		return nil, &domain.RepositoryError{Operation: "get", Entity: "project", ID: id, Cause: err}
-	}
-	if project == nil {
-		return nil, &domain.ValidationError{Field: "id", Message: "project not found"}
+		return nil, err
 	}
 
 	project.Name = name
 	project.Description = description
 
 	if err := ps.projectRepo.Update(project); err != nil {
-		return nil, &domain.RepositoryError{Operation: "update", Entity: "project", ID: id, Cause: err}
+		return nil, domain.NewRepositoryError("update", "project", id, err)
 	}
 
 	return project, nil
 }
 
 func (ps *ProjectService) DeleteProject(id string) error {
-	if id == "" {
-		return &domain.ValidationError{Field: "id", Message: "project ID cannot be empty"}
-	}
-
-	project, err := ps.projectRepo.GetByID(id)
+	_, err := ps.validator.ValidateProjectExists(ps.projectRepo, id)
 	if err != nil {
-		return &domain.RepositoryError{Operation: "get", Entity: "project", ID: id, Cause: err}
-	}
-	if project == nil {
-		return &domain.ValidationError{Field: "id", Message: "project not found"}
+		return err
 	}
 
 	if err := ps.projectRepo.Delete(id); err != nil {
-		return &domain.RepositoryError{Operation: "delete", Entity: "project", ID: id, Cause: err}
+		return domain.NewRepositoryError("delete", "project", id, err)
 	}
 
 	return nil
 }
 
 func (ps *ProjectService) GetProjectWithTasks(id string) (*domain.Project, error) {
-	if id == "" {
-		return nil, &domain.ValidationError{Field: "id", Message: "project ID cannot be empty"}
+	if err := ps.validator.ValidateEntityID(id, "project"); err != nil {
+		return nil, err
 	}
 
 	project, err := ps.projectRepo.GetByID(id)
 	if err != nil {
-		return nil, &domain.RepositoryError{Operation: "get", Entity: "project", ID: id, Cause: err}
+		return nil, domain.NewRepositoryError("get", "project", id, err)
 	}
 	if project == nil {
-		return nil, &domain.ValidationError{Field: "id", Message: "project not found"}
+		return nil, domain.NewValidationError("id", "project not found")
 	}
 
 	tasks, err := ps.taskRepo.GetByProjectID(id)
 	if err != nil {
-		return nil, &domain.RepositoryError{Operation: "get tasks for", Entity: "project", ID: id, Cause: err}
+		return nil, domain.NewRepositoryError("get tasks for", "project", id, err)
 	}
 
 	project.Tasks = tasks

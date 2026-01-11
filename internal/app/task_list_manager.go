@@ -42,11 +42,8 @@ func (tlm *TaskListManager) UpdateTaskLists(project *domain.Project) {
 		return
 	}
 
-	// Update project tasks with all tasks from database
 	project.Tasks = allTasks
 
-	// Convert tasks to list items and update each status list
-	// This preserves the existing filtering and UI behavior while using single DB query
 	tlm.navState.Tasks[domain.NotStarted].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.NotStarted)))
 	tlm.navState.Tasks[domain.InProgress].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.InProgress)))
 	tlm.navState.Tasks[domain.Done].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.Done)))
@@ -81,14 +78,12 @@ func (tlm *TaskListManager) UpdateDirtyLists(project *domain.Project) {
 	// Update project tasks
 	project.Tasks = allTasks
 
-	// Save selection states for lists that will be updated
 	selections := map[domain.Status]int{
 		domain.NotStarted: tlm.navState.Tasks[domain.NotStarted].Index(),
 		domain.InProgress: tlm.navState.Tasks[domain.InProgress].Index(),
 		domain.Done:       tlm.navState.Tasks[domain.Done].Index(),
 	}
 
-	// Update only dirty lists
 	for status, isDirty := range tlm.navState.dirtyFlags {
 		if isDirty {
 			tlm.navState.Tasks[status].SetItems(convertTasksToListItems(project.GetTasksByStatus(status)))
@@ -157,17 +152,14 @@ func (tlm *TaskListManager) PrevList() {
 	tlm.navState.PrevList()
 }
 
-// UpdateActiveList updates the active list with new messages
 func (tlm *TaskListManager) UpdateActiveList(msg tea.Msg) tea.Cmd {
 	return tlm.navState.UpdateActiveList(msg)
 }
 
-// UpdateListSizes updates the sizes of all task lists
 func (tlm *TaskListManager) UpdateListSizes(width, height int) {
 	tlm.navState.UpdateListSizes(width, height)
 }
 
-// clearAllDirtyFlags clears all dirty flags
 func (tlm *TaskListManager) clearAllDirtyFlags() {
 	if tlm.navState.dirtyFlags != nil {
 		tlm.navState.dirtyFlags = make(map[domain.Status]bool)

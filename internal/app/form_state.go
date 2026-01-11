@@ -57,7 +57,7 @@ func (fs *FormState) GetActiveFormType() input.FormType {
 	return fs.activeFormType
 }
 
-// GetActiveInputComponents returns the input components for the active form
+// GetActiveInputComponents returns input components for active form
 func (fs *FormState) GetActiveInputComponents() *input.InputComponents {
 	if fs.activeFormType == input.TaskCreateForm || fs.activeFormType == input.TaskEditForm {
 		return fs.taskComponents

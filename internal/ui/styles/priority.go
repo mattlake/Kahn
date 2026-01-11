@@ -35,7 +35,6 @@ func GetPriorityIndicator(priority domain.Priority) string {
 		Foreground(lipgloss.Color(color)).
 		Render(indicator)
 
-	// Add trailing space for visual separation from task name
 	return coloredIndicator + " "
 }
 

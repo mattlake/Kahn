@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"kahn/internal/domain"
+	"time"
 )
 
 type BaseRepository struct {
@@ -115,4 +116,61 @@ func (b *BaseRepository) ScanSingleProject(row *sql.Row) (*domain.Project, error
 		return nil, b.WrapDBError("get", "project", "", err)
 	}
 	return &project, nil
+}
+
+// Generic CRUD operations for extending repositories
+
+// CreateGeneric executes a generic insert query with the provided parameters
+func (b *BaseRepository) CreateGeneric(query string, values ...interface{}) error {
+	_, err := b.db.Exec(query, values...)
+	if err != nil {
+		return b.WrapDBError("create", "entity", "", err)
+	}
+	return nil
+}
+
+// UpdateGeneric executes a generic update query with the provided parameters
+func (b *BaseRepository) UpdateGeneric(query string, values ...interface{}) error {
+	_, err := b.db.Exec(query, values...)
+	if err != nil {
+		return b.WrapDBError("update", "entity", "", err)
+	}
+	return nil
+}
+
+// UpdateTimestampedGeneric executes a generic update query that updates timestamps
+func (b *BaseRepository) UpdateTimestampedGeneric(query string, values ...interface{}) error {
+	// Add updated_at timestamp if not already included
+	valuesWithTime := append(values, time.Now())
+	_, err := b.db.Exec(query, valuesWithTime...)
+	if err != nil {
+		return b.WrapDBError("update", "entity", "", err)
+	}
+	return nil
+}
+
+// DeleteGeneric executes a generic delete query with the provided parameters
+func (b *BaseRepository) DeleteGeneric(query string, values ...interface{}) error {
+	result, err := b.db.Exec(query, values...)
+	if err != nil {
+		return b.WrapDBError("delete", "entity", "", err)
+	}
+	return b.HandleRowsAffected(result, "delete", "entity")
+}
+
+// QueryAndScanGeneric executes a generic query and scans results using the provided scan function
+func (b *BaseRepository) QueryAndScanGeneric(query string, scanFunc func(*sql.Rows) (interface{}, error), values ...interface{}) (interface{}, error) {
+	rows, err := b.db.Query(query, values...)
+	if err != nil {
+		return nil, b.WrapDBError("query", "entity", "", err)
+	}
+	defer rows.Close()
+
+	return scanFunc(rows)
+}
+
+// QueryRowAndScanGeneric executes a generic single-row query and scans result
+func (b *BaseRepository) QueryRowAndScanGeneric(query string, scanFunc func(*sql.Row) (interface{}, error), values ...interface{}) (interface{}, error) {
+	row := b.db.QueryRow(query, values...)
+	return scanFunc(row)
 }

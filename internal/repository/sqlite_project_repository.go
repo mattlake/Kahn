@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"kahn/internal/domain"
+	"time"
 )
 
 type SQLiteProjectRepository struct {
@@ -21,13 +22,8 @@ func (r *SQLiteProjectRepository) Create(project *domain.Project) error {
 		VALUES (?, ?, ?, ?, ?, ?)
 	`
 
-	_, err := r.base.db.Exec(query, project.ID, project.Name, project.Description,
+	return r.base.CreateGeneric(query, project.ID, project.Name, project.Description,
 		project.Color, project.CreatedAt, project.UpdatedAt)
-	if err != nil {
-		return r.base.WrapDBError("create", "project", project.ID, err)
-	}
-
-	return nil
 }
 
 func (r *SQLiteProjectRepository) GetByID(id string) (*domain.Project, error) {
@@ -62,22 +58,16 @@ func (r *SQLiteProjectRepository) Update(project *domain.Project) error {
 		WHERE id = ?
 	`
 
+	project.UpdatedAt = time.Now()
 	_, err := r.base.db.Exec(query, project.Name, project.Description,
 		project.Color, project.UpdatedAt, project.ID)
 	if err != nil {
 		return r.base.WrapDBError("update", "project", project.ID, err)
 	}
-
 	return nil
 }
 
 func (r *SQLiteProjectRepository) Delete(id string) error {
 	query := `DELETE FROM projects WHERE id = ?`
-
-	result, err := r.base.db.Exec(query, id)
-	if err != nil {
-		return r.base.WrapDBError("delete", "project", id, err)
-	}
-
-	return r.base.HandleRowsAffected(result, "delete", "project")
+	return r.base.DeleteGeneric(query, id)
 }

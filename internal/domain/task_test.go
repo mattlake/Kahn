@@ -122,9 +122,9 @@ func TestPriority_Constants(t *testing.T) {
 }
 
 func TestGenerateTaskID(t *testing.T) {
-	// Test multiple calls to ensure uniqueness
+
 	id1 := generateTaskID()
-	// Add small delay to ensure different timestamps
+
 	time.Sleep(1 * time.Millisecond)
 	id2 := generateTaskID()
 
@@ -142,12 +142,10 @@ func TestTask_CompleteWorkflow(t *testing.T) {
 	// Initial state
 	assert.Equal(t, NotStarted, task.Status, "Initial status should be NotStarted")
 
-	// Update status to in progress
 	task.Status = InProgress
 	task.UpdatedAt = time.Now()
 	assert.Equal(t, InProgress, task.Status, "Status should be updated to InProgress")
 
-	// Update status to done
 	task.Status = Done
 	task.UpdatedAt = time.Now()
 	assert.Equal(t, Done, task.Status, "Status should be updated to Done")

@@ -2,7 +2,6 @@ package domain
 
 import (
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -80,14 +79,16 @@ func (p *Project) UpdateTaskStatus(taskID string, newStatus Status) bool {
 }
 
 func (p *Project) Validate() error {
-	if strings.TrimSpace(p.Name) == "" {
-		return fmt.Errorf("project name is required")
+	validator := NewFieldValidator()
+
+	if err := validator.ValidateNotEmpty("name", p.Name, "project"); err != nil {
+		return err
 	}
-	if len(p.Name) > MaxProjectNameLength {
-		return fmt.Errorf("project name too long (max %d characters)", MaxProjectNameLength)
+	if err := validator.ValidateMaxLength("name", p.Name, MaxProjectNameLength, "project"); err != nil {
+		return err
 	}
-	if len(p.Description) > MaxProjectDescriptionLength {
-		return fmt.Errorf("project description too long (max %d characters)", MaxProjectDescriptionLength)
+	if err := validator.ValidateMaxLength("description", p.Description, MaxProjectDescriptionLength, "project"); err != nil {
+		return err
 	}
 	return nil
 }

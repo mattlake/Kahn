@@ -1,71 +1,101 @@
 package app
 
 type ConfirmationState struct {
-	showTaskDeleteConfirm    bool
-	showProjectDeleteConfirm bool
-	taskToDelete             string
-	projectToDelete          string
-	errorMessage             string
+	taskDeleteConfirm    *GenericConfirmationState[string]
+	projectDeleteConfirm *GenericConfirmationState[string]
 }
 
 func NewConfirmationState() *ConfirmationState {
-	return &ConfirmationState{}
+	return &ConfirmationState{
+		taskDeleteConfirm:    NewGenericConfirmationState[string](),
+		projectDeleteConfirm: NewGenericConfirmationState[string](),
+	}
 }
 
 func (cs *ConfirmationState) ShowTaskDeleteConfirm(taskID string) {
-	cs.showTaskDeleteConfirm = true
-	cs.taskToDelete = taskID
+	cs.taskDeleteConfirm.ShowConfirm(taskID)
+	cs.projectDeleteConfirm.HideConfirm()
 }
 
 func (cs *ConfirmationState) ShowProjectDeleteConfirm(projectID string) {
-	cs.showProjectDeleteConfirm = true
-	cs.projectToDelete = projectID
+	cs.projectDeleteConfirm.ShowConfirm(projectID)
+	cs.taskDeleteConfirm.HideConfirm()
 }
 
 func (cs *ConfirmationState) HideAllConfirmations() {
-	cs.showTaskDeleteConfirm = false
-	cs.showProjectDeleteConfirm = false
-	cs.taskToDelete = ""
-	cs.projectToDelete = ""
-	cs.errorMessage = ""
+	cs.taskDeleteConfirm.HideConfirm()
+	cs.projectDeleteConfirm.HideConfirm()
 }
 
 func (cs *ConfirmationState) IsShowingTaskDeleteConfirm() bool {
-	return cs.showTaskDeleteConfirm
+	return cs.taskDeleteConfirm.IsShowingConfirm()
 }
 
 func (cs *ConfirmationState) IsShowingProjectDeleteConfirm() bool {
-	return cs.showProjectDeleteConfirm
+	return cs.projectDeleteConfirm.IsShowingConfirm()
 }
 
 func (cs *ConfirmationState) GetTaskToDelete() string {
-	return cs.taskToDelete
+	return cs.taskDeleteConfirm.GetItemToDelete()
 }
 
 func (cs *ConfirmationState) GetProjectToDelete() string {
-	return cs.projectToDelete
+	return cs.projectDeleteConfirm.GetItemToDelete()
 }
 
-func (cs *ConfirmationState) SetError(message string) {
-	cs.errorMessage = message
+func (cs *ConfirmationState) SetTaskError(message string) {
+	cs.taskDeleteConfirm.SetError(message)
 }
 
-func (cs *ConfirmationState) GetError() string {
-	return cs.errorMessage
+func (cs *ConfirmationState) SetProjectError(message string) {
+	cs.projectDeleteConfirm.SetError(message)
 }
 
-func (cs *ConfirmationState) HasError() bool {
-	return cs.errorMessage != ""
+func (cs *ConfirmationState) GetTaskError() string {
+	return cs.taskDeleteConfirm.GetError()
+}
+
+func (cs *ConfirmationState) GetProjectError() string {
+	return cs.projectDeleteConfirm.GetError()
+}
+
+func (cs *ConfirmationState) HasTaskError() bool {
+	return cs.taskDeleteConfirm.HasError()
+}
+
+func (cs *ConfirmationState) HasProjectError() bool {
+	return cs.projectDeleteConfirm.HasError()
 }
 
 func (cs *ConfirmationState) ClearTaskDelete() {
-	cs.showTaskDeleteConfirm = false
-	cs.taskToDelete = ""
-	cs.errorMessage = ""
+	cs.taskDeleteConfirm.HideConfirm()
 }
 
 func (cs *ConfirmationState) ClearProjectDelete() {
-	cs.showProjectDeleteConfirm = false
-	cs.projectToDelete = ""
-	cs.errorMessage = ""
+	cs.projectDeleteConfirm.HideConfirm()
+}
+
+// Legacy compatibility methods
+func (cs *ConfirmationState) GetError() string {
+	if cs.taskDeleteConfirm.IsShowingConfirm() {
+		return cs.taskDeleteConfirm.GetError()
+	}
+	return cs.projectDeleteConfirm.GetError()
+}
+
+func (cs *ConfirmationState) SetError(message string) {
+	if cs.taskDeleteConfirm.IsShowingConfirm() {
+		cs.taskDeleteConfirm.SetError(message)
+	} else {
+		cs.projectDeleteConfirm.SetError(message)
+	}
+}
+
+func (cs *ConfirmationState) HasError() bool {
+	return cs.taskDeleteConfirm.HasError() || cs.projectDeleteConfirm.HasError()
+}
+
+func (cs *ConfirmationState) ClearError() {
+	cs.taskDeleteConfirm.ClearError()
+	cs.projectDeleteConfirm.ClearError()
 }

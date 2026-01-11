@@ -195,7 +195,6 @@ func handleDatabaseError(dbPath string, err error) error {
 		"Try running with --help to see configuration options.", dbPath, err)
 }
 
-// Close closes the database connection
 func (d *Database) Close() error {
 	if d.Db != nil {
 		return d.Db.Close()

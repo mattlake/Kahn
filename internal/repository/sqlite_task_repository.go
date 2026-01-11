@@ -22,13 +22,8 @@ func (r *SQLiteTaskRepository) Create(task *domain.Task) error {
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
-	_, err := r.base.db.Exec(query, task.ID, task.ProjectID, task.Name, task.Desc,
+	return r.base.CreateGeneric(query, task.ID, task.ProjectID, task.Name, task.Desc,
 		task.Status, task.Type, task.Priority, task.CreatedAt, task.UpdatedAt)
-	if err != nil {
-		return r.base.WrapDBError("create", "task", task.ID, err)
-	}
-
-	return nil
 }
 
 func (r *SQLiteTaskRepository) GetByID(id string) (*domain.Task, error) {
@@ -98,7 +93,6 @@ func (r *SQLiteTaskRepository) Update(task *domain.Task) error {
 	if err != nil {
 		return r.base.WrapDBError("update", "task", task.ID, err)
 	}
-
 	return nil
 }
 
@@ -113,17 +107,10 @@ func (r *SQLiteTaskRepository) UpdateStatus(taskID string, status domain.Status)
 	if err != nil {
 		return r.base.WrapDBError("update", "task status", taskID, err)
 	}
-
 	return nil
 }
 
 func (r *SQLiteTaskRepository) Delete(id string) error {
 	query := `DELETE FROM tasks WHERE id = ?`
-
-	result, err := r.base.db.Exec(query, id)
-	if err != nil {
-		return r.base.WrapDBError("delete", "task", id, err)
-	}
-
-	return r.base.HandleRowsAffected(result, "delete", "task")
+	return r.base.DeleteGeneric(query, id)
 }

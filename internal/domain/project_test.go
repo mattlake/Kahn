@@ -77,7 +77,6 @@ func TestProject_AddTask(t *testing.T) {
 	project := createTestProject("Test Project", "Test Description", "blue")
 	task := createTestTask("Test Task", "Test Description", "different_project", NotStarted)
 
-	// Test adding task to project
 	project.AddTask(*task)
 
 	assert.Len(t, project.Tasks, 1, "Project should have 1 task")
@@ -199,13 +198,13 @@ func TestProject_Validate(t *testing.T) {
 			name:        "Empty name",
 			project:     createTestProject("", "Valid Description", "blue"),
 			expectError: true,
-			errorMsg:    "project name is required",
+			errorMsg:    "project name cannot be empty",
 		},
 		{
 			name:        "Whitespace name",
 			project:     createTestProject("   ", "Valid Description", "blue"),
 			expectError: true,
-			errorMsg:    "project name is required",
+			errorMsg:    "project name cannot be empty",
 		},
 		{
 			name:        "Name too long",
@@ -276,7 +275,6 @@ func TestProject_GetTasksByStatus_InProgress_SortsByUpdatedDesc(t *testing.T) {
 	// Arrange
 	project := createProjectWithTasksOfVaryingPriorities()
 
-	// Update task statuses with specific timing to test updated_at ordering
 	// We need to find the actual task IDs after they're created
 	var highPriorityOldID, lowPriorityNewID string
 	for _, task := range project.Tasks {
@@ -312,7 +310,6 @@ func TestProject_GetTasksByStatus_Done_SortsByUpdatedDesc(t *testing.T) {
 	// Arrange
 	project := createProjectWithTasksOfVaryingPriorities()
 
-	// Update one task to Done status
 	var mediumPriorityOldID string
 	for _, task := range project.Tasks {
 		if task.Name == "Medium Priority Old" {

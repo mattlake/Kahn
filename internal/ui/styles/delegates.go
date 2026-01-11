@@ -33,9 +33,9 @@ type TaskWithTitle struct {
 }
 
 // Title returns the priority-formatted title for display
-// PERFORMANCE: Uses cached style objects to avoid allocations
+
 func (t TaskWithTitle) Title() string {
-	// Add type prefix for all task types
+
 	title := t.Task.Title()
 	switch t.Task.Type {
 	case domain.RegularTask:
@@ -47,10 +47,10 @@ func (t TaskWithTitle) Title() string {
 	}
 
 	if t.isSelected && t.isActiveList {
-		// PERFORMANCE: Use cached selected style instead of creating new object
+
 		return selectedStyle.Render(t.priorityText + title)
 	} else {
-		// PERFORMANCE: Use cached priority style instead of creating new object
+
 		priorityStyled := priorityStyles[t.Task.Priority].Render(t.priorityText)
 		return priorityStyled + title
 	}
@@ -96,7 +96,6 @@ func NewActiveListDelegate() list.DefaultDelegate {
 	delegate.Styles.NormalTitle = lipgloss.NewStyle().
 		Foreground(lipgloss.Color(colors.Text))
 
-	// Prominent selection styling for active list
 	delegate.Styles.SelectedTitle = lipgloss.NewStyle().
 		Foreground(lipgloss.Color(colors.Blue)).
 		Bold(true)

@@ -7,91 +7,79 @@ import (
 type TaskService struct {
 	taskRepo    domain.TaskRepository
 	projectRepo domain.ProjectRepository
+	validator   *ServiceValidator
 }
 
 func NewTaskService(taskRepo domain.TaskRepository, projectRepo domain.ProjectRepository) *TaskService {
 	return &TaskService{
 		taskRepo:    taskRepo,
 		projectRepo: projectRepo,
+		validator:   NewServiceValidator(),
 	}
 }
 
 func (ts *TaskService) CreateTask(name, description, projectID string, taskType domain.TaskType, priority domain.Priority) (*domain.Task, error) {
-	// Verify project exists before creating task
-	project, err := ts.projectRepo.GetByID(projectID)
+
+	_, err := ts.validator.ValidateProjectExists(ts.projectRepo, projectID)
 	if err != nil {
-		return nil, &domain.RepositoryError{Operation: "get", Entity: "project", ID: projectID, Cause: err}
-	}
-	if project == nil {
-		return nil, &domain.ValidationError{Field: "project_id", Message: "project not found"}
+		return nil, err
 	}
 
 	task := domain.NewTask(name, description, projectID)
-	task.Type = taskType     // Set specified type
-	task.Priority = priority // Set specified priority
+	task.Type = taskType
+	task.Priority = priority
 
-	// Use domain validation for data integrity
 	if err := task.Validate(); err != nil {
 		return nil, err
 	}
 
 	if err := ts.taskRepo.Create(task); err != nil {
-		return nil, &domain.RepositoryError{Operation: "create", Entity: "task", Cause: err}
+		return nil, domain.NewRepositoryError("create", "task", task.ID, err)
 	}
 
 	return task, nil
 }
 
 func (ts *TaskService) UpdateTask(id, name, description string, taskType domain.TaskType, priority domain.Priority) (*domain.Task, error) {
-	task, err := ts.taskRepo.GetByID(id)
+	task, err := ts.validator.ValidateTaskExists(ts.taskRepo, id)
 	if err != nil {
-		return nil, &domain.RepositoryError{Operation: "get", Entity: "task", ID: id, Cause: err}
-	}
-	if task == nil {
-		return nil, &domain.ValidationError{Field: "id", Message: "task not found"}
+		return nil, err
 	}
 
 	// Update task fields
 	task.Name = name
 	task.Desc = description
-	task.Type = taskType     // Update type
-	task.Priority = priority // Update priority
+	task.Type = taskType
+	task.Priority = priority
 
-	// Use domain validation for data integrity
 	if err := task.Validate(); err != nil {
 		return nil, err
 	}
 
 	if err := ts.taskRepo.Update(task); err != nil {
-		return nil, &domain.RepositoryError{Operation: "update", Entity: "task", ID: id, Cause: err}
+		return nil, domain.NewRepositoryError("update", "task", id, err)
 	}
 
 	return task, nil
 }
 
 func (ts *TaskService) DeleteTask(id string) error {
-	task, err := ts.taskRepo.GetByID(id)
+	_, err := ts.validator.ValidateTaskExists(ts.taskRepo, id)
 	if err != nil {
-		return &domain.RepositoryError{Operation: "get", Entity: "task", ID: id, Cause: err}
-	}
-	if task == nil {
-		return &domain.ValidationError{Field: "id", Message: "task not found"}
+		return err
 	}
 
 	if err := ts.taskRepo.Delete(id); err != nil {
-		return &domain.RepositoryError{Operation: "delete", Entity: "task", ID: id, Cause: err}
+		return domain.NewRepositoryError("delete", "task", id, err)
 	}
 
 	return nil
 }
 
 func (ts *TaskService) MoveTaskToNextStatus(id string) (*domain.Task, error) {
-	task, err := ts.taskRepo.GetByID(id)
+	task, err := ts.validator.ValidateTaskExists(ts.taskRepo, id)
 	if err != nil {
-		return nil, &domain.RepositoryError{Operation: "get", Entity: "task", ID: id, Cause: err}
-	}
-	if task == nil {
-		return nil, &domain.ValidationError{Field: "id", Message: "task not found"}
+		return nil, err
 	}
 
 	var nextStatus domain.Status
@@ -105,7 +93,7 @@ func (ts *TaskService) MoveTaskToNextStatus(id string) (*domain.Task, error) {
 	}
 
 	if err := ts.taskRepo.UpdateStatus(id, nextStatus); err != nil {
-		return nil, &domain.RepositoryError{Operation: "update status", Entity: "task", ID: id, Cause: err}
+		return nil, domain.NewRepositoryError("update status", "task", id, err)
 	}
 
 	task.Status = nextStatus
@@ -113,12 +101,9 @@ func (ts *TaskService) MoveTaskToNextStatus(id string) (*domain.Task, error) {
 }
 
 func (ts *TaskService) MoveTaskToPreviousStatus(id string) (*domain.Task, error) {
-	task, err := ts.taskRepo.GetByID(id)
+	task, err := ts.validator.ValidateTaskExists(ts.taskRepo, id)
 	if err != nil {
-		return nil, &domain.RepositoryError{Operation: "get", Entity: "task", ID: id, Cause: err}
-	}
-	if task == nil {
-		return nil, &domain.ValidationError{Field: "id", Message: "task not found"}
+		return nil, err
 	}
 
 	var prevStatus domain.Status
@@ -132,7 +117,7 @@ func (ts *TaskService) MoveTaskToPreviousStatus(id string) (*domain.Task, error)
 	}
 
 	if err := ts.taskRepo.UpdateStatus(id, prevStatus); err != nil {
-		return nil, &domain.RepositoryError{Operation: "update status", Entity: "task", ID: id, Cause: err}
+		return nil, domain.NewRepositoryError("update status", "task", id, err)
 	}
 
 	task.Status = prevStatus
@@ -142,52 +127,49 @@ func (ts *TaskService) MoveTaskToPreviousStatus(id string) (*domain.Task, error)
 func (ts *TaskService) GetTask(id string) (*domain.Task, error) {
 	task, err := ts.taskRepo.GetByID(id)
 	if err != nil {
-		return nil, &domain.RepositoryError{Operation: "get", Entity: "task", ID: id, Cause: err}
+		return nil, domain.NewRepositoryError("get", "task", id, err)
 	}
 	return task, nil
 }
 
 func (ts *TaskService) GetTasksByProject(projectID string) ([]domain.Task, error) {
-	if projectID == "" {
-		return nil, &domain.ValidationError{Field: "project_id", Message: "project ID cannot be empty"}
+	if err := ts.validator.ValidateEntityID(projectID, "project"); err != nil {
+		return nil, err
 	}
 
 	tasks, err := ts.taskRepo.GetByProjectID(projectID)
 	if err != nil {
-		return nil, &domain.RepositoryError{Operation: "get by project", Entity: "tasks", ID: projectID, Cause: err}
+		return nil, domain.NewRepositoryError("get by project", "tasks", projectID, err)
 	}
 
 	return tasks, nil
 }
 
 func (ts *TaskService) GetTasksByStatus(projectID string, status domain.Status) ([]domain.Task, error) {
-	if projectID == "" {
-		return nil, &domain.ValidationError{Field: "project_id", Message: "project ID cannot be empty"}
+	if err := ts.validator.ValidateEntityID(projectID, "project"); err != nil {
+		return nil, err
 	}
 
 	tasks, err := ts.taskRepo.GetByStatus(projectID, status)
 	if err != nil {
-		return nil, &domain.RepositoryError{Operation: "get by status", Entity: "tasks", ID: projectID, Cause: err}
+		return nil, domain.NewRepositoryError("get by status", "tasks", projectID, err)
 	}
 
 	return tasks, nil
 }
 
 func (ts *TaskService) UpdateTaskStatus(id string, status domain.Status) (*domain.Task, error) {
-	if id == "" {
-		return nil, &domain.ValidationError{Field: "id", Message: "task ID cannot be empty"}
+	if err := ts.validator.ValidateEntityID(id, "task"); err != nil {
+		return nil, err
 	}
 
-	task, err := ts.taskRepo.GetByID(id)
+	task, err := ts.validator.ValidateTaskExists(ts.taskRepo, id)
 	if err != nil {
-		return nil, &domain.RepositoryError{Operation: "get", Entity: "task", ID: id, Cause: err}
-	}
-	if task == nil {
-		return nil, &domain.ValidationError{Field: "id", Message: "task not found"}
+		return nil, err
 	}
 
 	if err := ts.taskRepo.UpdateStatus(id, status); err != nil {
-		return nil, &domain.RepositoryError{Operation: "update status", Entity: "task", ID: id, Cause: err}
+		return nil, domain.NewRepositoryError("update status", "task", id, err)
 	}
 
 	task.Status = status
