@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
 	"kahn/internal/domain"
@@ -20,7 +21,7 @@ const (
 
 type InputComponents struct {
 	NameInput      textinput.Model
-	DescInput      textinput.Model
+	DescInput      textarea.Model
 	PriorityValue  domain.Priority // Track current priority value
 	TypeValue      domain.TaskType // Track current task type value
 	BlockedByValue *int            // Currently selected blocker (nil = None)
@@ -32,10 +33,14 @@ type InputComponents struct {
 }
 
 func NewInputComponents() InputComponents {
+	ta := textarea.New()
+	ta.SetWidth(40) // Must set width/height to initialize internal viewport
+	ta.SetHeight(4)
 	return InputComponents{
 		formType:     TaskCreateForm,
 		FocusedField: 0,
 		TypeValue:    domain.RegularTask, // Default to RegularTask
+		DescInput:    ta,                 // Use initialized textarea
 	}
 }
 
@@ -89,15 +94,27 @@ func (ic *InputComponents) createNameInput(placeholder string) textinput.Model {
 	return input
 }
 
-func (ic *InputComponents) createDescInput(placeholder string) textinput.Model {
-	input := textinput.New()
-	input.Placeholder = placeholder
-	input.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Subtext0))
-	input.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Text))
-	input.Cursor.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Text))
-	input.CharLimit = 200 // Larger for project descriptions
-	input.Width = 40
-	return input
+func (ic *InputComponents) createDescInput(placeholder string) textarea.Model {
+	ta := textarea.New()
+	ta.Placeholder = placeholder
+	ta.CharLimit = 200
+	ta.SetWidth(40)
+	ta.SetHeight(4) // 4 lines as recommended
+	ta.ShowLineNumbers = false
+
+	// Style configuration - focused state
+	ta.FocusedStyle.Placeholder = lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Subtext0))
+	ta.FocusedStyle.Text = lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Text))
+	ta.FocusedStyle.CursorLine = lipgloss.NewStyle() // No cursor line highlight
+
+	// Style configuration - blurred state
+	ta.BlurredStyle.Placeholder = lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Subtext0))
+	ta.BlurredStyle.Text = lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Text))
+
+	// Cursor style
+	ta.Cursor.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Text))
+
+	return ta
 }
 
 func (ic *InputComponents) Reset() {
@@ -536,14 +553,14 @@ func (ic *InputComponents) getDescLabel() string {
 func (ic *InputComponents) getInstructions() string {
 	switch ic.formType {
 	case TaskCreateForm:
-		return "Tab: Switch fields • ↑/↓: Change selection • Enter: Create Task • Esc: Cancel"
+		return "Tab: Switch fields • ↑/↓: Change selection • Enter/Ctrl+Enter: Create Task • Esc: Cancel"
 	case TaskEditForm:
-		return "Tab: Switch fields • ↑/↓: Change selection • Enter: Save Changes • Esc: Cancel"
+		return "Tab: Switch fields • ↑/↓: Change selection • Enter/Ctrl+Enter: Save Changes • Esc: Cancel"
 	case ProjectCreateForm:
-		return "Tab: Switch fields • Enter: Create Project • Esc: Cancel"
+		return "Tab: Switch fields • Enter/Ctrl+Enter: Create Project • Esc: Cancel"
 
 	default:
-		return "Tab: Switch fields • Enter: Submit • Esc: Cancel"
+		return "Tab: Switch fields • Enter/Ctrl+Enter: Submit • Esc: Cancel"
 	}
 }
 
