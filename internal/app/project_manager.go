@@ -3,7 +3,6 @@ package app
 import (
 	"kahn/internal/domain"
 	"kahn/internal/services"
-	"kahn/internal/ui/input"
 )
 
 // ProjectManager handles all project operations and state management
@@ -63,15 +62,6 @@ func (pm *ProjectManager) InitializeProjects() error {
 	return nil
 }
 
-// GetProjects returns all projects as project interfaces
-func (pm *ProjectManager) GetProjects() []input.ProjectInterface {
-	var projects []input.ProjectInterface
-	for i := range pm.projects {
-		projects = append(projects, &domain.ProjectWrapper{Project: &pm.projects[i]})
-	}
-	return projects
-}
-
 // GetActiveProject returns the currently active project
 func (pm *ProjectManager) GetActiveProject() *domain.Project {
 	for i, proj := range pm.projects {
@@ -85,16 +75,6 @@ func (pm *ProjectManager) GetActiveProject() *domain.Project {
 // GetActiveProjectID returns the ID of the currently active project
 func (pm *ProjectManager) GetActiveProjectID() string {
 	return pm.activeProjectID
-}
-
-// GetSelectedProjectIndex returns the index of the active project in the projects slice
-func (pm *ProjectManager) GetSelectedProjectIndex() int {
-	for i, proj := range pm.projects {
-		if proj.ID == pm.activeProjectID {
-			return i
-		}
-	}
-	return 0
 }
 
 // SwitchToProject switches to the specified project ID

@@ -1,7 +1,6 @@
 package app
 
 import (
-	"kahn/internal/ui/input"
 	"kahn/internal/ui/styles"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -9,12 +8,57 @@ import (
 )
 
 func (km *KahnModel) handleFormInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	action := km.inputHandler.HandleKeyMsg(msg, km)
-	if action.Handled {
-		return km, action.Cmd
+	comps := km.uiStateManager.FormState().GetActiveInputComponents()
+
+	switch msg.String() {
+	case "esc":
+		km.uiStateManager.HideAllStates()
+		return km, nil
+	case "tab":
+		return km.handleTabKey(), nil
+	case "enter":
+		// Enter always means submit - no field advancement
+		if err := km.SubmitCurrentForm(); err != nil {
+			// Validation failed - stay in form mode, show inline error
+			return km, nil
+		}
+
+		// Success - exit form mode
+		km.CancelCurrentForm()
+		return km, nil
+	case "up", "down":
+		// Handle priority/type/blocked_by cycling when those fields are focused
+		if comps.IsTaskForm() {
+			if comps.FocusedField == 2 { // Priority field focused
+				if msg.String() == "up" {
+					comps.CyclePriorityUp()
+				} else {
+					comps.CyclePriorityDown()
+				}
+				return km, nil
+			} else if comps.FocusedField == 3 { // Type field focused
+				if msg.String() == "up" {
+					comps.CycleTypeUp()
+				} else {
+					comps.CycleTypeDown()
+				}
+				return km, nil
+			} else if comps.FocusedField == 4 { // BlockedBy field focused
+				if msg.String() == "up" {
+					comps.CycleBlockedByUp()
+				} else {
+					comps.CycleBlockedByDown()
+				}
+				return km, nil
+			}
+		}
+		// Let textinput handle for other fields
+	default:
+		// Clear any previous errors when user types
+		km.ClearFormError()
 	}
 
-	comps := km.uiStateManager.FormState().GetActiveInputComponents()
+	// Update the focused input field
 	if comps.FocusedField == 0 {
 		updatedName, cmd := comps.NameInput.Update(msg)
 		comps.NameInput = updatedName
@@ -26,16 +70,42 @@ func (km *KahnModel) handleFormInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 }
 
+func (km *KahnModel) handleTabKey() tea.Model {
+	comps := km.uiStateManager.FormState().GetActiveInputComponents()
+
+	switch comps.FocusedField {
+	case 0: // Name -> Description
+		comps.FocusDesc()
+		comps.BlurName()
+	case 1: // Description -> Priority (for task forms) or Name (for project forms)
+		if comps.IsTaskForm() {
+			// Task forms: Description -> Priority
+			comps.FocusPriority()
+			comps.BlurDesc()
+		} else {
+			// Project forms: Description -> Name (cycle back)
+			comps.FocusName()
+			comps.BlurDesc()
+		}
+	case 2: // Priority -> Type (only for task forms)
+		comps.FocusType()
+		comps.BlurPriority()
+	case 3: // Type -> BlockedBy (only for task forms)
+		comps.FocusBlockedBy()
+		comps.BlurType()
+	case 4: // BlockedBy -> Name (only for task forms, cycle back)
+		comps.FocusName()
+		comps.BlurBlockedBy()
+	default:
+		// Fallback to name focus
+		comps.FocusName()
+	}
+	return km
+}
+
 func (km *KahnModel) handleProjectSwitch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	navState := km.uiStateManager.NavigationState()
 	confirmState := km.uiStateManager.ConfirmationState()
-
-	if navState.IsShowingProjectSwitch() && km.inputHandler.GetMode() != input.ProjectSwitchMode {
-		km.inputHandler.SetMode(input.ProjectSwitchMode)
-	}
-	if confirmState.IsShowingProjectDeleteConfirm() && km.inputHandler.GetMode() != input.ProjectDeleteConfirmMode {
-		km.inputHandler.SetMode(input.ProjectDeleteConfirmMode)
-	}
 
 	if confirmState.IsShowingProjectDeleteConfirm() {
 		switch msg.String() {
@@ -60,8 +130,6 @@ func (km *KahnModel) handleProjectSwitch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "n":
 		navState.HideProjectSwitch()
 		km.uiStateManager.ShowProjectForm()
-		km.inputHandler.SetMode(input.ProjectFormMode)
-		km.inputHandler.SetFocusType(input.NameFocus)
 		return km, nil
 	case "j", "down":
 		projects := km.projectManager.GetProjectsAsDomain()
@@ -103,10 +171,6 @@ func (km *KahnModel) handleProjectSwitch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (km *KahnModel) handleTaskDeleteConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	confirmState := km.uiStateManager.ConfirmationState()
 
-	if km.inputHandler.GetMode() != input.TaskDeleteConfirmMode {
-		km.inputHandler.SetMode(input.TaskDeleteConfirmMode)
-	}
-
 	switch msg.String() {
 	case "y", "Y":
 		return km.executeTaskDeletion(), nil
@@ -118,23 +182,21 @@ func (km *KahnModel) handleTaskDeleteConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd
 }
 
 func (km *KahnModel) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if km.inputHandler.GetMode() != input.NormalMode {
-		km.inputHandler.SetMode(input.NormalMode)
-	}
-
-	// Let input handler try to handle the key first
-	result := km.inputHandler.HandleKeyMsg(msg, km)
-
-	// If input handler handled it, return its result
-	if result.Handled {
-		return km, result.Cmd
-	}
-
-	// Otherwise, handle navigation keys by updating the active list
+	// Handle navigation keys by updating the active list
 	keyStr := msg.String()
 	if keyStr == "up" || keyStr == "down" || keyStr == "j" || keyStr == "k" {
 		cmd := km.navState.UpdateActiveList(msg)
 		return km, cmd
+	}
+
+	// Handle left/right navigation
+	switch keyStr {
+	case "l", "right":
+		km.navState.NextList()
+		return km, nil
+	case "h", "left":
+		km.navState.PrevList()
+		return km, nil
 	}
 
 	// Handle other hotkeys

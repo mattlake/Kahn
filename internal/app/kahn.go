@@ -19,7 +19,6 @@ type KahnModel struct {
 	width           int
 	height          int
 	database        *database.Database
-	inputHandler    *input.Handler
 	taskService     *services.TaskService
 	projectService  *services.ProjectService
 	board           *components.Board
@@ -255,7 +254,8 @@ func (km *KahnModel) MoveTaskToPreviousStatus(id string) error {
 	return nil
 }
 
-func (km *KahnModel) GetSelectedTask() (input.TaskInterface, bool) {
+// GetSelectedTask returns the currently selected task for internal use
+func (km *KahnModel) getSelectedTask() (*styles.TaskWithTitle, bool) {
 	selectedItem := km.navState.GetActiveList().SelectedItem()
 	if selectedItem == nil {
 		return nil, false
@@ -266,11 +266,7 @@ func (km *KahnModel) GetSelectedTask() (input.TaskInterface, bool) {
 		return nil, false
 	}
 
-	return &domain.TaskWrapper{Task: taskWrapper.Task}, true
-}
-
-func (km *KahnModel) GetProjects() []input.ProjectInterface {
-	return km.projectManager.GetProjects()
+	return &taskWrapper, true
 }
 
 func (km *KahnModel) CreateProject(name, description string) error {
@@ -283,10 +279,6 @@ func (km *KahnModel) DeleteProject(id string) error {
 
 func (km *KahnModel) SwitchToProject(id string) error {
 	return km.projectManager.SwitchToProject(id)
-}
-
-func (km *KahnModel) GetSelectedProjectIndex() int {
-	return km.projectManager.GetSelectedProjectIndex()
 }
 
 func (km *KahnModel) GetFormError() string {
@@ -616,7 +608,6 @@ func NewKahnModel(database *database.Database, version string) *KahnModel {
 		width:           80,
 		height:          24,
 		database:        database,
-		inputHandler:    input.NewHandler(),
 		taskService:     taskService,
 		projectService:  projectService,
 		board:           components.NewBoard(),
