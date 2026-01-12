@@ -230,3 +230,17 @@ func (ns *NavigationState) UpdateActiveList(msg tea.Msg) tea.Cmd {
 
 	return cmd
 }
+
+// UpdateTaskListsConditional updates lists using dirty flags if available, otherwise updates all
+func (ns *NavigationState) UpdateTaskListsConditional(project *domain.Project, taskService *services.TaskService) {
+	if ns.dirtyFlags != nil && len(ns.dirtyFlags) > 0 {
+		ns.UpdateDirtyLists(project, taskService)
+	} else {
+		ns.UpdateTaskLists(project, taskService)
+	}
+}
+
+// GetTaskItems returns the list items for a specific status
+func (ns *NavigationState) GetTaskItems(status domain.Status) []list.Item {
+	return ns.Tasks[status].Items()
+}

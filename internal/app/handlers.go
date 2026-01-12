@@ -133,7 +133,7 @@ func (km *KahnModel) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Otherwise, handle navigation keys by updating the active list
 	keyStr := msg.String()
 	if keyStr == "up" || keyStr == "down" || keyStr == "j" || keyStr == "k" {
-		cmd := km.taskListManager.UpdateActiveList(msg)
+		cmd := km.navState.UpdateActiveList(msg)
 		return km, cmd
 	}
 
@@ -148,28 +148,28 @@ func (km *KahnModel) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		km.uiStateManager.ShowProjectSwitcher()
 		return km, nil
 	case "e":
-		if selectedItem := km.taskListManager.GetActiveList().SelectedItem(); selectedItem != nil {
+		if selectedItem := km.navState.GetActiveList().SelectedItem(); selectedItem != nil {
 			if taskWrapper, ok := selectedItem.(styles.TaskWithTitle); ok {
 				km.ShowTaskEditForm(taskWrapper.ID, taskWrapper.Name, taskWrapper.Desc, taskWrapper.Priority, taskWrapper.Type, taskWrapper.BlockedBy)
 			}
 		}
 		return km, nil
 	case "d":
-		if selectedItem := km.taskListManager.GetActiveList().SelectedItem(); selectedItem != nil {
+		if selectedItem := km.navState.GetActiveList().SelectedItem(); selectedItem != nil {
 			if taskWrapper, ok := selectedItem.(styles.TaskWithTitle); ok {
 				km.uiStateManager.ShowTaskDeleteConfirm(taskWrapper.ID)
 			}
 		}
 		return km, nil
 	case " ":
-		if selectedItem := km.taskListManager.GetActiveList().SelectedItem(); selectedItem != nil {
+		if selectedItem := km.navState.GetActiveList().SelectedItem(); selectedItem != nil {
 			if taskWrapper, ok := selectedItem.(styles.TaskWithTitle); ok {
 				km.MoveTaskToNextStatus(taskWrapper.ID)
 			}
 		}
 		return km, nil
 	case "backspace":
-		if selectedItem := km.taskListManager.GetActiveList().SelectedItem(); selectedItem != nil {
+		if selectedItem := km.navState.GetActiveList().SelectedItem(); selectedItem != nil {
 			if taskWrapper, ok := selectedItem.(styles.TaskWithTitle); ok {
 				km.MoveTaskToPreviousStatus(taskWrapper.ID)
 			}
@@ -197,6 +197,6 @@ func (km *KahnModel) handleResize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 
 	// Set list heights accounting for both frame and project footer
 	listHeight := availableHeight - projectFooterHeight
-	km.taskListManager.UpdateListSizes(availableWidth, listHeight)
+	km.navState.UpdateListSizes(availableWidth, listHeight)
 	return km, nil
 }

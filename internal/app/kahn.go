@@ -27,9 +27,9 @@ type KahnModel struct {
 	version         string
 
 	// State managers
-	uiStateManager  *UIStateManager
-	projectManager  *ProjectManager
-	taskListManager *TaskListManager
+	uiStateManager *UIStateManager
+	projectManager *ProjectManager
+	navState       *NavigationState
 }
 
 func (km KahnModel) Init() tea.Cmd {
@@ -88,7 +88,7 @@ func (km *KahnModel) renderBoard() string {
 	}
 
 	taskLists := km.getTaskListsForBoard()
-	navState := km.uiStateManager.NavigationState()
+	navState := km.navState
 	return km.board.GetRenderer().RenderBoard(activeProj, taskLists, navState.GetActiveListIndex(), km.width, km.version)
 }
 
@@ -135,7 +135,7 @@ func (km *KahnModel) CreateTaskWithPriority(name, description string, priority d
 
 	activeProj.AddTask(*newTask)
 
-	km.taskListManager.MarkListDirty(domain.NotStarted)
+	km.navState.MarkListDirty(domain.NotStarted)
 	km.updateTaskLists()
 
 	return nil
@@ -161,7 +161,7 @@ func (km *KahnModel) UpdateTask(id, name, description string, priority domain.Pr
 			}
 		}
 
-		km.taskListManager.MarkListDirty(taskStatus)
+		km.navState.MarkListDirty(taskStatus)
 		km.updateTaskLists()
 	}
 
@@ -178,7 +178,7 @@ func (km *KahnModel) DeleteTask(id string) error {
 		activeProj.RemoveTask(id)
 
 		// Refresh all columns to update visual indicators for unblocked tasks
-		km.taskListManager.MarkAllListsDirty()
+		km.navState.MarkAllListsDirty()
 		km.updateTaskLists()
 	}
 
@@ -208,12 +208,12 @@ func (km *KahnModel) MoveTaskToNextStatus(id string) error {
 	}
 
 	activeProj.UpdateTaskStatus(id, task.Status)
-	km.taskListManager.MarkListDirty(oldStatus)
-	km.taskListManager.MarkListDirty(task.Status)
+	km.navState.MarkListDirty(oldStatus)
+	km.navState.MarkListDirty(task.Status)
 
 	// Refresh all columns to update visual indicators for unblocked tasks
 	if movingToComplete {
-		km.taskListManager.MarkAllListsDirty()
+		km.navState.MarkAllListsDirty()
 	}
 
 	km.updateTaskLists()
@@ -243,12 +243,12 @@ func (km *KahnModel) MoveTaskToPreviousStatus(id string) error {
 	}
 
 	activeProj.UpdateTaskStatus(id, task.Status)
-	km.taskListManager.MarkListDirty(oldStatus)
-	km.taskListManager.MarkListDirty(task.Status)
+	km.navState.MarkListDirty(oldStatus)
+	km.navState.MarkListDirty(task.Status)
 
 	// Refresh all columns to update visual indicators for unblocked tasks
 	if movingToComplete {
-		km.taskListManager.MarkAllListsDirty()
+		km.navState.MarkAllListsDirty()
 	}
 
 	km.updateTaskLists()
@@ -256,7 +256,7 @@ func (km *KahnModel) MoveTaskToPreviousStatus(id string) error {
 }
 
 func (km *KahnModel) GetSelectedTask() (input.TaskInterface, bool) {
-	selectedItem := km.taskListManager.GetActiveList().SelectedItem()
+	selectedItem := km.navState.GetActiveList().SelectedItem()
 	if selectedItem == nil {
 		return nil, false
 	}
@@ -357,7 +357,7 @@ func (km *KahnModel) SubmitCurrentForm() error {
 				}
 			}
 			// Mark list dirty and refresh display to show updated blocked status
-			km.taskListManager.MarkListDirty(taskStatus)
+			km.navState.MarkListDirty(taskStatus)
 			km.updateTaskLists()
 		}
 		return nil
@@ -400,15 +400,15 @@ func (km *KahnModel) HideAllForms() {
 }
 
 func (km *KahnModel) NextList() {
-	km.taskListManager.NextList()
+	km.navState.NextList()
 }
 
 func (km *KahnModel) PrevList() {
-	km.taskListManager.PrevList()
+	km.navState.PrevList()
 }
 
 func (km *KahnModel) updateTaskLists() {
-	km.taskListManager.UpdateTaskListsConditional(km.GetActiveProject())
+	km.navState.UpdateTaskListsConditional(km.GetActiveProject(), km.taskService)
 }
 
 // findTaskForDeletion finds the task to be deleted either from active project or selected item
@@ -427,7 +427,7 @@ func (km *KahnModel) findTaskForDeletion() *domain.Task {
 	}
 
 	// Fallback to selected item
-	if selectedItem := km.taskListManager.GetActiveList().SelectedItem(); selectedItem != nil {
+	if selectedItem := km.navState.GetActiveList().SelectedItem(); selectedItem != nil {
 		if taskWrapper, ok := selectedItem.(styles.TaskWithTitle); ok {
 			return &taskWrapper.Task
 		}
@@ -438,7 +438,7 @@ func (km *KahnModel) findTaskForDeletion() *domain.Task {
 
 // getTaskListsForBoard builds the task lists array needed for board rendering
 func (km *KahnModel) getTaskListsForBoard() [3]list.Model {
-	navState := km.uiStateManager.NavigationState()
+	navState := km.navState
 	return [3]list.Model{
 		navState.Tasks[domain.NotStarted],
 		navState.Tasks[domain.InProgress],
@@ -516,7 +516,7 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if km.uiStateManager.FormState().IsShowingForm() {
 			return km.handleFormInput(msg)
 		}
-		if km.uiStateManager.NavigationState().IsShowingProjectSwitch() || km.uiStateManager.ConfirmationState().IsShowingProjectDeleteConfirm() {
+		if km.navState.IsShowingProjectSwitch() || km.uiStateManager.ConfirmationState().IsShowingProjectDeleteConfirm() {
 			return km.handleProjectSwitch(msg)
 		}
 		if km.uiStateManager.ConfirmationState().IsShowingTaskDeleteConfirm() {
@@ -546,11 +546,11 @@ func (km *KahnModel) IsShowingProjectDeleteConfirm() bool {
 }
 
 func (km *KahnModel) GetTaskItems(status domain.Status) []list.Item {
-	return km.taskListManager.GetTaskItems(status)
+	return km.navState.GetTaskItems(status)
 }
 
 func (km *KahnModel) GetActiveListIndex() domain.Status {
-	return km.taskListManager.GetActiveListIndex()
+	return km.navState.GetActiveListIndex()
 }
 
 func (km *KahnModel) IsShowingForm() bool {
@@ -558,7 +558,7 @@ func (km *KahnModel) IsShowingForm() bool {
 }
 
 func (km *KahnModel) IsShowingProjectSwitch() bool {
-	return km.uiStateManager.NavigationState().IsShowingProjectSwitch()
+	return km.navState.IsShowingProjectSwitch()
 }
 
 func NewKahnModel(database *database.Database, version string) *KahnModel {
@@ -592,8 +592,7 @@ func NewKahnModel(database *database.Database, version string) *KahnModel {
 	navState := NewNavigationState(taskLists)
 
 	// Create managers
-	taskListManager := NewTaskListManager(navState, taskService)
-	projectManager := NewProjectManager(projectService, taskService, taskListManager)
+	projectManager := NewProjectManager(projectService, taskService, navState)
 	uiStateManager := NewUIStateManager(formState, confirmState, navState)
 
 	// Initialize projects through project manager
@@ -625,6 +624,6 @@ func NewKahnModel(database *database.Database, version string) *KahnModel {
 		version:         version,
 		uiStateManager:  uiStateManager,
 		projectManager:  projectManager,
-		taskListManager: taskListManager,
+		navState:        navState,
 	}
 }

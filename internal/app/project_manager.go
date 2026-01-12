@@ -12,15 +12,15 @@ type ProjectManager struct {
 	activeProjectID string
 	projectService  *services.ProjectService
 	taskService     *services.TaskService
-	taskListManager *TaskListManager
+	navState        *NavigationState
 }
 
 // NewProjectManager creates a new project manager
-func NewProjectManager(projectService *services.ProjectService, taskService *services.TaskService, taskListManager *TaskListManager) *ProjectManager {
+func NewProjectManager(projectService *services.ProjectService, taskService *services.TaskService, navState *NavigationState) *ProjectManager {
 	return &ProjectManager{
-		projectService:  projectService,
-		taskService:     taskService,
-		taskListManager: taskListManager,
+		projectService: projectService,
+		taskService:    taskService,
+		navState:       navState,
 	}
 }
 
@@ -57,7 +57,7 @@ func (pm *ProjectManager) InitializeProjects() error {
 	// Initialize task lists for the active project
 	activeProj := pm.GetActiveProject()
 	if activeProj != nil {
-		pm.taskListManager.UpdateTaskLists(activeProj)
+		pm.navState.UpdateTaskLists(activeProj, pm.taskService)
 	}
 
 	return nil
@@ -100,7 +100,7 @@ func (pm *ProjectManager) GetSelectedProjectIndex() int {
 // SwitchToProject switches to the specified project ID
 func (pm *ProjectManager) SwitchToProject(id string) error {
 	pm.activeProjectID = id
-	pm.taskListManager.UpdateTaskLists(pm.GetActiveProject())
+	pm.navState.UpdateTaskLists(pm.GetActiveProject(), pm.taskService)
 	return nil
 }
 
@@ -113,7 +113,7 @@ func (pm *ProjectManager) CreateProject(name, description string) error {
 
 	pm.projects = append(pm.projects, *newProject)
 	pm.activeProjectID = newProject.ID
-	pm.taskListManager.UpdateTaskLists(pm.GetActiveProject())
+	pm.navState.UpdateTaskLists(pm.GetActiveProject(), pm.taskService)
 
 	return nil
 }
@@ -128,9 +128,9 @@ func (pm *ProjectManager) DeleteProject(id string) error {
 		pm.projects = []domain.Project{}
 		pm.activeProjectID = ""
 		// Clear all task lists
-		pm.taskListManager.MarkAllListsDirty()
+		pm.navState.MarkAllListsDirty()
 		activeProj := pm.GetActiveProject()
-		pm.taskListManager.UpdateTaskListsConditional(activeProj)
+		pm.navState.UpdateTaskListsConditional(activeProj, pm.taskService)
 	} else {
 		var newProjects []domain.Project
 		var wasActiveProject bool
@@ -145,7 +145,7 @@ func (pm *ProjectManager) DeleteProject(id string) error {
 
 		if wasActiveProject && len(pm.projects) > 0 {
 			pm.activeProjectID = pm.projects[0].ID
-			pm.taskListManager.UpdateTaskLists(pm.GetActiveProject())
+			pm.navState.UpdateTaskLists(pm.GetActiveProject(), pm.taskService)
 		}
 	}
 
