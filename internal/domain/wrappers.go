@@ -25,6 +25,10 @@ func (tw *TaskWrapper) GetTaskType() TaskType {
 	return tw.Task.Type
 }
 
+func (tw *TaskWrapper) GetBlockedBy() *int {
+	return tw.Task.BlockedBy
+}
+
 // ProjectWrapper implements input.ProjectInterface for the main Project type
 type ProjectWrapper struct {
 	Project *Project

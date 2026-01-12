@@ -251,8 +251,6 @@ func (d *Database) RunMigrations() error {
 		if err != nil {
 			return fmt.Errorf("failed to record migration %s: %w", migration.name, err)
 		}
-
-		log.Printf("Executed migration: %s", migration.name)
 	}
 
 	return nil

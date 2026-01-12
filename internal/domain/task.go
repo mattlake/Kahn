@@ -7,12 +7,14 @@ import (
 )
 
 type Task struct {
+	IntID     int       `json:"int_id"`
 	ID        string    `json:"id"`
 	ProjectID string    `json:"project_id"`
 	Name      string    `json:"name"`
 	Desc      string    `json:"desc"`
 	Status    Status    `json:"status"`
 	Type      TaskType  `json:"type"`
+	BlockedBy *int      `json:"blocked_by,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Priority  Priority  `json:"priority,omitempty"`
@@ -108,6 +110,10 @@ func (t *Task) Validate() error {
 	}
 	if err := validator.ValidateEnum("type", int(t.Type), int(RegularTask), int(Feature), "task"); err != nil {
 		return err
+	}
+	// Validate that a task cannot block itself
+	if t.BlockedBy != nil && t.IntID != 0 && *t.BlockedBy == t.IntID {
+		return NewValidationError("blocked_by", "task cannot block itself")
 	}
 	return nil
 }

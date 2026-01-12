@@ -9,6 +9,7 @@ type TaskRepository interface {
 	GetByStatus(projectID string, status Status) ([]Task, error)
 	Update(task *Task) error
 	UpdateStatus(taskID string, status Status) error
+	ClearBlockersForIntID(intID int) error
 	Delete(id string) error
 }
 

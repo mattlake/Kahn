@@ -26,6 +26,7 @@ const (
 	DescriptionFocus
 	PriorityFocus
 	TypeFocus
+	BlockedByFocus
 )
 
 // ActionResult represents the result of an input action
@@ -58,7 +59,7 @@ type ModelInterface interface {
 
 	// UI state operations
 	ShowTaskForm()
-	ShowTaskEditForm(taskID string, name, description string, priority domain.Priority, taskType domain.TaskType)
+	ShowTaskEditForm(taskID string, name, description string, priority domain.Priority, taskType domain.TaskType, blockedByIntID *int)
 	ShowProjectForm()
 	ShowProjectSwitcher()
 	ShowTaskDeleteConfirm(taskID string)
@@ -85,6 +86,7 @@ type TaskInterface interface {
 	GetDescription() string
 	GetPriority() domain.Priority
 	GetTaskType() domain.TaskType
+	GetBlockedBy() *int
 }
 
 // ProjectInterface defines the interface for a project
@@ -154,7 +156,7 @@ func (h *Handler) handleNormalModeKeys(msg tea.KeyMsg, model ModelInterface) Act
 		return ActionResult{Handled: true, Mode: ProjectSwitchMode}
 	case "e":
 		if task, ok := model.GetSelectedTask(); ok {
-			model.ShowTaskEditForm(task.GetID(), task.GetName(), task.GetDescription(), task.GetPriority(), task.GetTaskType())
+			model.ShowTaskEditForm(task.GetID(), task.GetName(), task.GetDescription(), task.GetPriority(), task.GetTaskType(), task.GetBlockedBy())
 			h.mode = TaskEditFormMode
 			h.focusType = NameFocus
 			return ActionResult{Handled: true, Mode: TaskEditFormMode, FocusType: NameFocus}
@@ -199,7 +201,7 @@ func (h *Handler) handleTaskFormKeys(msg tea.KeyMsg, model ModelInterface) Actio
 		h.mode = NormalMode
 		return ActionResult{Handled: true, Mode: NormalMode, ExitMode: true}
 	case "up", "down":
-		// Handle priority/type cycling when those fields are focused
+		// Handle priority/type/blocked_by cycling when those fields are focused
 		comps := model.GetActiveInputComponents()
 		if comps.IsTaskForm() {
 			if comps.FocusedField == 2 { // Priority field focused
@@ -214,6 +216,13 @@ func (h *Handler) handleTaskFormKeys(msg tea.KeyMsg, model ModelInterface) Actio
 					comps.CycleTypeUp()
 				} else {
 					comps.CycleTypeDown()
+				}
+				return ActionResult{Handled: true, ShouldUpdate: true}
+			} else if comps.FocusedField == 4 { // BlockedBy field focused
+				if msg.String() == "up" {
+					comps.CycleBlockedByUp()
+				} else {
+					comps.CycleBlockedByDown()
 				}
 				return ActionResult{Handled: true, ShouldUpdate: true}
 			}
@@ -256,9 +265,13 @@ func (h *Handler) handleTabKey(model ModelInterface) ActionResult {
 		comps.FocusType()
 		comps.BlurPriority()
 		return ActionResult{Handled: true, Mode: h.mode, FocusType: TypeFocus}
-	case 3: // Type -> Name (only for task forms, cycle back)
-		comps.FocusName()
+	case 3: // Type -> BlockedBy (only for task forms)
+		comps.FocusBlockedBy()
 		comps.BlurType()
+		return ActionResult{Handled: true, Mode: h.mode, FocusType: BlockedByFocus}
+	case 4: // BlockedBy -> Name (only for task forms, cycle back)
+		comps.FocusName()
+		comps.BlurBlockedBy()
 		return ActionResult{Handled: true, Mode: h.mode, FocusType: NameFocus}
 	default:
 		// Fallback to name focus

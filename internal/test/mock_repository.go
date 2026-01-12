@@ -81,16 +81,24 @@ func (r *GenericMockRepository[T]) Clear() {
 
 type MockTaskRepository struct {
 	*GenericMockRepository[domain.Task]
+	nextIntID int
 }
 
 func NewMockTaskRepository() *MockTaskRepository {
 	repo := NewGenericMockRepository(func(task domain.Task) string {
 		return task.ID
 	})
-	return &MockTaskRepository{GenericMockRepository: repo}
+	return &MockTaskRepository{
+		GenericMockRepository: repo,
+		nextIntID:             1,
+	}
 }
 
 func (r *MockTaskRepository) Create(task *domain.Task) error {
+	// Simulate auto-increment for IntID
+	task.IntID = r.nextIntID
+	r.nextIntID++
+
 	taskCopy := *task
 	return r.Add(taskCopy)
 }
@@ -148,6 +156,18 @@ func (r *MockTaskRepository) UpdateStatus(taskID string, status domain.Status) e
 		}
 	}
 	return domain.NewRepositoryError("update", "task status", taskID, nil)
+}
+
+func (r *MockTaskRepository) ClearBlockersForIntID(intID int) error {
+	for i, task := range r.items {
+		if task.BlockedBy != nil && *task.BlockedBy == intID {
+			updatedTask := task
+			updatedTask.BlockedBy = nil
+			updatedTask.UpdatedAt = time.Now()
+			r.items[i] = updatedTask
+		}
+	}
+	return nil
 }
 
 func (r *MockTaskRepository) Delete(id string) error {

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"kahn/internal/domain"
 )
 
@@ -18,7 +19,7 @@ func NewTaskService(taskRepo domain.TaskRepository, projectRepo domain.ProjectRe
 	}
 }
 
-func (ts *TaskService) CreateTask(name, description, projectID string, taskType domain.TaskType, priority domain.Priority) (*domain.Task, error) {
+func (ts *TaskService) CreateTask(name, description, projectID string, taskType domain.TaskType, priority domain.Priority, blockedByIntID *int) (*domain.Task, error) {
 
 	_, err := ts.validator.ValidateProjectExists(ts.projectRepo, projectID)
 	if err != nil {
@@ -28,6 +29,7 @@ func (ts *TaskService) CreateTask(name, description, projectID string, taskType 
 	task := domain.NewTask(name, description, projectID)
 	task.Type = taskType
 	task.Priority = priority
+	task.BlockedBy = blockedByIntID
 
 	if err := task.Validate(); err != nil {
 		return nil, err
@@ -64,13 +66,22 @@ func (ts *TaskService) UpdateTask(id, name, description string, taskType domain.
 }
 
 func (ts *TaskService) DeleteTask(id string) error {
-	_, err := ts.validator.ValidateTaskExists(ts.taskRepo, id)
+	task, err := ts.validator.ValidateTaskExists(ts.taskRepo, id)
 	if err != nil {
 		return err
 	}
 
 	if err := ts.taskRepo.Delete(id); err != nil {
 		return domain.NewRepositoryError("delete", "task", id, err)
+	}
+
+	// Unblock dependent tasks to trigger UI refresh.
+	// Database constraint also handles this, but explicit call ensures UI state updates.
+	if task.IntID != 0 {
+		if err := ts.UnblockDependents(task.IntID); err != nil {
+			// Ignore error; task was deleted successfully
+			return nil
+		}
 	}
 
 	return nil
@@ -96,6 +107,13 @@ func (ts *TaskService) MoveTaskToNextStatus(id string) (*domain.Task, error) {
 		return nil, domain.NewRepositoryError("update status", "task", id, err)
 	}
 
+	if nextStatus == domain.Done {
+		if err := ts.UnblockDependents(task.IntID); err != nil {
+			// Ignore error; status was updated successfully
+			return task, nil
+		}
+	}
+
 	task.Status = nextStatus
 	return task, nil
 }
@@ -118,6 +136,13 @@ func (ts *TaskService) MoveTaskToPreviousStatus(id string) (*domain.Task, error)
 
 	if err := ts.taskRepo.UpdateStatus(id, prevStatus); err != nil {
 		return nil, domain.NewRepositoryError("update status", "task", id, err)
+	}
+
+	if prevStatus == domain.Done {
+		if err := ts.UnblockDependents(task.IntID); err != nil {
+			// Ignore error; status was updated successfully
+			return task, nil
+		}
 	}
 
 	task.Status = prevStatus
@@ -172,6 +197,81 @@ func (ts *TaskService) UpdateTaskStatus(id string, status domain.Status) (*domai
 		return nil, domain.NewRepositoryError("update status", "task", id, err)
 	}
 
+	if status == domain.Done {
+		if err := ts.UnblockDependents(task.IntID); err != nil {
+			// Ignore error; status was updated successfully
+			return task, nil
+		}
+	}
+
 	task.Status = status
+	return task, nil
+}
+
+// UnblockDependents clears the BlockedBy field for all tasks blocked by the given intID.
+// Called when a task is moved to Done or deleted to ensure dependent tasks can proceed.
+func (ts *TaskService) UnblockDependents(intID int) error {
+	if intID == 0 {
+		return nil
+	}
+
+	if err := ts.taskRepo.ClearBlockersForIntID(intID); err != nil {
+		return domain.NewRepositoryError("clear blockers", "tasks", fmt.Sprintf("int_id=%d", intID), err)
+	}
+
+	return nil
+}
+
+// SetTaskBlockedBy sets or clears the BlockedBy field for a task
+func (ts *TaskService) SetTaskBlockedBy(taskID string, blockedByIntID *int) (*domain.Task, error) {
+	// Validate the task to be updated exists
+	task, err := ts.validator.ValidateTaskExists(ts.taskRepo, taskID)
+	if err != nil {
+		return nil, err
+	}
+
+	// If setting a blocker, validate it exists and is in the same project
+	if blockedByIntID != nil {
+		// Get all tasks for the project to find the blocking task
+		allTasks, err := ts.taskRepo.GetByProjectID(task.ProjectID)
+		if err != nil {
+			return nil, domain.NewRepositoryError("get tasks", "project", task.ProjectID, err)
+		}
+
+		// Find the blocking task by IntID
+		var blockingTask *domain.Task
+		for i := range allTasks {
+			if allTasks[i].IntID == *blockedByIntID {
+				blockingTask = &allTasks[i]
+				break
+			}
+		}
+
+		if blockingTask == nil {
+			return nil, domain.NewValidationError("blocked_by", "blocking task not found")
+		}
+
+		// Validate that the blocking task is in the same project
+		if blockingTask.ProjectID != task.ProjectID {
+			return nil, domain.NewValidationError("blocked_by", "blocking task must be in the same project")
+		}
+
+		// Validate that task doesn't block itself
+		if blockingTask.IntID == task.IntID {
+			return nil, domain.NewValidationError("blocked_by", "task cannot block itself")
+		}
+	}
+
+	// Update the BlockedBy field
+	task.BlockedBy = blockedByIntID
+
+	if err := task.Validate(); err != nil {
+		return nil, err
+	}
+
+	if err := ts.taskRepo.Update(task); err != nil {
+		return nil, domain.NewRepositoryError("update", "task", taskID, err)
+	}
+
 	return task, nil
 }

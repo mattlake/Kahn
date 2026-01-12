@@ -19,13 +19,16 @@ const (
 )
 
 type InputComponents struct {
-	NameInput     textinput.Model
-	DescInput     textinput.Model
-	PriorityValue domain.Priority // Track current priority value
-	TypeValue     domain.TaskType // Track current task type value
-	formType      FormType
-	taskID        string // for edit forms
-	FocusedField  int    // 0=name, 1=desc, 2=priority, 3=type (exported)
+	NameInput      textinput.Model
+	DescInput      textinput.Model
+	PriorityValue  domain.Priority // Track current priority value
+	TypeValue      domain.TaskType // Track current task type value
+	BlockedByValue *int            // Currently selected blocker (nil = None)
+	availableTasks []domain.Task   // Tasks that can block this one
+	blockedByIndex int             // Current index in availableTasks (-1 = None)
+	formType       FormType
+	taskID         string // for edit forms
+	FocusedField   int    // 0=name, 1=desc, 2=priority, 3=type, 4=blockedBy (exported)
 }
 
 func NewInputComponents() InputComponents {
@@ -42,17 +45,23 @@ func (ic *InputComponents) SetupForTaskCreate() {
 	ic.taskID = ""
 	ic.PriorityValue = domain.Low     // Default to Low priority
 	ic.TypeValue = domain.RegularTask // Default to RegularTask type
+	ic.BlockedByValue = nil           // Default to no blocker
+	ic.blockedByIndex = -1            // -1 represents "None"
+	ic.availableTasks = []domain.Task{}
 	ic.NameInput = ic.createNameInput("Task name *")
 	ic.DescInput = ic.createDescInput("Task description (optional)")
 	ic.NameInput.Focus()
 }
 
-func (ic *InputComponents) SetupForTaskEdit(taskID, name, desc string, priority domain.Priority, taskType domain.TaskType) {
+func (ic *InputComponents) SetupForTaskEdit(taskID, name, desc string, priority domain.Priority, taskType domain.TaskType, blockedByIntID *int) {
 	ic.formType = TaskEditForm
 	ic.FocusedField = 0
 	ic.taskID = taskID
 	ic.PriorityValue = priority
 	ic.TypeValue = taskType
+	ic.BlockedByValue = blockedByIntID
+	ic.blockedByIndex = -1 // Will be set by SetAvailableTasks
+	ic.availableTasks = []domain.Task{}
 	ic.NameInput = ic.createNameInput("Task name *")
 	ic.DescInput = ic.createDescInput("Task description (optional)")
 	ic.NameInput.SetValue(name)
@@ -96,6 +105,9 @@ func (ic *InputComponents) Reset() {
 	ic.DescInput.Reset()
 	ic.PriorityValue = domain.Low
 	ic.TypeValue = domain.RegularTask
+	ic.BlockedByValue = nil
+	ic.blockedByIndex = -1
+	ic.availableTasks = []domain.Task{}
 	ic.FocusedField = 0
 	ic.taskID = ""
 }
@@ -153,6 +165,82 @@ func (ic *InputComponents) CycleTypeDown() {
 	}
 }
 
+// SetAvailableTasks sets the list of tasks that can block this task
+func (ic *InputComponents) SetAvailableTasks(tasks []domain.Task) {
+	ic.availableTasks = tasks
+
+	// Find the index of the currently selected blocker
+	if ic.BlockedByValue != nil {
+		for i, task := range tasks {
+			if task.IntID == *ic.BlockedByValue {
+				ic.blockedByIndex = i
+				return
+			}
+		}
+		// If blocker not found in available tasks, reset to None
+		ic.blockedByIndex = -1
+		ic.BlockedByValue = nil
+	} else {
+		ic.blockedByIndex = -1
+	}
+}
+
+// CycleBlockedByUp cycles to the next blocking task (up in list)
+func (ic *InputComponents) CycleBlockedByUp() {
+	if len(ic.availableTasks) == 0 {
+		// No tasks available, stay at None
+		ic.blockedByIndex = -1
+		ic.BlockedByValue = nil
+		return
+	}
+
+	ic.blockedByIndex++
+	if ic.blockedByIndex >= len(ic.availableTasks) {
+		// Wrap to None
+		ic.blockedByIndex = -1
+		ic.BlockedByValue = nil
+	} else {
+		// Set to the task at current index
+		intID := ic.availableTasks[ic.blockedByIndex].IntID
+		ic.BlockedByValue = &intID
+	}
+}
+
+// CycleBlockedByDown cycles to the previous blocking task (down in list)
+func (ic *InputComponents) CycleBlockedByDown() {
+	if len(ic.availableTasks) == 0 {
+		// No tasks available, stay at None
+		ic.blockedByIndex = -1
+		ic.BlockedByValue = nil
+		return
+	}
+
+	ic.blockedByIndex--
+	if ic.blockedByIndex < -1 {
+		// Wrap to last task
+		ic.blockedByIndex = len(ic.availableTasks) - 1
+		intID := ic.availableTasks[ic.blockedByIndex].IntID
+		ic.BlockedByValue = &intID
+	} else if ic.blockedByIndex == -1 {
+		// Set to None
+		ic.BlockedByValue = nil
+	} else {
+		// Set to the task at current index
+		intID := ic.availableTasks[ic.blockedByIndex].IntID
+		ic.BlockedByValue = &intID
+	}
+}
+
+// FocusBlockedBy focuses the blocked by field
+func (ic *InputComponents) FocusBlockedBy() {
+	ic.FocusedField = 4
+}
+
+// BlurBlockedBy blurs the blocked by field
+func (ic *InputComponents) BlurBlockedBy() {
+	// No specific blur needed for blocked by field
+}
+
 func (ic *InputComponents) IsTaskForm() bool {
 	return ic.formType == TaskCreateForm || ic.formType == TaskEditForm
 }
@@ -205,11 +293,13 @@ func (ic *InputComponents) Render(errorMsg string, errorField string, width, hei
 	descField := ic.renderFieldWithError(1, errorMsg, errorField)
 	var priorityField string
 	var typeField string
+	var blockedByField string
 
-	// Only show priority and type fields for task forms
+	// Only show priority, type, and blocked by fields for task forms
 	if ic.formType == TaskCreateForm || ic.formType == TaskEditForm {
 		priorityField = ic.renderPriorityField(errorMsg, errorField)
 		typeField = ic.renderTypeField(errorMsg, errorField)
+		blockedByField = ic.renderBlockedByField(errorMsg, errorField)
 	}
 
 	instructions := ic.getInstructions()
@@ -217,7 +307,7 @@ func (ic *InputComponents) Render(errorMsg string, errorField string, width, hei
 	// Build form content
 	var formContent string
 	if ic.formType == TaskCreateForm || ic.formType == TaskEditForm {
-		// Task forms include priority and type fields
+		// Task forms include priority, type, and blocked by fields
 		formContent = lipgloss.JoinVertical(
 			lipgloss.Left,
 			"", title, "",
@@ -225,10 +315,11 @@ func (ic *InputComponents) Render(errorMsg string, errorField string, width, hei
 			descLabel, descField, "",
 			"Priority:", priorityField, "",
 			"Type:", typeField, "",
+			"Blocked By:", blockedByField, "",
 			instructions,
 		)
 	} else {
-		// Project forms (no priority or type fields)
+		// Project forms (no priority, type, or blocked by fields)
 		formContent = lipgloss.JoinVertical(
 			lipgloss.Left,
 			"", title, "",
@@ -372,6 +463,47 @@ func (ic *InputComponents) renderTypeField(errorMsg string, errorField string) s
 	return fieldWithBorder
 }
 
+// renderBlockedByField renders the blocked by field with visual indicators
+func (ic *InputComponents) renderBlockedByField(errorMsg string, errorField string) string {
+	var display string
+
+	if ic.BlockedByValue == nil {
+		display = "Blocked By: (None)"
+	} else {
+		// Find the task name
+		taskName := "(Unknown)"
+		for _, task := range ic.availableTasks {
+			if task.IntID == *ic.BlockedByValue {
+				taskName = task.Name
+				break
+			}
+		}
+		display = fmt.Sprintf("Blocked By: %s", taskName)
+	}
+
+	if ic.FocusedField == 4 { // BlockedBy field focused
+		display += " »" // Add indicator for focused field
+	}
+
+	// Determine field styling
+	borderColor := colors.Text
+	if errorMsg != "" && errorField == "blocked_by" {
+		borderColor = colors.Red
+	} else if ic.FocusedField == 4 {
+		borderColor = colors.Green
+	}
+
+	// Render field with border
+	fieldWithBorder := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(borderColor)).
+		Padding(0, 1).
+		Width(40).
+		Render(lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Text)).Render(display))
+
+	return fieldWithBorder
+}
+
 func (ic *InputComponents) getFormTitle() string {
 	switch ic.formType {
 	case TaskCreateForm:
@@ -404,9 +536,9 @@ func (ic *InputComponents) getDescLabel() string {
 func (ic *InputComponents) getInstructions() string {
 	switch ic.formType {
 	case TaskCreateForm:
-		return "Tab: Switch fields • ↑/↓: Change Priority/Type • Enter: Create Task • Esc: Cancel"
+		return "Tab: Switch fields • ↑/↓: Change selection • Enter: Create Task • Esc: Cancel"
 	case TaskEditForm:
-		return "Tab: Switch fields • ↑/↓: Change Priority/Type • Enter: Save Changes • Esc: Cancel"
+		return "Tab: Switch fields • ↑/↓: Change selection • Enter: Save Changes • Esc: Cancel"
 	case ProjectCreateForm:
 		return "Tab: Switch fields • Enter: Create Project • Esc: Cancel"
 

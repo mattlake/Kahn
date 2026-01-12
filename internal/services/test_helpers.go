@@ -8,14 +8,19 @@ import (
 
 // MockTaskRepository implements domain.TaskRepository for testing
 type MockTaskRepository struct {
-	tasks []domain.Task
+	tasks     []domain.Task
+	nextIntID int
 }
 
 func NewMockTaskRepository() *MockTaskRepository {
-	return &MockTaskRepository{tasks: []domain.Task{}}
+	return &MockTaskRepository{tasks: []domain.Task{}, nextIntID: 1}
 }
 
 func (r *MockTaskRepository) Create(task *domain.Task) error {
+	// Simulate auto-increment for IntID
+	task.IntID = r.nextIntID
+	r.nextIntID++
+
 	r.tasks = append(r.tasks, *task)
 	return nil
 }
@@ -90,6 +95,19 @@ func (r *MockTaskRepository) UpdateStatus(taskID string, status domain.Status) e
 			updatedTask.UpdatedAt = time.Now()
 			r.tasks[i] = updatedTask
 			break
+		}
+	}
+	return nil
+}
+
+func (r *MockTaskRepository) ClearBlockersForIntID(intID int) error {
+	// Find and clear BlockedBy for all tasks that are blocked by this intID
+	for i, task := range r.tasks {
+		if task.BlockedBy != nil && *task.BlockedBy == intID {
+			updatedTask := task
+			updatedTask.BlockedBy = nil
+			updatedTask.UpdatedAt = time.Now()
+			r.tasks[i] = updatedTask
 		}
 	}
 	return nil

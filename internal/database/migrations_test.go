@@ -12,7 +12,7 @@ import (
 func TestGetMigrations(t *testing.T) {
 	migrations := getMigrations()
 
-	assert.Len(t, migrations, 4, "Should have 4 migrations")
+	assert.Len(t, migrations, 5, "Should have 5 migrations")
 
 	// Test migration names
 	expectedNames := []string{
@@ -20,6 +20,7 @@ func TestGetMigrations(t *testing.T) {
 		"002_create_tasks_table",
 		"003_add_type_to_tasks",
 		"005_create_indexes",
+		"006_add_integer_pk_and_blocked_by",
 	}
 
 	for i, expectedName := range expectedNames {
@@ -30,7 +31,7 @@ func TestGetMigrations(t *testing.T) {
 
 func TestRunMigrations(t *testing.T) {
 	// Create in-memory database
-	db, err := sql.Open("sqlite", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:?_foreign_keys=true")
 	require.NoError(t, err, "Should be able to open in-memory database")
 	defer db.Close()
 
@@ -47,7 +48,7 @@ func TestRunMigrations(t *testing.T) {
 	// Test that migrations table exists and has records
 	err = db.QueryRow("SELECT COUNT(*) FROM migrations").Scan(&count)
 	assert.NoError(t, err, "Should be able to query migrations table")
-	assert.Equal(t, 4, count, "Should have 4 migration records")
+	assert.Equal(t, 5, count, "Should have 5 migration records")
 
 	// Test that all expected tables exist
 	tables := []string{"projects", "tasks", "migrations"}
@@ -60,10 +61,10 @@ func TestRunMigrations(t *testing.T) {
 	err = database.RunMigrations()
 	assert.NoError(t, err, "Running migrations again should not return error")
 
-	// Test that migration count is still 4 (no duplicates)
+	// Test that migration count is still 5 (no duplicates)
 	err = db.QueryRow("SELECT COUNT(*) FROM migrations").Scan(&count)
 	assert.NoError(t, err, "Should be able to query migrations table")
-	assert.Equal(t, 4, count, "Should still have 4 migration records (no duplicates)")
+	assert.Equal(t, 5, count, "Should still have 5 migration records (no duplicates)")
 }
 
 func TestMigration_ProjectsTable(t *testing.T) {
@@ -124,6 +125,7 @@ func TestMigration_Indexes(t *testing.T) {
 		"idx_tasks_created_at",
 		"idx_projects_created_at",
 		"idx_tasks_priority",
+		"idx_tasks_blocked_by",
 	}
 
 	for _, indexName := range indexes {
@@ -133,8 +135,61 @@ func TestMigration_Indexes(t *testing.T) {
 		assert.Equal(t, 1, count, "Index %s should exist", indexName)
 	}
 }
+
+func TestMigration_IntegerPKAndBlockedBy(t *testing.T) {
+	db := setupTestDB(t)
+	defer cleanupTestDB(t, db)
+
+	// First insert a project (foreign key constraint)
+	_, err := db.Exec(`
+		INSERT INTO projects (id, name, description, color, created_at, updated_at)
+		VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+	`, "test_proj", "Test Project", "Test Description", "blue")
+	require.NoError(t, err, "Should be able to insert project")
+
+	// Insert a task without blocked_by
+	_, err = db.Exec(`
+		INSERT INTO tasks (id, project_id, name, desc, status, priority, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+	`, "task_1", "test_proj", "Task 1", "First task", 0, 1)
+	assert.NoError(t, err, "Should be able to insert task without blocked_by")
+
+	// Get the int_id of the first task
+	var intID1 int
+	err = db.QueryRow("SELECT int_id FROM tasks WHERE id = ?", "task_1").Scan(&intID1)
+	assert.NoError(t, err, "Should be able to query int_id")
+	assert.Greater(t, intID1, 0, "int_id should be auto-generated and greater than 0")
+
+	// Insert a second task blocked by the first
+	_, err = db.Exec(`
+		INSERT INTO tasks (id, project_id, name, desc, status, priority, blocked_by, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+	`, "task_2", "test_proj", "Task 2", "Second task", 0, 1, intID1)
+	assert.NoError(t, err, "Should be able to insert task with blocked_by")
+
+	// Verify blocked_by was set correctly
+	var blockedBy sql.NullInt64
+	err = db.QueryRow("SELECT blocked_by FROM tasks WHERE id = ?", "task_2").Scan(&blockedBy)
+	assert.NoError(t, err, "Should be able to query blocked_by")
+	assert.True(t, blockedBy.Valid, "blocked_by should be set")
+	assert.Equal(t, int64(intID1), blockedBy.Int64, "blocked_by should reference first task's int_id")
+
+	// Verify first task has nil blocked_by
+	err = db.QueryRow("SELECT blocked_by FROM tasks WHERE id = ?", "task_1").Scan(&blockedBy)
+	assert.NoError(t, err, "Should be able to query blocked_by")
+	assert.False(t, blockedBy.Valid, "blocked_by should be NULL for first task")
+
+	// Verify that both int_id and string id fields work correctly
+	var stringID string
+	var intID int
+	err = db.QueryRow("SELECT id, int_id FROM tasks WHERE int_id = ?", intID1).Scan(&stringID, &intID)
+	assert.NoError(t, err, "Should be able to query by int_id")
+	assert.Equal(t, "task_1", stringID, "String ID should match")
+	assert.Equal(t, intID1, intID, "Integer ID should match")
+}
+
 func setupTestDB(t *testing.T) *sql.DB {
-	db, err := sql.Open("sqlite", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:?_foreign_keys=true")
 	require.NoError(t, err, "Failed to open in-memory database")
 
 	// Test the connection
