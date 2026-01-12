@@ -29,6 +29,7 @@ type KahnModel struct {
 	uiStateManager *UIStateManager
 	projectManager *ProjectManager
 	navState       *NavigationState
+	searchState    *SearchState
 }
 
 func (km KahnModel) Init() tea.Cmd {
@@ -88,7 +89,16 @@ func (km *KahnModel) renderBoard() string {
 
 	taskLists := km.getTaskListsForBoard()
 	navState := km.navState
-	return km.board.GetRenderer().RenderBoard(activeProj, taskLists, navState.GetActiveListIndex(), km.width, km.version)
+	return km.board.GetRenderer().RenderBoard(
+		activeProj,
+		taskLists,
+		navState.GetActiveListIndex(),
+		km.width,
+		km.version,
+		km.searchState.IsActive(),
+		km.searchState.GetQuery(),
+		km.searchState.GetMatchCount(),
+	)
 }
 
 // View renders the appropriate view based on current UI state
@@ -113,6 +123,30 @@ func (km *KahnModel) GetActiveProject() *domain.Project {
 	return km.projectManager.GetActiveProject()
 }
 
+// RefreshTasksWithSearch updates task lists applying the current search filter if active,
+// or shows all tasks if search is inactive. Updates the match count when search is active.
+func (km *KahnModel) RefreshTasksWithSearch() {
+	activeProj := km.GetActiveProject()
+	if activeProj == nil {
+		return
+	}
+
+	if km.searchState.IsActive() {
+		km.navState.UpdateTaskListsWithSearch(
+			activeProj,
+			km.taskService,
+			km.searchState.GetQuery(),
+		)
+
+		// Update match count
+		allTasks := activeProj.Tasks
+		matchCount := domain.CountSearchMatches(allTasks, km.searchState.GetQuery())
+		km.searchState.UpdateMatchCount(matchCount)
+	} else {
+		km.navState.UpdateTaskLists(activeProj, km.taskService)
+	}
+}
+
 func (km *KahnModel) GetActiveProjectID() string {
 	return km.projectManager.GetActiveProjectID()
 }
@@ -135,7 +169,7 @@ func (km *KahnModel) CreateTaskWithPriority(name, description string, priority d
 	activeProj.AddTask(*newTask)
 
 	km.navState.MarkListDirty(domain.NotStarted)
-	km.updateTaskLists()
+	km.RefreshTasksWithSearch()
 
 	return nil
 }
@@ -161,7 +195,7 @@ func (km *KahnModel) UpdateTask(id, name, description string, priority domain.Pr
 		}
 
 		km.navState.MarkListDirty(taskStatus)
-		km.updateTaskLists()
+		km.RefreshTasksWithSearch()
 	}
 
 	return nil
@@ -178,7 +212,7 @@ func (km *KahnModel) DeleteTask(id string) error {
 
 		// Refresh all columns to update visual indicators for unblocked tasks
 		km.navState.MarkAllListsDirty()
-		km.updateTaskLists()
+		km.RefreshTasksWithSearch()
 	}
 
 	return nil
@@ -215,7 +249,7 @@ func (km *KahnModel) MoveTaskToNextStatus(id string) error {
 		km.navState.MarkAllListsDirty()
 	}
 
-	km.updateTaskLists()
+	km.RefreshTasksWithSearch()
 	return nil
 }
 
@@ -250,7 +284,7 @@ func (km *KahnModel) MoveTaskToPreviousStatus(id string) error {
 		km.navState.MarkAllListsDirty()
 	}
 
-	km.updateTaskLists()
+	km.RefreshTasksWithSearch()
 	return nil
 }
 
@@ -321,7 +355,7 @@ func (km *KahnModel) SubmitCurrentForm() error {
 			activeProj := km.GetActiveProject()
 			if activeProj != nil {
 				activeProj.Tasks = append(activeProj.Tasks, *newTask)
-				km.updateTaskLists()
+				km.RefreshTasksWithSearch()
 			}
 		}
 		return err
@@ -350,7 +384,7 @@ func (km *KahnModel) SubmitCurrentForm() error {
 			}
 			// Mark list dirty and refresh display to show updated blocked status
 			km.navState.MarkListDirty(taskStatus)
-			km.updateTaskLists()
+			km.RefreshTasksWithSearch()
 		}
 		return nil
 	case input.ProjectCreateForm:
@@ -477,7 +511,7 @@ func (km *KahnModel) executeTaskDeletion() tea.Model {
 	activeProj := km.GetActiveProject()
 	if activeProj != nil {
 		activeProj.RemoveTask(taskToDelete)
-		km.updateTaskLists()
+		km.RefreshTasksWithSearch()
 	}
 
 	confirmState.ClearTaskDelete()
@@ -505,6 +539,10 @@ func (km *KahnModel) executeProjectDeletion() tea.Model {
 func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Check if in search mode first
+		if km.searchState.IsActive() {
+			return km.handleSearchInput(msg)
+		}
 		if km.uiStateManager.FormState().IsShowingForm() {
 			return km.handleFormInput(msg)
 		}
@@ -584,6 +622,7 @@ func NewKahnModel(database *database.Database, version string) *KahnModel {
 	formState := NewFormState(taskInputComponents, projectInputComponents)
 	confirmState := NewConfirmationState()
 	navState := NewNavigationState(taskLists)
+	searchState := NewSearchState()
 
 	// Create managers
 	projectManager := NewProjectManager(projectService, taskService, navState)
@@ -618,5 +657,6 @@ func NewKahnModel(database *database.Database, version string) *KahnModel {
 		uiStateManager:  uiStateManager,
 		projectManager:  projectManager,
 		navState:        navState,
+		searchState:     searchState,
 	}
 }

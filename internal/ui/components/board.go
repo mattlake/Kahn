@@ -37,7 +37,7 @@ func (b *BoardComponent) RenderProjectFooter(project *domain.Project, width int,
 
 	helpText := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(colors.Subtext1)).
-		Render(fmt.Sprintf("Kahn %s | Nav: ←→/h/l | Move: space | Project: p | Add: n | Edit: e | Delete: d | Quit: q", version))
+		Render(fmt.Sprintf("Kahn %s | Nav: ←→/h/l | Move: space | Project: p | Add: n | Edit: e | Delete: d | Search: / | Quit: q", version))
 
 	footerContent := lipgloss.JoinHorizontal(
 		lipgloss.Left,
@@ -53,6 +53,49 @@ func (b *BoardComponent) RenderProjectFooter(project *domain.Project, width int,
 		Padding(0, 1).
 		Width(width).
 		Render(footerContent)
+}
+
+// RenderSearchBar renders the search input bar at the bottom when search is active
+func (b *BoardComponent) RenderSearchBar(query string, matchCount int, width int) string {
+	searchLabel := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(colors.Mauve)).
+		Bold(true).
+		Render("Search:")
+
+	queryText := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(colors.Text)).
+		Render(query)
+
+	// Add cursor indicator
+	cursor := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(colors.Mauve)).
+		Render("▊")
+
+	matchInfo := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(colors.Subtext1)).
+		Render(fmt.Sprintf("(%d matches)", matchCount))
+
+	helpText := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(colors.Subtext1)).
+		Render("[ESC] Clear search")
+
+	searchContent := lipgloss.JoinHorizontal(
+		lipgloss.Left,
+		searchLabel,
+		lipgloss.NewStyle().Render(" "),
+		queryText,
+		cursor,
+		lipgloss.NewStyle().Render(" "),
+		matchInfo,
+		lipgloss.NewStyle().Render(" | "),
+		helpText,
+	)
+
+	return lipgloss.NewStyle().
+		Margin(0, 0).
+		Padding(0, 1).
+		Width(width).
+		Render(searchContent)
 }
 
 func (b *BoardComponent) RenderNoProjectsBoard(width, height int) string {
@@ -252,12 +295,18 @@ func (b *BoardComponent) RenderTaskDeleteConfirmWithError(task *domain.Task, err
 	)
 }
 
-func (b *BoardComponent) RenderBoard(project *domain.Project, taskLists [3]list.Model, activeListIndex domain.Status, width int, version string) string {
+func (b *BoardComponent) RenderBoard(project *domain.Project, taskLists [3]list.Model, activeListIndex domain.Status, width int, version string, searchActive bool, searchQuery string, searchMatchCount int) string {
 	if project == nil {
 		return ""
 	}
 
-	projectFooter := b.RenderProjectFooter(project, width, version)
+	// Render footer or search bar depending on search state
+	var footer string
+	if searchActive {
+		footer = b.RenderSearchBar(searchQuery, searchMatchCount, width)
+	} else {
+		footer = b.RenderProjectFooter(project, width, version)
+	}
 
 	columnWidth := taskLists[0].Width()
 
@@ -301,7 +350,7 @@ func (b *BoardComponent) RenderBoard(project *domain.Project, taskLists [3]list.
 	return lipgloss.JoinVertical(
 		lipgloss.Top,
 		boardContent,
-		projectFooter,
+		footer,
 	)
 }
 
