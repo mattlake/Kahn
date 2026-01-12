@@ -567,8 +567,10 @@ func NewKahnModel(database *database.Database, version string) *KahnModel {
 
 	taskLists := []list.Model{activeList, inactiveList, inactiveList}
 
-	taskInputComponents := &input.InputComponents{}
-	projectInputComponents := &input.InputComponents{}
+	taskComps := input.NewInputComponents()
+	taskInputComponents := &taskComps
+	projectComps := input.NewInputComponents()
+	projectInputComponents := &projectComps
 
 	// Create repositories
 	taskRepo := repo.NewSQLiteTaskRepository(database.GetDB())

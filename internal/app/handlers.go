@@ -16,8 +16,25 @@ func (km *KahnModel) handleFormInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return km, nil
 	case "tab":
 		return km.handleTabKey(), nil
+	case "ctrl+enter":
+		// Ctrl+Enter always submits from any field
+		if err := km.SubmitCurrentForm(); err != nil {
+			// Validation failed - stay in form mode, show inline error
+			return km, nil
+		}
+
+		// Success - exit form mode
+		km.CancelCurrentForm()
+		return km, nil
 	case "enter":
-		// Enter always means submit - no field advancement
+		// If description field is focused, allow newlines in textarea
+		if comps.FocusedField == 1 { // Description field (field index 1)
+			updatedDesc, cmd := comps.DescInput.Update(msg)
+			comps.DescInput = updatedDesc
+			return km, cmd
+		}
+
+		// Otherwise, Enter from other fields means submit
 		if err := km.SubmitCurrentForm(); err != nil {
 			// Validation failed - stay in form mode, show inline error
 			return km, nil
@@ -52,7 +69,7 @@ func (km *KahnModel) handleFormInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return km, nil
 			}
 		}
-		// Let textinput handle for other fields
+		// Let textinput/textarea handle for other fields
 	default:
 		// Clear any previous errors when user types
 		km.ClearFormError()
