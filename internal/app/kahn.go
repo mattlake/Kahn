@@ -52,7 +52,7 @@ func (km *KahnModel) renderProjectSwitcher() string {
 		km.projectManager.GetActiveProjectID(),
 		confirmState.IsShowingProjectDeleteConfirm(),
 		confirmState.GetProjectToDelete(),
-		confirmState.GetError(),
+		confirmState.GetProjectError(),
 		km.width,
 		km.height,
 	)
@@ -62,13 +62,13 @@ func (km *KahnModel) renderProjectSwitcher() string {
 func (km *KahnModel) renderTaskDeleteConfirm() string {
 	confirmState := km.uiStateManager.ConfirmationState()
 	taskToDelete := km.findTaskForDeletion()
-	return km.board.GetRenderer().RenderTaskDeleteConfirmWithError(taskToDelete, confirmState.GetError(), km.width, km.height)
+	return km.board.GetRenderer().RenderTaskDeleteConfirmWithError(taskToDelete, confirmState.GetTaskError(), km.width, km.height)
 }
 
 // renderProjectDeleteConfirm renders the project deletion confirmation dialog
 func (km *KahnModel) renderProjectDeleteConfirm() string {
 	confirmState := km.uiStateManager.ConfirmationState()
-	return km.board.GetRenderer().RenderTaskDeleteConfirmWithError(nil, confirmState.GetError(), km.width, km.height)
+	return km.board.GetRenderer().RenderTaskDeleteConfirmWithError(nil, confirmState.GetProjectError(), km.width, km.height)
 }
 
 // renderNoProjects renders the no projects state
@@ -478,7 +478,7 @@ func (km *KahnModel) executeTaskDeletion() tea.Model {
 	}
 
 	if err := km.taskService.DeleteTask(taskToDelete); err != nil {
-		confirmState.SetError("Failed to delete task: " + err.Error())
+		confirmState.SetTaskError("Failed to delete task: " + err.Error())
 		return km
 	}
 
@@ -503,7 +503,7 @@ func (km *KahnModel) executeProjectDeletion() tea.Model {
 	// The project manager handles the deletion logic
 	err := km.projectManager.DeleteProject(projectToDelete)
 	if err != nil {
-		confirmState.SetError("Failed to delete project: " + err.Error())
+		confirmState.SetProjectError("Failed to delete project: " + err.Error())
 	}
 
 	confirmState.ClearProjectDelete()

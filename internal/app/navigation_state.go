@@ -44,7 +44,8 @@ func (ns *NavigationState) SetActiveListIndex(index domain.Status) {
 	ns.activeListIndex = index
 }
 
-func (ns *NavigationState) NextList() {
+// switchToList handles the common logic of switching from current list to a new list
+func (ns *NavigationState) switchToList(newIndex domain.Status) {
 	// Switch old active list to inactive delegate
 	oldActiveIndex := ns.activeListIndex
 	ns.Tasks[oldActiveIndex].SetDelegate(styles.NewInactiveListDelegate())
@@ -53,12 +54,8 @@ func (ns *NavigationState) NextList() {
 	oldItems := ns.Tasks[oldActiveIndex].Items()
 	ns.Tasks[oldActiveIndex].SetItems(styles.UpdateTaskSelection(oldItems, ns.Tasks[oldActiveIndex].Index(), false))
 
-	// Move to next list
-	if ns.activeListIndex == domain.Done {
-		ns.activeListIndex = domain.NotStarted
-	} else {
-		ns.activeListIndex++
-	}
+	// Move to new list
+	ns.activeListIndex = newIndex
 
 	// Switch new active list to active delegate
 	ns.Tasks[ns.activeListIndex].SetDelegate(styles.NewActiveListDelegate())
@@ -71,31 +68,24 @@ func (ns *NavigationState) NextList() {
 	styles.ApplyFocusedTitleStyles(ns.Tasks[:], ns.activeListIndex)
 }
 
-func (ns *NavigationState) PrevList() {
-	// Switch old active list to inactive delegate
-	oldActiveIndex := ns.activeListIndex
-	ns.Tasks[oldActiveIndex].SetDelegate(styles.NewInactiveListDelegate())
-
-	// Update selection state for old list (no longer active)
-	oldItems := ns.Tasks[oldActiveIndex].Items()
-	ns.Tasks[oldActiveIndex].SetItems(styles.UpdateTaskSelection(oldItems, ns.Tasks[oldActiveIndex].Index(), false))
-
-	// Move to previous list
-	if ns.activeListIndex == domain.NotStarted {
-		ns.activeListIndex = domain.Done
+func (ns *NavigationState) NextList() {
+	var nextIndex domain.Status
+	if ns.activeListIndex == domain.Done {
+		nextIndex = domain.NotStarted
 	} else {
-		ns.activeListIndex--
+		nextIndex = ns.activeListIndex + 1
 	}
+	ns.switchToList(nextIndex)
+}
 
-	// Switch new active list to active delegate
-	ns.Tasks[ns.activeListIndex].SetDelegate(styles.NewActiveListDelegate())
-
-	// Update selection state for new list (now active)
-	newItems := ns.Tasks[ns.activeListIndex].Items()
-	ns.Tasks[ns.activeListIndex].SetItems(styles.UpdateTaskSelection(newItems, ns.Tasks[ns.activeListIndex].Index(), true))
-
-	// Update title styles to reflect new focus
-	styles.ApplyFocusedTitleStyles(ns.Tasks[:], ns.activeListIndex)
+func (ns *NavigationState) PrevList() {
+	var prevIndex domain.Status
+	if ns.activeListIndex == domain.NotStarted {
+		prevIndex = domain.Done
+	} else {
+		prevIndex = ns.activeListIndex - 1
+	}
+	ns.switchToList(prevIndex)
 }
 
 func (ns *NavigationState) UpdateTaskLists(project *domain.Project, taskService *services.TaskService) {

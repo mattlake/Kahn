@@ -74,28 +74,3 @@ func (cs *ConfirmationState) ClearTaskDelete() {
 func (cs *ConfirmationState) ClearProjectDelete() {
 	cs.projectDeleteConfirm.HideConfirm()
 }
-
-// Legacy compatibility methods
-func (cs *ConfirmationState) GetError() string {
-	if cs.taskDeleteConfirm.IsShowingConfirm() {
-		return cs.taskDeleteConfirm.GetError()
-	}
-	return cs.projectDeleteConfirm.GetError()
-}
-
-func (cs *ConfirmationState) SetError(message string) {
-	if cs.taskDeleteConfirm.IsShowingConfirm() {
-		cs.taskDeleteConfirm.SetError(message)
-	} else {
-		cs.projectDeleteConfirm.SetError(message)
-	}
-}
-
-func (cs *ConfirmationState) HasError() bool {
-	return cs.taskDeleteConfirm.HasError() || cs.projectDeleteConfirm.HasError()
-}
-
-func (cs *ConfirmationState) ClearError() {
-	cs.taskDeleteConfirm.ClearError()
-	cs.projectDeleteConfirm.ClearError()
-}
