@@ -13,22 +13,25 @@ const (
 	ProjectSwitchView
 	TaskDeleteConfirmView
 	ProjectDeleteConfirmView
+	TaskDetailView
 	NoProjectsView
 )
 
 // UIStateManager coordinates all UI states and provides a single source of truth
 type UIStateManager struct {
-	formState    *FormState
-	confirmState *ConfirmationState
-	navState     *NavigationState
+	formState       *FormState
+	confirmState    *ConfirmationState
+	navState        *NavigationState
+	taskDetailState *TaskDetailState
 }
 
 // NewUIStateManager creates a new UI state manager
-func NewUIStateManager(formState *FormState, confirmState *ConfirmationState, navState *NavigationState) *UIStateManager {
+func NewUIStateManager(formState *FormState, confirmState *ConfirmationState, navState *NavigationState, taskDetailState *TaskDetailState) *UIStateManager {
 	return &UIStateManager{
-		formState:    formState,
-		confirmState: confirmState,
-		navState:     navState,
+		formState:       formState,
+		confirmState:    confirmState,
+		navState:        navState,
+		taskDetailState: taskDetailState,
 	}
 }
 
@@ -46,6 +49,9 @@ func (usm *UIStateManager) GetCurrentViewState() ViewState {
 	if usm.confirmState.IsShowingProjectDeleteConfirm() {
 		return ProjectDeleteConfirmView
 	}
+	if usm.taskDetailState.IsShowingTaskDetail() {
+		return TaskDetailView
+	}
 	return BoardView
 }
 
@@ -54,7 +60,8 @@ func (usm *UIStateManager) IsShowingAnyForm() bool {
 	return usm.formState.IsShowingForm() ||
 		usm.navState.IsShowingProjectSwitch() ||
 		usm.confirmState.IsShowingTaskDeleteConfirm() ||
-		usm.confirmState.IsShowingProjectDeleteConfirm()
+		usm.confirmState.IsShowingProjectDeleteConfirm() ||
+		usm.taskDetailState.IsShowingTaskDetail()
 }
 
 // HideAllStates hides all forms and confirmations
@@ -62,6 +69,7 @@ func (usm *UIStateManager) HideAllStates() {
 	usm.formState.HideForm()
 	usm.navState.HideProjectSwitch()
 	usm.confirmState.HideAllConfirmations()
+	usm.taskDetailState.HideTaskDetail()
 }
 
 // ShowTaskForm shows the task creation form
@@ -111,4 +119,14 @@ func (usm *UIStateManager) ConfirmationState() *ConfirmationState {
 
 func (usm *UIStateManager) NavigationState() *NavigationState {
 	return usm.navState
+}
+
+func (usm *UIStateManager) TaskDetailState() *TaskDetailState {
+	return usm.taskDetailState
+}
+
+// ShowTaskDetailView shows the task detail modal
+func (usm *UIStateManager) ShowTaskDetailView(task *domain.Task, blockingTask *domain.Task) {
+	usm.HideAllStates()
+	usm.taskDetailState.ShowTaskDetail(task, blockingTask)
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type KahnModel struct {
@@ -76,6 +77,22 @@ func (km *KahnModel) renderNoProjects() string {
 	return km.board.GetRenderer().RenderNoProjectsBoard(km.width, km.height)
 }
 
+// renderTaskDetail renders the task detail modal view
+func (km *KahnModel) renderTaskDetail() string {
+	task := km.uiStateManager.TaskDetailState().GetTask()
+	blockingTask := km.uiStateManager.TaskDetailState().GetBlockingTask()
+
+	renderer := components.NewTaskDetailRenderer()
+	detailView := renderer.Render(task, blockingTask)
+
+	// Center the modal using lipgloss.Place
+	return lipgloss.Place(
+		km.width, km.height,
+		lipgloss.Center, lipgloss.Center,
+		detailView,
+	)
+}
+
 // renderBoard renders the main board view with task lists
 func (km *KahnModel) renderBoard() string {
 	if !km.projectManager.HasProjects() {
@@ -112,6 +129,8 @@ func (km KahnModel) View() string {
 		return km.renderTaskDeleteConfirm()
 	case ProjectDeleteConfirmView:
 		return km.renderProjectDeleteConfirm()
+	case TaskDetailView:
+		return km.renderTaskDetail()
 	case NoProjectsView:
 		return km.renderNoProjects()
 	default: // BoardView
@@ -552,6 +571,9 @@ func (km *KahnModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if km.uiStateManager.ConfirmationState().IsShowingTaskDeleteConfirm() {
 			return km.handleTaskDeleteConfirm(msg)
 		}
+		if km.uiStateManager.TaskDetailState().IsShowingTaskDetail() {
+			return km.handleTaskDetailInput(msg)
+		}
 		return km.handleNormalMode(msg)
 	case tea.WindowSizeMsg:
 		return km.handleResize(msg)
@@ -623,10 +645,11 @@ func NewKahnModel(database *database.Database, version string) *KahnModel {
 	confirmState := NewConfirmationState()
 	navState := NewNavigationState(taskLists)
 	searchState := NewSearchState()
+	taskDetailState := NewTaskDetailState()
 
 	// Create managers
 	projectManager := NewProjectManager(projectService, taskService, navState)
-	uiStateManager := NewUIStateManager(formState, confirmState, navState)
+	uiStateManager := NewUIStateManager(formState, confirmState, navState, taskDetailState)
 
 	// Initialize projects through project manager
 	projectManager.InitializeProjects()
