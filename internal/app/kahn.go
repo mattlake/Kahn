@@ -128,7 +128,7 @@ func (km *KahnModel) CreateTaskWithPriority(name, description string, priority d
 		return nil
 	}
 
-	newTask, err := km.taskService.CreateTask(name, description, km.GetActiveProjectID(), domain.RegularTask, priority)
+	newTask, err := km.taskService.CreateTask(name, description, km.GetActiveProjectID(), domain.RegularTask, priority, nil)
 	if err != nil {
 		return err
 	}
@@ -175,17 +175,10 @@ func (km *KahnModel) DeleteTask(id string) error {
 
 	activeProj := km.GetActiveProject()
 	if activeProj != nil {
-		// Find task status before deletion for dirty flag
-		var taskStatus domain.Status
-		for _, t := range activeProj.Tasks {
-			if t.ID == id {
-				taskStatus = t.Status
-				break
-			}
-		}
 		activeProj.RemoveTask(id)
 
-		km.taskListManager.MarkListDirty(taskStatus)
+		// Refresh all columns to update visual indicators for unblocked tasks
+		km.taskListManager.MarkAllListsDirty()
 		km.updateTaskLists()
 	}
 
@@ -200,9 +193,11 @@ func (km *KahnModel) MoveTaskToNextStatus(id string) error {
 
 	// Find current status before movement for dirty flags
 	var oldStatus domain.Status
+	var movingToComplete bool
 	for _, t := range activeProj.Tasks {
 		if t.ID == id {
 			oldStatus = t.Status
+			movingToComplete = (t.Status == domain.InProgress)
 			break
 		}
 	}
@@ -215,6 +210,12 @@ func (km *KahnModel) MoveTaskToNextStatus(id string) error {
 	activeProj.UpdateTaskStatus(id, task.Status)
 	km.taskListManager.MarkListDirty(oldStatus)
 	km.taskListManager.MarkListDirty(task.Status)
+
+	// Refresh all columns to update visual indicators for unblocked tasks
+	if movingToComplete {
+		km.taskListManager.MarkAllListsDirty()
+	}
+
 	km.updateTaskLists()
 	return nil
 }
@@ -227,9 +228,11 @@ func (km *KahnModel) MoveTaskToPreviousStatus(id string) error {
 
 	// Find current status before movement for dirty flags
 	var oldStatus domain.Status
+	var movingToComplete bool
 	for _, t := range activeProj.Tasks {
 		if t.ID == id {
 			oldStatus = t.Status
+			movingToComplete = (t.Status == domain.NotStarted)
 			break
 		}
 	}
@@ -242,6 +245,12 @@ func (km *KahnModel) MoveTaskToPreviousStatus(id string) error {
 	activeProj.UpdateTaskStatus(id, task.Status)
 	km.taskListManager.MarkListDirty(oldStatus)
 	km.taskListManager.MarkListDirty(task.Status)
+
+	// Refresh all columns to update visual indicators for unblocked tasks
+	if movingToComplete {
+		km.taskListManager.MarkAllListsDirty()
+	}
+
 	km.updateTaskLists()
 	return nil
 }
@@ -311,11 +320,11 @@ func (km *KahnModel) SubmitCurrentForm() error {
 	}
 
 	formState.ClearError()
-	name, desc, taskType, priority := formState.GetFormData()
+	name, desc, taskType, priority, blockedByIntID := formState.GetFormData()
 
 	switch formState.GetActiveFormType() {
 	case input.TaskCreateForm:
-		newTask, err := km.taskService.CreateTask(name, desc, km.GetActiveProjectID(), taskType, priority)
+		newTask, err := km.taskService.CreateTask(name, desc, km.GetActiveProjectID(), taskType, priority, blockedByIntID)
 		if err == nil {
 			activeProj := km.GetActiveProject()
 			if activeProj != nil {
@@ -323,10 +332,35 @@ func (km *KahnModel) SubmitCurrentForm() error {
 				km.updateTaskLists()
 			}
 		}
+		return err
 	case input.TaskEditForm:
 		taskID := formState.GetTaskID()
+		// Update basic task fields
 		err := km.UpdateTask(taskID, name, desc, priority, taskType)
-		return err
+		if err != nil {
+			return err
+		}
+		// Update BlockedBy field separately
+		_, err = km.taskService.SetTaskBlockedBy(taskID, blockedByIntID)
+		if err != nil {
+			return err
+		}
+		// Update the task in the active project and refresh display
+		activeProj := km.GetActiveProject()
+		if activeProj != nil {
+			var taskStatus domain.Status
+			for i, t := range activeProj.Tasks {
+				if t.ID == taskID {
+					taskStatus = t.Status // Save status for dirty flag
+					activeProj.Tasks[i].BlockedBy = blockedByIntID
+					break
+				}
+			}
+			// Mark list dirty and refresh display to show updated blocked status
+			km.taskListManager.MarkListDirty(taskStatus)
+			km.updateTaskLists()
+		}
+		return nil
 	case input.ProjectCreateForm:
 		return km.projectManager.CreateProject(name, desc)
 	}
@@ -338,11 +372,15 @@ func (km *KahnModel) CancelCurrentForm() {
 }
 
 func (km *KahnModel) ShowTaskForm() {
-	km.uiStateManager.ShowTaskForm()
+	// Get available tasks for BlockedBy field
+	availableTasks := km.getAvailableBlockerTasks("")
+	km.uiStateManager.ShowTaskForm(availableTasks)
 }
 
-func (km *KahnModel) ShowTaskEditForm(taskID string, name, description string, priority domain.Priority, taskType domain.TaskType) {
-	km.uiStateManager.ShowTaskEditForm(taskID, name, description, priority, taskType)
+func (km *KahnModel) ShowTaskEditForm(taskID string, name, description string, priority domain.Priority, taskType domain.TaskType, blockedByIntID *int) {
+	// Get available tasks for BlockedBy field (exclude current task)
+	availableTasks := km.getAvailableBlockerTasks(taskID)
+	km.uiStateManager.ShowTaskEditForm(taskID, name, description, priority, taskType, blockedByIntID, availableTasks)
 }
 
 func (km *KahnModel) ShowProjectForm() {
@@ -406,6 +444,29 @@ func (km *KahnModel) getTaskListsForBoard() [3]list.Model {
 		navState.Tasks[domain.InProgress],
 		navState.Tasks[domain.Done],
 	}
+}
+
+// getAvailableBlockerTasks returns tasks that can block another task
+// Filters to only NotStarted and InProgress tasks
+// If excludeTaskID is provided, that task is excluded from the list
+func (km *KahnModel) getAvailableBlockerTasks(excludeTaskID string) []domain.Task {
+	activeProj := km.GetActiveProject()
+	if activeProj == nil {
+		return []domain.Task{}
+	}
+
+	var availableTasks []domain.Task
+	for _, task := range activeProj.Tasks {
+		// Skip the task being edited
+		if task.ID == excludeTaskID {
+			continue
+		}
+		// Only include NotStarted and InProgress tasks
+		if task.Status == domain.NotStarted || task.Status == domain.InProgress {
+			availableTasks = append(availableTasks, task)
+		}
+	}
+	return availableTasks
 }
 
 func (km *KahnModel) executeTaskDeletion() tea.Model {

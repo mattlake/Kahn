@@ -54,5 +54,44 @@ func getMigrations() []Migration {
 				CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
 			`,
 		},
+		{
+			name: "006_add_integer_pk_and_blocked_by",
+			sql: `
+				-- Create new tasks table with int_id as primary key and blocked_by
+				CREATE TABLE tasks_new (
+					int_id INTEGER PRIMARY KEY AUTOINCREMENT,
+					id TEXT NOT NULL UNIQUE,
+					project_id TEXT NOT NULL,
+					name TEXT NOT NULL,
+					desc TEXT,
+					status INTEGER NOT NULL,
+					type INTEGER DEFAULT 0,
+					priority INTEGER DEFAULT 1,
+					blocked_by INTEGER,
+					created_at DATETIME NOT NULL,
+					updated_at DATETIME NOT NULL,
+					FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+					FOREIGN KEY (blocked_by) REFERENCES tasks_new(int_id) ON DELETE SET NULL
+				);
+
+				-- Copy data from old table to new table
+				INSERT INTO tasks_new (id, project_id, name, desc, status, type, priority, created_at, updated_at)
+				SELECT id, project_id, name, desc, status, type, priority, created_at, updated_at
+				FROM tasks;
+
+				-- Drop old table
+				DROP TABLE tasks;
+
+				-- Rename new table to tasks
+				ALTER TABLE tasks_new RENAME TO tasks;
+
+				-- Recreate indexes on new table
+				CREATE INDEX idx_tasks_project_id ON tasks(project_id);
+				CREATE INDEX idx_tasks_status ON tasks(status);
+				CREATE INDEX idx_tasks_created_at ON tasks(created_at);
+				CREATE INDEX idx_tasks_priority ON tasks(priority);
+				CREATE INDEX idx_tasks_blocked_by ON tasks(blocked_by);
+			`,
+		},
 	}
 }

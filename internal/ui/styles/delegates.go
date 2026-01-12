@@ -15,6 +15,15 @@ var (
 			Foreground(lipgloss.Color(colors.Blue)).
 			Bold(true)
 
+	// Blocked task styling
+	blockedStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(colors.Red)).
+			Bold(false)
+
+	blockedSelectedStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color(colors.Red)).
+				Bold(true)
+
 	// Priority color styles (cached) - using values instead of pointers
 	priorityStyles = map[domain.Priority]lipgloss.Style{
 		domain.Low:    lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Green)),
@@ -46,6 +55,15 @@ func (t TaskWithTitle) Title() string {
 		title = "󱕣 " + title
 	}
 
+	// Check if task is blocked - render in red to indicate it's blocked
+	if t.Task.BlockedBy != nil {
+		if t.isSelected && t.isActiveList {
+			return blockedSelectedStyle.Render(t.priorityText + title)
+		}
+		return blockedStyle.Render(t.priorityText + title)
+	}
+
+	// Original behavior for non-blocked tasks
 	if t.isSelected && t.isActiveList {
 
 		return selectedStyle.Render(t.priorityText + title)

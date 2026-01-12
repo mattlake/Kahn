@@ -1,10 +1,11 @@
 package app
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"kahn/internal/ui/input"
 	"kahn/internal/ui/styles"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 func (km *KahnModel) handleFormInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -141,7 +142,7 @@ func (km *KahnModel) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "q":
 		return km, tea.Quit
 	case "n":
-		km.uiStateManager.ShowTaskForm()
+		km.ShowTaskForm()
 		return km, nil
 	case "p":
 		km.uiStateManager.ShowProjectSwitcher()
@@ -149,7 +150,7 @@ func (km *KahnModel) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "e":
 		if selectedItem := km.taskListManager.GetActiveList().SelectedItem(); selectedItem != nil {
 			if taskWrapper, ok := selectedItem.(styles.TaskWithTitle); ok {
-				km.uiStateManager.ShowTaskEditForm(taskWrapper.ID, taskWrapper.Name, taskWrapper.Desc, taskWrapper.Priority, taskWrapper.Type)
+				km.ShowTaskEditForm(taskWrapper.ID, taskWrapper.Name, taskWrapper.Desc, taskWrapper.Priority, taskWrapper.Type, taskWrapper.BlockedBy)
 			}
 		}
 		return km, nil

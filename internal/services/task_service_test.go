@@ -18,7 +18,7 @@ func TestTaskService_CreateTask(t *testing.T) {
 
 	t.Run("successful task creation", func(t *testing.T) {
 		// Act
-		task, err := service.CreateTask("Test Task", "Test Description", testProject.ID, domain.RegularTask, domain.Low)
+		task, err := service.CreateTask("Test Task", "Test Description", testProject.ID, domain.RegularTask, domain.Low, nil)
 
 		// Assert
 		if err != nil {
@@ -40,7 +40,7 @@ func TestTaskService_CreateTask(t *testing.T) {
 
 	t.Run("empty name validation", func(t *testing.T) {
 		// Act
-		task, err := service.CreateTask("", "Test Description", "project-123", domain.RegularTask, domain.Low)
+		task, err := service.CreateTask("", "Test Description", "project-123", domain.RegularTask, domain.Low, nil)
 
 		// Assert
 		if err == nil {
@@ -53,7 +53,7 @@ func TestTaskService_CreateTask(t *testing.T) {
 
 	t.Run("empty project ID validation", func(t *testing.T) {
 		// Act
-		task, err := service.CreateTask("Test Task", "Test Description", "", domain.RegularTask, domain.Low)
+		task, err := service.CreateTask("Test Task", "Test Description", "", domain.RegularTask, domain.Low, nil)
 
 		// Assert
 		if err == nil {
@@ -145,7 +145,7 @@ func TestTaskService_CreateTask_WithDifferentTypes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Act
-			task, err := service.CreateTask(tt.taskName, tt.description, testProject.ID, tt.taskType, tt.priority)
+			task, err := service.CreateTask(tt.taskName, tt.description, testProject.ID, tt.taskType, tt.priority, nil)
 
 			// Assert
 			if err != nil {
@@ -170,7 +170,7 @@ func TestTaskService_UpdateTask_TypeChange(t *testing.T) {
 	service := NewTaskService(taskRepo, projectRepo)
 
 	// Create original task
-	originalTask, err := service.CreateTask("Original Task", "Description", testProject.ID, domain.RegularTask, domain.Low)
+	originalTask, err := service.CreateTask("Original Task", "Description", testProject.ID, domain.RegularTask, domain.Low, nil)
 	if err != nil {
 		t.Fatalf("Failed to create original task: %v", err)
 	}
@@ -208,9 +208,9 @@ func TestTaskService_GetTasksByProject_TypePreservation(t *testing.T) {
 	service := NewTaskService(taskRepo, projectRepo)
 
 	// Create tasks with different types
-	task1, _ := service.CreateTask("Task 1", "Regular", testProject.ID, domain.RegularTask, domain.Low)
-	task2, _ := service.CreateTask("Task 2", "Bug", testProject.ID, domain.Bug, domain.Medium)
-	task3, _ := service.CreateTask("Task 3", "Feature", testProject.ID, domain.Feature, domain.High)
+	task1, _ := service.CreateTask("Task 1", "Regular", testProject.ID, domain.RegularTask, domain.Low, nil)
+	task2, _ := service.CreateTask("Task 2", "Bug", testProject.ID, domain.Bug, domain.Medium, nil)
+	task3, _ := service.CreateTask("Task 3", "Feature", testProject.ID, domain.Feature, domain.High, nil)
 
 	// Act
 	tasks, err := service.GetTasksByProject(testProject.ID)
@@ -251,9 +251,9 @@ func TestTaskService_GetTasksByStatus_TypePreservation(t *testing.T) {
 	service := NewTaskService(taskRepo, projectRepo)
 
 	// Create tasks with different types and same status
-	task1, _ := service.CreateTask("Not Started Regular", "Regular", testProject.ID, domain.RegularTask, domain.Low)
-	task2, _ := service.CreateTask("Not Started Bug", "Bug", testProject.ID, domain.Bug, domain.Medium)
-	task3, _ := service.CreateTask("Not Started Feature", "Feature", testProject.ID, domain.Feature, domain.High)
+	task1, _ := service.CreateTask("Not Started Regular", "Regular", testProject.ID, domain.RegularTask, domain.Low, nil)
+	task2, _ := service.CreateTask("Not Started Bug", "Bug", testProject.ID, domain.Bug, domain.Medium, nil)
+	task3, _ := service.CreateTask("Not Started Feature", "Feature", testProject.ID, domain.Feature, domain.High, nil)
 
 	// Act
 	tasks, err := service.GetTasksByStatus(testProject.ID, domain.NotStarted)
@@ -283,4 +283,152 @@ func TestTaskService_GetTasksByStatus_TypePreservation(t *testing.T) {
 	if typeCount[domain.Feature] == 0 {
 		t.Error("Expected at least one Feature task in NotStarted")
 	}
+}
+
+func TestTaskService_AutoUnblock(t *testing.T) {
+	// Setup
+	taskRepo := NewMockTaskRepository()
+	projectRepo := NewMockProjectRepository()
+	testProject := domain.NewProject("Test Project", "Test Description", "blue")
+	projectRepo.Create(testProject)
+	service := NewTaskService(taskRepo, projectRepo)
+
+	t.Run("moving blocker to Done unblocks dependent task", func(t *testing.T) {
+		// Create Task A (blocker) and Task B (blocked by A)
+		taskA, _ := service.CreateTask("Task A", "Blocker task", testProject.ID, domain.RegularTask, domain.Medium, nil)
+		taskB, _ := service.CreateTask("Task B", "Blocked task", testProject.ID, domain.RegularTask, domain.Low, &taskA.IntID)
+
+		// Verify Task B is blocked
+		if taskB.BlockedBy == nil || *taskB.BlockedBy != taskA.IntID {
+			t.Error("Task B should be blocked by Task A")
+		}
+
+		// Move Task A to InProgress
+		service.MoveTaskToNextStatus(taskA.ID)
+
+		// Verify Task B is still blocked (blocker not Done yet)
+		taskB, _ = service.GetTask(taskB.ID)
+		if taskB.BlockedBy == nil {
+			t.Error("Task B should still be blocked (Task A is InProgress)")
+		}
+
+		// Move Task A to Done
+		service.MoveTaskToNextStatus(taskA.ID)
+
+		// Verify Task B is now unblocked
+		taskB, _ = service.GetTask(taskB.ID)
+		if taskB.BlockedBy != nil {
+			t.Error("Task B should be unblocked after Task A moved to Done")
+		}
+	})
+
+	t.Run("multiple blocked tasks are unblocked", func(t *testing.T) {
+		// Create Task X (blocker) and Tasks Y, Z (both blocked by X)
+		taskX, _ := service.CreateTask("Task X", "Blocker", testProject.ID, domain.RegularTask, domain.High, nil)
+		taskY, _ := service.CreateTask("Task Y", "Blocked 1", testProject.ID, domain.RegularTask, domain.Low, &taskX.IntID)
+		taskZ, _ := service.CreateTask("Task Z", "Blocked 2", testProject.ID, domain.RegularTask, domain.Low, &taskX.IntID)
+
+		// Move Task X to Done
+		service.MoveTaskToNextStatus(taskX.ID)
+		service.MoveTaskToNextStatus(taskX.ID)
+
+		// Verify both Y and Z are unblocked
+		taskY, _ = service.GetTask(taskY.ID)
+		taskZ, _ = service.GetTask(taskZ.ID)
+
+		if taskY.BlockedBy != nil {
+			t.Error("Task Y should be unblocked")
+		}
+		if taskZ.BlockedBy != nil {
+			t.Error("Task Z should be unblocked")
+		}
+	})
+
+	t.Run("moving blocker back from Done does not re-block", func(t *testing.T) {
+		// Create Task C (blocker) and Task D (blocked by C)
+		taskC, _ := service.CreateTask("Task C", "Blocker", testProject.ID, domain.RegularTask, domain.Medium, nil)
+		taskD, _ := service.CreateTask("Task D", "Blocked", testProject.ID, domain.RegularTask, domain.Low, &taskC.IntID)
+
+		// Move Task C to Done (unblocks Task D)
+		service.MoveTaskToNextStatus(taskC.ID)
+		service.MoveTaskToNextStatus(taskC.ID)
+
+		// Verify Task D is unblocked
+		taskD, _ = service.GetTask(taskD.ID)
+		if taskD.BlockedBy != nil {
+			t.Error("Task D should be unblocked")
+		}
+
+		// Move Task C back to InProgress
+		service.MoveTaskToPreviousStatus(taskC.ID)
+
+		// Verify Task D remains unblocked (no re-blocking)
+		taskD, _ = service.GetTask(taskD.ID)
+		if taskD.BlockedBy != nil {
+			t.Error("Task D should remain unblocked (no re-blocking)")
+		}
+	})
+
+	t.Run("cascade scenario - only direct dependents unblocked", func(t *testing.T) {
+		// Create Task E, F, G where E blocks F, F blocks G
+		taskE, _ := service.CreateTask("Task E", "Root blocker", testProject.ID, domain.RegularTask, domain.High, nil)
+		taskF, _ := service.CreateTask("Task F", "Intermediate", testProject.ID, domain.RegularTask, domain.Medium, &taskE.IntID)
+		taskG, _ := service.CreateTask("Task G", "Final", testProject.ID, domain.RegularTask, domain.Low, &taskF.IntID)
+
+		// Move Task E to Done
+		service.MoveTaskToNextStatus(taskE.ID)
+		service.MoveTaskToNextStatus(taskE.ID)
+
+		// Verify Task F is unblocked (direct dependent)
+		taskF, _ = service.GetTask(taskF.ID)
+		if taskF.BlockedBy != nil {
+			t.Error("Task F should be unblocked (direct dependent of E)")
+		}
+
+		// Verify Task G is still blocked by F (no cascade)
+		taskG, _ = service.GetTask(taskG.ID)
+		if taskG.BlockedBy == nil || *taskG.BlockedBy != taskF.IntID {
+			t.Error("Task G should still be blocked by F (no cascade unblocking)")
+		}
+	})
+
+	t.Run("using backwards movement to Done also unblocks", func(t *testing.T) {
+		// Create Task H (blocker) and Task I (blocked by H)
+		taskH, _ := service.CreateTask("Task H", "Blocker", testProject.ID, domain.RegularTask, domain.Medium, nil)
+		taskI, _ := service.CreateTask("Task I", "Blocked", testProject.ID, domain.RegularTask, domain.Low, &taskH.IntID)
+
+		// Verify Task I is blocked
+		if taskI.BlockedBy == nil || *taskI.BlockedBy != taskH.IntID {
+			t.Error("Task I should be blocked by Task H")
+		}
+
+		// Move Task H backwards from NotStarted to Done (cycle)
+		service.MoveTaskToPreviousStatus(taskH.ID)
+
+		// Verify Task I is now unblocked
+		taskI, _ = service.GetTask(taskI.ID)
+		if taskI.BlockedBy != nil {
+			t.Error("Task I should be unblocked after Task H moved to Done via backwards movement")
+		}
+	})
+
+	t.Run("deleting blocker unblocks dependent task", func(t *testing.T) {
+		// Create Task J (blocker) and Task K (blocked by J)
+		taskJ, _ := service.CreateTask("Task J", "Blocker to be deleted", testProject.ID, domain.RegularTask, domain.High, nil)
+		taskK, _ := service.CreateTask("Task K", "Blocked by J", testProject.ID, domain.RegularTask, domain.Low, &taskJ.IntID)
+
+		// Verify Task K is blocked
+		if taskK.BlockedBy == nil || *taskK.BlockedBy != taskJ.IntID {
+			t.Error("Task K should be blocked by Task J")
+		}
+
+		// Delete Task J (the blocker)
+		service.DeleteTask(taskJ.ID)
+
+		// Verify Task K is now unblocked
+		taskK, _ = service.GetTask(taskK.ID)
+		if taskK.BlockedBy != nil {
+			t.Error("Task K should be unblocked after Task J was deleted")
+		}
+	})
 }

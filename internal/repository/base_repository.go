@@ -51,8 +51,9 @@ func (b *BaseRepository) ScanTaskRows(rows *sql.Rows) ([]domain.Task, error) {
 	for rows.Next() {
 		var task domain.Task
 		err := rows.Scan(
-			&task.ID, &task.ProjectID, &task.Name, &task.Desc,
-			&task.Status, &task.Type, &task.Priority, &task.CreatedAt, &task.UpdatedAt,
+			&task.IntID, &task.ID, &task.ProjectID, &task.Name, &task.Desc,
+			&task.Status, &task.Type, &task.Priority, &task.BlockedBy,
+			&task.CreatedAt, &task.UpdatedAt,
 		)
 		if err != nil {
 			return nil, b.WrapDBError("scan", "task", "", err)
@@ -91,8 +92,9 @@ func (b *BaseRepository) ScanProjectRows(rows *sql.Rows) ([]domain.Project, erro
 func (b *BaseRepository) ScanSingleTask(row *sql.Row) (*domain.Task, error) {
 	var task domain.Task
 	err := row.Scan(
-		&task.ID, &task.ProjectID, &task.Name, &task.Desc,
-		&task.Status, &task.Type, &task.Priority, &task.CreatedAt, &task.UpdatedAt,
+		&task.IntID, &task.ID, &task.ProjectID, &task.Name, &task.Desc,
+		&task.Status, &task.Type, &task.Priority, &task.BlockedBy,
+		&task.CreatedAt, &task.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {

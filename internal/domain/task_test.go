@@ -43,6 +43,7 @@ func TestNewTask(t *testing.T) {
 			after := time.Now()
 
 			require.NotNil(t, task, "Task should not be nil")
+			assert.Equal(t, 0, task.IntID, "IntID should be 0 for new task (set by DB)")
 			assert.NotEmpty(t, task.ID, "Task ID should be generated")
 			assert.True(t, len(task.ID) > 4, "Task ID should have reasonable length")
 			assert.Contains(t, task.ID, "task_", "Task ID should have prefix")
@@ -52,6 +53,7 @@ func TestNewTask(t *testing.T) {
 			assert.Equal(t, NotStarted, task.Status, "Default status should be NotStarted")
 			assert.Equal(t, RegularTask, task.Type, "Default type should be RegularTask")
 			assert.Equal(t, Low, task.Priority, "Default priority should be Low")
+			assert.Nil(t, task.BlockedBy, "BlockedBy should be nil for new task")
 
 			// Test timestamps
 			assert.True(t, task.CreatedAt.After(before) || task.CreatedAt.Equal(before), "CreatedAt should be set correctly")
@@ -236,6 +238,13 @@ func TestTask_Validate(t *testing.T) {
 		{"invalid status", &Task{Name: "Task", Desc: "Description", ProjectID: "proj_123", Priority: Low, Status: Status(999)}, true, "status", "invalid status"},
 		{"invalid type low", &Task{Name: "Task", Desc: "Description", ProjectID: "proj_123", Priority: Low, Status: NotStarted, Type: TaskType(-1)}, true, "type", "invalid type"},
 		{"invalid type high", &Task{Name: "Task", Desc: "Description", ProjectID: "proj_123", Priority: Low, Status: NotStarted, Type: TaskType(999)}, true, "type", "invalid type"},
+		{"task blocks itself", func() *Task {
+			task := NewTask("Task", "Description", "proj_123")
+			task.IntID = 5
+			blockedBy := 5
+			task.BlockedBy = &blockedBy
+			return task
+		}(), true, "blocked_by", "cannot block itself"},
 	}
 
 	for _, tt := range tests {
@@ -349,6 +358,73 @@ func TestNewTask_WithTaskType(t *testing.T) {
 			require.NotNil(t, task, "Task should not be nil")
 			assert.Equal(t, tt.expectedType, task.Type, "Task type should match expected default")
 			assert.NoError(t, task.Validate(), "Task should be valid")
+		})
+	}
+}
+
+func TestTask_BlockedBy(t *testing.T) {
+	tests := []struct {
+		name      string
+		setupTask func() *Task
+		wantErr   bool
+		errMsg    string
+	}{
+		{
+			name: "task with nil BlockedBy is valid",
+			setupTask: func() *Task {
+				task := NewTask("Task", "Description", "proj_123")
+				task.IntID = 1
+				task.BlockedBy = nil
+				return task
+			},
+			wantErr: false,
+		},
+		{
+			name: "task blocked by another task is valid",
+			setupTask: func() *Task {
+				task := NewTask("Task", "Description", "proj_123")
+				task.IntID = 1
+				blockedBy := 2
+				task.BlockedBy = &blockedBy
+				return task
+			},
+			wantErr: false,
+		},
+		{
+			name: "task cannot block itself",
+			setupTask: func() *Task {
+				task := NewTask("Task", "Description", "proj_123")
+				task.IntID = 5
+				blockedBy := 5
+				task.BlockedBy = &blockedBy
+				return task
+			},
+			wantErr: true,
+			errMsg:  "cannot block itself",
+		},
+		{
+			name: "task with IntID=0 and BlockedBy can validate (before DB insert)",
+			setupTask: func() *Task {
+				task := NewTask("Task", "Description", "proj_123")
+				// IntID is 0 (not yet assigned by DB)
+				blockedBy := 5
+				task.BlockedBy = &blockedBy
+				return task
+			},
+			wantErr: false, // Should not error because IntID is 0
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := tt.setupTask()
+			err := task.Validate()
+			if tt.wantErr {
+				require.Error(t, err, "Expected validation error")
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				require.NoError(t, err, "Expected no validation error")
+			}
 		})
 	}
 }

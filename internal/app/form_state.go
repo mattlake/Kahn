@@ -21,15 +21,17 @@ func NewFormState(taskComps, projectComps *input.InputComponents) *FormState {
 	}
 }
 
-func (fs *FormState) ShowTaskForm() {
+func (fs *FormState) ShowTaskForm(availableTasks []domain.Task) {
 	fs.taskComponents.SetupForTaskCreate()
+	fs.taskComponents.SetAvailableTasks(availableTasks)
 	fs.activeFormType = input.TaskCreateForm
 	fs.showForm = true
 	fs.ClearError()
 }
 
-func (fs *FormState) ShowTaskEditForm(taskID string, name, description string, priority domain.Priority, taskType domain.TaskType) {
-	fs.taskComponents.SetupForTaskEdit(taskID, name, description, priority, taskType)
+func (fs *FormState) ShowTaskEditForm(taskID string, name, description string, priority domain.Priority, taskType domain.TaskType, blockedByIntID *int, availableTasks []domain.Task) {
+	fs.taskComponents.SetupForTaskEdit(taskID, name, description, priority, taskType, blockedByIntID)
+	fs.taskComponents.SetAvailableTasks(availableTasks)
 	fs.activeFormType = input.TaskEditForm
 	fs.showForm = true
 	fs.ClearError()
@@ -84,13 +86,14 @@ func (fs *FormState) ValidateForSubmit() (bool, string, string) {
 	return comps.ValidateForSubmit()
 }
 
-func (fs *FormState) GetFormData() (string, string, domain.TaskType, domain.Priority) {
+func (fs *FormState) GetFormData() (string, string, domain.TaskType, domain.Priority, *int) {
 	comps := fs.GetActiveInputComponents()
 	name := comps.NameInput.Value()
 	desc := comps.DescInput.Value()
 	taskType := comps.TypeValue
 	priority := comps.PriorityValue
-	return name, desc, taskType, priority
+	blockedBy := comps.BlockedByValue
+	return name, desc, taskType, priority, blockedBy
 }
 
 func (fs *FormState) GetTaskID() string {

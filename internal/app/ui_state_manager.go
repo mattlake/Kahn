@@ -65,15 +65,15 @@ func (usm *UIStateManager) HideAllStates() {
 }
 
 // ShowTaskForm shows the task creation form
-func (usm *UIStateManager) ShowTaskForm() {
+func (usm *UIStateManager) ShowTaskForm(availableTasks []domain.Task) {
 	usm.HideAllStates()
-	usm.formState.ShowTaskForm()
+	usm.formState.ShowTaskForm(availableTasks)
 }
 
 // ShowTaskEditForm shows the task editing form
-func (usm *UIStateManager) ShowTaskEditForm(taskID string, name, description string, priority domain.Priority, taskType domain.TaskType) {
+func (usm *UIStateManager) ShowTaskEditForm(taskID string, name, description string, priority domain.Priority, taskType domain.TaskType, blockedByIntID *int, availableTasks []domain.Task) {
 	usm.HideAllStates()
-	usm.formState.ShowTaskEditForm(taskID, name, description, priority, taskType)
+	usm.formState.ShowTaskEditForm(taskID, name, description, priority, taskType, blockedByIntID, availableTasks)
 }
 
 // ShowProjectForm shows the project creation form
