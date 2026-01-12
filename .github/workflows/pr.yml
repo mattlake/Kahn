@@ -1,0 +1,139 @@
+name: Pull Request Tests
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+
+env:
+  GO_VERSION: '1.25.5'
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Run tests
+      run: go test -v -race ./...
+
+    - name: Generate coverage
+      run: go test -coverprofile=coverage.out -covermode=atomic ./...
+
+    - name: Display coverage summary
+      run: |
+        echo "## Coverage Summary" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        go tool cover -func=coverage.out | tail -20 >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+
+    - name: Verify formatting
+      run: |
+        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          echo "❌ The following files are not formatted:"
+          gofmt -s -l .
+          exit 1
+        fi
+        echo "✅ All files are properly formatted"
+
+    - name: Run static analysis
+      run: go vet ./...
+
+    - name: Upload coverage to artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage.out
+        retention-days: 30
+
+  coverage-report:
+    name: Coverage Report
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Download coverage
+      uses: actions/download-artifact@v4
+      with:
+        name: coverage-report
+
+    - name: Generate coverage report
+      id: coverage
+      run: |
+        echo "## 📊 Test Coverage Report" > coverage_comment.txt
+        echo "" >> coverage_comment.txt
+        echo "### Overall Coverage" >> coverage_comment.txt
+        echo '```' >> coverage_comment.txt
+        go tool cover -func=coverage.out | tail -1 >> coverage_comment.txt
+        echo '```' >> coverage_comment.txt
+        echo "" >> coverage_comment.txt
+        echo "### Coverage by Package" >> coverage_comment.txt
+        echo '```' >> coverage_comment.txt
+        go tool cover -func=coverage.out | grep -E "^kahn/" | grep -v "total:" >> coverage_comment.txt
+        echo '```' >> coverage_comment.txt
+        
+        # Extract total coverage percentage
+        COVERAGE=$(go tool cover -func=coverage.out | tail -1 | awk '{print $3}')
+        echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+        echo "" >> coverage_comment.txt
+        echo "**Total Coverage: $COVERAGE**" >> coverage_comment.txt
+
+    - name: Comment PR
+      uses: actions/github-script@v7
+      if: github.event_name == 'pull_request'
+      with:
+        script: |
+          const fs = require('fs');
+          const coverage = fs.readFileSync('coverage_comment.txt', 'utf8');
+          
+          // Find existing comment
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+          
+          const botComment = comments.find(comment => 
+            comment.user.type === 'Bot' && 
+            comment.body.includes('Test Coverage Report')
+          );
+          
+          if (botComment) {
+            // Update existing comment
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body: coverage
+            });
+          } else {
+            // Create new comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: coverage
+            });
+          }
