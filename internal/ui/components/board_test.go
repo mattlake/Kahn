@@ -90,7 +90,7 @@ func TestBoardComponent_RenderBoard(t *testing.T) {
 	taskLists[domain.InProgress] = defaultList
 	taskLists[domain.Done] = defaultList
 
-	result := board.RenderBoard(project, taskLists, domain.NotStarted, 80, "v1.0.0")
+	result := board.RenderBoard(project, taskLists, domain.NotStarted, 80, "v1.0.0", false, "", 0)
 
 	assert.NotEmpty(t, result, "RenderBoard should not return empty string")
 	assert.Contains(t, result, "Test Project", "Should contain project name")
@@ -106,9 +106,49 @@ func TestBoardComponent_RenderBoard_NilProject(t *testing.T) {
 	taskLists[domain.InProgress] = defaultList
 	taskLists[domain.Done] = defaultList
 
-	result := board.RenderBoard(nil, taskLists, domain.NotStarted, 80, "v1.0.0")
+	result := board.RenderBoard(nil, taskLists, domain.NotStarted, 80, "v1.0.0", false, "", 0)
 
 	assert.Empty(t, result, "RenderBoard with nil project should return empty string")
+}
+
+func TestBoardComponent_RenderSearchBar(t *testing.T) {
+	board := &BoardComponent{}
+
+	result := board.RenderSearchBar("test query", 5, 80)
+
+	assert.NotEmpty(t, result, "RenderSearchBar should not return empty string")
+	assert.Contains(t, result, "Search:", "Should contain search label")
+	assert.Contains(t, result, "test query", "Should contain the search query")
+	assert.Contains(t, result, "(5 matches)", "Should contain match count")
+	assert.Contains(t, result, "Clear search", "Should contain help text")
+}
+
+func TestBoardComponent_RenderBoard_WithSearch(t *testing.T) {
+	board := &BoardComponent{}
+
+	// Create test project
+	project := &domain.Project{
+		ID:          "test_proj_1",
+		Name:        "Test Project",
+		Description: "A test project",
+		Color:       "#ff6b6b",
+	}
+
+	// Create test task lists
+	defaultList := list.New([]list.Item{}, list.NewDefaultDelegate(), 20, 10)
+	var taskLists [3]list.Model
+	taskLists[domain.NotStarted] = defaultList
+	taskLists[domain.InProgress] = defaultList
+	taskLists[domain.Done] = defaultList
+
+	// Test with search active
+	result := board.RenderBoard(project, taskLists, domain.NotStarted, 80, "v1.0.0", true, "api", 3)
+
+	assert.NotEmpty(t, result, "RenderBoard should not return empty string")
+	assert.Contains(t, result, "Search:", "Should contain search bar when search is active")
+	assert.Contains(t, result, "api", "Should contain search query")
+	assert.Contains(t, result, "(3 matches)", "Should contain match count")
+	assert.NotContains(t, result, "Test Project", "Should not show project footer when search is active")
 }
 
 func TestNewBoard(t *testing.T) {

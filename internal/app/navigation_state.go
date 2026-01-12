@@ -124,6 +124,62 @@ func (ns *NavigationState) UpdateTaskLists(project *domain.Project, taskService 
 	ns.clearAllDirtyFlags()
 }
 
+// UpdateTaskListsWithSearch updates task lists with search filter applied
+// UpdateTaskListsWithSearch refreshes all task lists from the database and applies
+// the search filter to each status column. Preserves cursor positions across refresh.
+func (ns *NavigationState) UpdateTaskListsWithSearch(
+	project *domain.Project,
+	taskService *services.TaskService,
+	searchQuery string,
+) {
+	if project == nil {
+		return
+	}
+
+	// Save current selection states before refreshing
+	notStartedIndex := ns.Tasks[domain.NotStarted].Index()
+	inProgressIndex := ns.Tasks[domain.InProgress].Index()
+	doneIndex := ns.Tasks[domain.Done].Index()
+
+	allTasks, err := taskService.GetTasksByProject(project.ID)
+	if err != nil {
+		// Handle error - set empty lists
+		ns.Tasks[domain.NotStarted].SetItems([]list.Item{})
+		ns.Tasks[domain.InProgress].SetItems([]list.Item{})
+		ns.Tasks[domain.Done].SetItems([]list.Item{})
+		return
+	}
+
+	// Update project tasks with all tasks from database
+	project.Tasks = allTasks
+
+	// Get tasks by status and apply search filter
+	for _, status := range []domain.Status{domain.NotStarted, domain.InProgress, domain.Done} {
+		statusTasks := project.GetTasksByStatus(status)
+		filteredTasks := domain.SearchTasks(statusTasks, searchQuery)
+		ns.Tasks[status].SetItems(convertTasksToListItems(filteredTasks))
+	}
+
+	// Update selection states after refresh
+	ns.Tasks[domain.NotStarted].SetItems(styles.UpdateTaskSelection(
+		ns.Tasks[domain.NotStarted].Items(),
+		notStartedIndex,
+		ns.activeListIndex == domain.NotStarted,
+	))
+	ns.Tasks[domain.InProgress].SetItems(styles.UpdateTaskSelection(
+		ns.Tasks[domain.InProgress].Items(),
+		inProgressIndex,
+		ns.activeListIndex == domain.InProgress,
+	))
+	ns.Tasks[domain.Done].SetItems(styles.UpdateTaskSelection(
+		ns.Tasks[domain.Done].Items(),
+		doneIndex,
+		ns.activeListIndex == domain.Done,
+	))
+
+	ns.clearAllDirtyFlags()
+}
+
 func (ns *NavigationState) GetActiveList() *list.Model {
 	return &ns.Tasks[ns.activeListIndex]
 }

@@ -155,6 +155,13 @@ func (km *KahnModel) handleProjectSwitch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if proj.ID == activeID {
 				nextIndex := (i + 1) % len(projects)
 				km.projectManager.SwitchToProject(projects[nextIndex].ID)
+
+				// Clear search when switching projects
+				if km.searchState.IsActive() {
+					km.searchState.Clear()
+					km.RefreshTasksWithSearch()
+				}
+
 				return km, nil
 			}
 		}
@@ -165,11 +172,25 @@ func (km *KahnModel) handleProjectSwitch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if proj.ID == activeID {
 				prevIndex := (i - 1 + len(projects)) % len(projects)
 				km.projectManager.SwitchToProject(projects[prevIndex].ID)
+
+				// Clear search when switching projects
+				if km.searchState.IsActive() {
+					km.searchState.Clear()
+					km.RefreshTasksWithSearch()
+				}
+
 				return km, nil
 			}
 		}
 	case "enter":
 		navState.HideProjectSwitch()
+
+		// Clear search when switching projects
+		if km.searchState.IsActive() {
+			km.searchState.Clear()
+			km.RefreshTasksWithSearch()
+		}
+
 		return km, nil
 	default:
 		if len(msg.String()) == 1 && msg.String()[0] >= '1' && msg.String()[0] <= '9' {
@@ -178,6 +199,12 @@ func (km *KahnModel) handleProjectSwitch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if index < len(projects) {
 				km.projectManager.SwitchToProject(projects[index].ID)
 				navState.HideProjectSwitch()
+
+				// Clear search when switching projects
+				if km.searchState.IsActive() {
+					km.searchState.Clear()
+					km.RefreshTasksWithSearch()
+				}
 			}
 		}
 		return km, nil
@@ -198,9 +225,48 @@ func (km *KahnModel) handleTaskDeleteConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd
 	return km, nil
 }
 
+// handleSearchInput processes keyboard input when in search mode.
+// Handles character input, backspace, and Esc to exit search.
+func (km *KahnModel) handleSearchInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		// Clear search and return to normal mode
+		km.searchState.Clear()
+		km.RefreshTasksWithSearch() // Shows all tasks
+		return km, nil
+
+	case "backspace":
+		// Remove last character
+		km.searchState.Backspace()
+		km.RefreshTasksWithSearch()
+		return km, nil
+
+	case "enter":
+		// Enter doesn't do anything special (already filtering in real-time)
+		return km, nil
+
+	default:
+		// Append typed character to search query
+		// Filter printable characters only
+		if len(msg.String()) == 1 {
+			km.searchState.AppendChar(msg.String())
+			km.RefreshTasksWithSearch()
+		}
+		return km, nil
+	}
+}
+
 func (km *KahnModel) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Handle navigation keys by updating the active list
 	keyStr := msg.String()
+
+	// Handle search activation
+	if keyStr == "/" {
+		km.searchState.Activate()
+		km.RefreshTasksWithSearch() // Initialize with empty search
+		return km, nil
+	}
+
+	// Handle navigation keys by updating the active list
 	if keyStr == "up" || keyStr == "down" || keyStr == "j" || keyStr == "k" {
 		cmd := km.navState.UpdateActiveList(msg)
 		return km, cmd

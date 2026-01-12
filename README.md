@@ -16,6 +16,7 @@ Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea).
 - Project management with custom names and descriptions
 - Three-column kanban board (Not Started, In Progress, Done)
 - Task prioritization with Low/Medium/High levels
+- Real-time task search and filtering
 - Clean terminal UI with keyboard navigation
 - Multiplatform support (Linux, macOS, Windows)
 - Flexible configuration via file, environment variables, or flags
@@ -52,6 +53,22 @@ Download pre-compiled binaries from the [Releases](https://github.com/mattlake/k
 | `n` | Create new task |
 | `e` | Edit selected task |
 | `d` | Delete selected task |
+| `/` | Search/filter tasks by name |
+
+### Search
+| Key(s) | Action |
+|--------|--------|
+| `/` | Activate search mode |
+| `type` | Filter tasks in real-time (case-insensitive) |
+| `backspace` | Remove character from search |
+| `esc` | Clear search and exit search mode |
+
+**Search Features:**
+- Real-time filtering as you type
+- Case-insensitive substring matching
+- Shows match count
+- Search persists when creating/editing/deleting tasks
+- Clears automatically when switching projects
 
 ### Project Management
 | Key(s) | Action |
