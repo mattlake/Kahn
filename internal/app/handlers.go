@@ -1,6 +1,7 @@
 package app
 
 import (
+	"kahn/internal/domain"
 	"kahn/internal/ui/styles"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -320,6 +321,25 @@ func (km *KahnModel) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return km, nil
+	case "enter":
+		if selectedItem := km.navState.GetActiveList().SelectedItem(); selectedItem != nil {
+			if taskWrapper, ok := selectedItem.(styles.TaskWithTitle); ok {
+				// Fetch full task from service
+				task, err := km.taskService.GetTask(taskWrapper.ID)
+				if err != nil {
+					return km, nil // Fail silently
+				}
+
+				// Fetch blocking task if exists
+				var blockingTask *domain.Task
+				if task.BlockedBy != nil {
+					blockingTask = km.findTaskByIntID(*task.BlockedBy)
+				}
+
+				km.uiStateManager.ShowTaskDetailView(task, blockingTask)
+			}
+		}
+		return km, nil
 	}
 	return km, nil
 }
@@ -344,4 +364,35 @@ func (km *KahnModel) handleResize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	listHeight := availableHeight - projectFooterHeight
 	km.navState.UpdateListSizes(availableWidth, listHeight)
 	return km, nil
+}
+
+func (km *KahnModel) handleTaskDetailInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		km.uiStateManager.HideAllStates()
+		return km, nil
+	case "e":
+		task := km.uiStateManager.TaskDetailState().GetTask()
+		if task != nil {
+			// Replace detail view with edit form
+			km.ShowTaskEditForm(task.ID, task.Name, task.Desc, task.Priority, task.Type, task.BlockedBy)
+		}
+		return km, nil
+	}
+	return km, nil
+}
+
+// findTaskByIntID finds a task in the active project by its IntID
+func (km *KahnModel) findTaskByIntID(intID int) *domain.Task {
+	activeProj := km.GetActiveProject()
+	if activeProj == nil {
+		return nil
+	}
+
+	for _, task := range activeProj.Tasks {
+		if task.IntID == intID {
+			return &task
+		}
+	}
+	return nil
 }
