@@ -1,11 +1,14 @@
 package styles
 
 import (
+	"strings"
+
 	"kahn/internal/domain"
 	"kahn/internal/ui/colors"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 )
 
 // PERFORMANCE: Pre-allocated style objects to avoid recreating on every render
@@ -32,6 +35,39 @@ var (
 	}
 )
 
+// truncateString truncates a string to maxWidth visible characters
+// and appends an ellipsis if truncated
+func truncateString(s string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+
+	currentWidth := runewidth.StringWidth(s)
+	if currentWidth <= maxWidth {
+		return s
+	}
+
+	// Reserve 1 char for ellipsis
+	targetWidth := maxWidth - 1
+	if targetWidth <= 0 {
+		return "…"
+	}
+
+	// Truncate at rune boundaries
+	var result strings.Builder
+	currentWidth = 0
+	for _, r := range s {
+		w := runewidth.RuneWidth(r)
+		if currentWidth+w > targetWidth {
+			break
+		}
+		result.WriteRune(r)
+		currentWidth += w
+	}
+	result.WriteString("…")
+	return result.String()
+}
+
 // TaskWithTitle wraps a domain.Task with priority-formatted title
 // This allows us to keep Task.Title() pure while modifying display
 type TaskWithTitle struct {
@@ -39,6 +75,7 @@ type TaskWithTitle struct {
 	priorityText string
 	isSelected   bool
 	isActiveList bool
+	ColumnWidth  int
 }
 
 // Title returns the priority-formatted title for display
@@ -46,6 +83,17 @@ type TaskWithTitle struct {
 func (t TaskWithTitle) Title() string {
 
 	title := t.Task.Title()
+
+	// Calculate available width for task name
+	// Account for priority text (2-3 chars) + task icon (2 chars) + padding
+	prefixWidth := runewidth.StringWidth(t.priorityText) + 3 // priority + "󰄬 " icon
+	availableWidth := t.ColumnWidth - prefixWidth - 4        // -4 for safety margin and borders
+
+	// Truncate task name if needed and if we have a valid column width
+	if t.ColumnWidth > 0 && availableWidth > 0 {
+		title = truncateString(title, availableWidth)
+	}
+
 	switch t.Task.Type {
 	case domain.RegularTask:
 		title = "󰄬 " + title
@@ -80,10 +128,11 @@ func (t TaskWithTitle) GetTaskType() domain.TaskType {
 }
 
 // NewTaskWithTitle creates a wrapper for display purposes
-func NewTaskWithTitle(task domain.Task) TaskWithTitle {
+func NewTaskWithTitle(task domain.Task, columnWidth int) TaskWithTitle {
 	return TaskWithTitle{
 		Task:         task,
 		priorityText: GetPriorityIndicatorUncolored(task.Priority),
+		ColumnWidth:  columnWidth,
 	}
 }
 

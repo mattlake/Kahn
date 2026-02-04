@@ -110,8 +110,8 @@ func TestNewTaskWithTitle(t *testing.T) {
 	task := domain.NewTask("Test Task", "", "proj")
 	task.Priority = domain.High
 
-	// Wrap with priority formatting
-	wrapped := NewTaskWithTitle(*task)
+	// Wrap with priority formatting (use a reasonable column width for testing)
+	wrapped := NewTaskWithTitle(*task, 50)
 
 	// Check that it's properly wrapped
 	assert.Equal(t, "»» 󰄬 Test Task", wrapped.Title()) // Should include priority indicators + task type + task name
@@ -122,4 +122,25 @@ func TestNewTaskWithTitle(t *testing.T) {
 	formattedTitle := wrapped.Title()
 	assert.Contains(t, formattedTitle, "»»")        // Should include high priority indicators
 	assert.Contains(t, formattedTitle, "Test Task") // Should include task name
+}
+
+func TestTaskWithTitleTruncation(t *testing.T) {
+	// Create a task with a very long name
+	task := domain.NewTask("This is a very long task title that should be truncated when the column width is narrow", "", "proj")
+	task.Priority = domain.Medium
+
+	// Test with narrow column width
+	wrapped := NewTaskWithTitle(*task, 25)
+	title := wrapped.Title()
+
+	// The title should be truncated and end with ellipsis
+	assert.Contains(t, title, "…", "Long title should be truncated with ellipsis")
+	// The title should not contain the full original text
+	assert.NotContains(t, title, "column width is narrow", "Title should be truncated before the end")
+
+	// Test with wide column width - title should not be truncated
+	wideWrapped := NewTaskWithTitle(*task, 150)
+	wideTitle := wideWrapped.Title()
+	assert.Contains(t, wideTitle, "column width is narrow", "With wide column, full title should be visible")
+	assert.NotContains(t, wideTitle, "…", "With wide column, no ellipsis should be present")
 }
