@@ -35,7 +35,7 @@ type InputComponents struct {
 func NewInputComponents() InputComponents {
 	ta := textarea.New()
 	ta.SetWidth(40) // Must set width/height to initialize internal viewport
-	ta.SetHeight(4)
+	ta.SetHeight(6)
 	return InputComponents{
 		formType:     TaskCreateForm,
 		FocusedField: 0,
@@ -97,9 +97,9 @@ func (ic *InputComponents) createNameInput(placeholder string) textinput.Model {
 func (ic *InputComponents) createDescInput(placeholder string) textarea.Model {
 	ta := textarea.New()
 	ta.Placeholder = placeholder
-	ta.CharLimit = 200
+	ta.CharLimit = 500
 	ta.SetWidth(40)
-	ta.SetHeight(4) // 4 lines as recommended
+	ta.SetHeight(6) // 6 lines for better visibility
 	ta.ShowLineNumbers = false
 
 	// Style configuration - focused state

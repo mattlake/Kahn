@@ -28,7 +28,7 @@ func NewTaskDetailRenderer() *TaskDetailRenderer {
 			BorderStyle(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color(colors.Blue)).
 			Padding(1, 2).
-			Width(54),
+			Width(70),
 		titleStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(colors.Text)).
 			Bold(true).
@@ -46,7 +46,7 @@ func NewTaskDetailRenderer() *TaskDetailRenderer {
 			Foreground(lipgloss.Color(colors.Subtext0)).
 			MarginTop(1).
 			Align(lipgloss.Center),
-		contentWidth:  50,
+		contentWidth:  66,
 		contentHeight: 20,
 	}
 }
@@ -109,7 +109,7 @@ func (tdr *TaskDetailRenderer) Render(task *domain.Task, blockingTask *domain.Ta
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(colors.Blue)).
 		Padding(1, 2).
-		Width(54).
+		Width(70).
 		Render(content.String())
 
 	return modalContent
