@@ -25,7 +25,10 @@ func main() {
 	}
 	defer database.Close()
 
-	m := app.NewKahnModel(database, Version)
+	m, err := app.NewKahnModel(database, Version)
+	if err != nil {
+		log.Fatalf("Failed to initialize app: %v", err)
+	}
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)

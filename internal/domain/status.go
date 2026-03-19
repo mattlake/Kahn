@@ -8,6 +8,11 @@ const (
 	Done
 )
 
+// IsValidStatus returns true if v is a valid Status value.
+func IsValidStatus(v int) bool {
+	return v >= int(NotStarted) && v <= int(Done)
+}
+
 func (s Status) ToString() string {
 	switch s {
 	case NotStarted:

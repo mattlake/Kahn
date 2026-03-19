@@ -23,11 +23,12 @@ func NewProjectManager(projectService *services.ProjectService, taskService *ser
 	}
 }
 
-// InitializeProjects loads projects from the service and sets up the active project
+// InitializeProjects loads projects from the service and sets up the active project.
+// Returns an error if the database cannot be read or written.
 func (pm *ProjectManager) InitializeProjects() error {
 	projects, err := pm.projectService.GetAllProjects()
 	if err != nil {
-		projects = []domain.Project{}
+		return err
 	}
 
 	for i := range projects {
@@ -42,10 +43,9 @@ func (pm *ProjectManager) InitializeProjects() error {
 	if len(projects) == 0 {
 		newProject, err := pm.projectService.CreateProject("Default Project", "A default project for your tasks")
 		if err != nil {
-			projects = []domain.Project{}
-		} else {
-			projects = []domain.Project{*newProject}
+			return err
 		}
+		projects = []domain.Project{*newProject}
 	}
 
 	pm.projects = projects

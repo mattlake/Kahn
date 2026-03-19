@@ -107,14 +107,14 @@ func (ts *TaskService) MoveTaskToNextStatus(id string) (*domain.Task, error) {
 		return nil, domain.NewRepositoryError("update status", "task", id, err)
 	}
 
+	task.Status = nextStatus
+
 	if nextStatus == domain.Done {
 		if err := ts.UnblockDependents(task.IntID); err != nil {
-			// Ignore error; status was updated successfully
-			return task, nil
+			return task, fmt.Errorf("task moved to done but dependents could not be unblocked: %w", err)
 		}
 	}
 
-	task.Status = nextStatus
 	return task, nil
 }
 
@@ -138,14 +138,14 @@ func (ts *TaskService) MoveTaskToPreviousStatus(id string) (*domain.Task, error)
 		return nil, domain.NewRepositoryError("update status", "task", id, err)
 	}
 
+	task.Status = prevStatus
+
 	if prevStatus == domain.Done {
 		if err := ts.UnblockDependents(task.IntID); err != nil {
-			// Ignore error; status was updated successfully
-			return task, nil
+			return task, fmt.Errorf("task moved to done but dependents could not be unblocked: %w", err)
 		}
 	}
 
-	task.Status = prevStatus
 	return task, nil
 }
 
@@ -197,14 +197,14 @@ func (ts *TaskService) UpdateTaskStatus(id string, status domain.Status) (*domai
 		return nil, domain.NewRepositoryError("update status", "task", id, err)
 	}
 
+	task.Status = status
+
 	if status == domain.Done {
 		if err := ts.UnblockDependents(task.IntID); err != nil {
-			// Ignore error; status was updated successfully
-			return task, nil
+			return task, fmt.Errorf("task moved to done but dependents could not be unblocked: %w", err)
 		}
 	}
 
-	task.Status = status
 	return task, nil
 }
 
