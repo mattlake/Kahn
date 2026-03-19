@@ -22,7 +22,10 @@ func TestKahnModelCreation(t *testing.T) {
 	}
 	defer db.Close()
 
-	model := app.NewKahnModel(db, "test")
+	model, err := app.NewKahnModel(db, "test")
+	if err != nil {
+		t.Fatalf("NewKahnModel returned error: %v", err)
+	}
 	if model == nil {
 		t.Fatal("NewKahnModel should not return nil")
 	}

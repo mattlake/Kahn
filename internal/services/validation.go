@@ -12,32 +12,6 @@ func NewServiceValidator() *ServiceValidator {
 	return &ServiceValidator{}
 }
 
-// ValidateEntityExists checks if an entity exists in the repository
-func (v *ServiceValidator) ValidateEntityExists(repo interface{}, id, entityType string) (interface{}, error) {
-	switch repo := repo.(type) {
-	case domain.TaskRepository:
-		task, err := repo.GetByID(id)
-		if err != nil {
-			return nil, domain.NewRepositoryError("get", entityType, id, err)
-		}
-		if task == nil {
-			return nil, domain.NewValidationError("id", entityType+" not found")
-		}
-		return task, nil
-	case domain.ProjectRepository:
-		project, err := repo.GetByID(id)
-		if err != nil {
-			return nil, domain.NewRepositoryError("get", entityType, id, err)
-		}
-		if project == nil {
-			return nil, domain.NewValidationError("id", entityType+" not found")
-		}
-		return project, nil
-	default:
-		return nil, domain.NewValidationError("repository", "unsupported repository type")
-	}
-}
-
 // ValidateEntityID checks if an entity ID is not empty
 func (v *ServiceValidator) ValidateEntityID(id, entityType string) error {
 	if id == "" {

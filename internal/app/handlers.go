@@ -8,6 +8,15 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// Form field indices for task and project forms.
+const (
+	fieldName = iota
+	fieldDesc
+	fieldPriority
+	fieldType
+	fieldBlockedBy
+)
+
 func (km *KahnModel) handleFormInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	comps := km.uiStateManager.FormState().GetActiveInputComponents()
 
@@ -29,7 +38,7 @@ func (km *KahnModel) handleFormInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return km, nil
 	case "enter":
 		// If description field is focused, allow newlines in textarea
-		if comps.FocusedField == 1 { // Description field (field index 1)
+		if comps.FocusedField == fieldDesc {
 			updatedDesc, cmd := comps.DescInput.Update(msg)
 			comps.DescInput = updatedDesc
 			return km, cmd
@@ -47,21 +56,21 @@ func (km *KahnModel) handleFormInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "up", "down":
 		// Handle priority/type/blocked_by cycling when those fields are focused
 		if comps.IsTaskForm() {
-			if comps.FocusedField == 2 { // Priority field focused
+			if comps.FocusedField == fieldPriority {
 				if msg.String() == "up" {
 					comps.CyclePriorityUp()
 				} else {
 					comps.CyclePriorityDown()
 				}
 				return km, nil
-			} else if comps.FocusedField == 3 { // Type field focused
+			} else if comps.FocusedField == fieldType {
 				if msg.String() == "up" {
 					comps.CycleTypeUp()
 				} else {
 					comps.CycleTypeDown()
 				}
 				return km, nil
-			} else if comps.FocusedField == 4 { // BlockedBy field focused
+			} else if comps.FocusedField == fieldBlockedBy {
 				if msg.String() == "up" {
 					comps.CycleBlockedByUp()
 				} else {
@@ -77,7 +86,7 @@ func (km *KahnModel) handleFormInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// Update the focused input field
-	if comps.FocusedField == 0 {
+	if comps.FocusedField == fieldName {
 		updatedName, cmd := comps.NameInput.Update(msg)
 		comps.NameInput = updatedName
 		return km, cmd
@@ -92,10 +101,10 @@ func (km *KahnModel) handleTabKey() tea.Model {
 	comps := km.uiStateManager.FormState().GetActiveInputComponents()
 
 	switch comps.FocusedField {
-	case 0: // Name -> Description
+	case fieldName: // Name -> Description
 		comps.FocusDesc()
 		comps.BlurName()
-	case 1: // Description -> Priority (for task forms) or Name (for project forms)
+	case fieldDesc: // Description -> Priority (for task forms) or Name (for project forms)
 		if comps.IsTaskForm() {
 			// Task forms: Description -> Priority
 			comps.FocusPriority()
@@ -105,13 +114,13 @@ func (km *KahnModel) handleTabKey() tea.Model {
 			comps.FocusName()
 			comps.BlurDesc()
 		}
-	case 2: // Priority -> Type (only for task forms)
+	case fieldPriority: // Priority -> Type (only for task forms)
 		comps.FocusType()
 		comps.BlurPriority()
-	case 3: // Type -> BlockedBy (only for task forms)
+	case fieldType: // Type -> BlockedBy (only for task forms)
 		comps.FocusBlockedBy()
 		comps.BlurType()
-	case 4: // BlockedBy -> Name (only for task forms, cycle back)
+	case fieldBlockedBy: // BlockedBy -> Name (only for task forms, cycle back)
 		comps.FocusName()
 		comps.BlurBlockedBy()
 	default:

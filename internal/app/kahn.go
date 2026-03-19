@@ -101,7 +101,7 @@ func (km *KahnModel) renderBoard() string {
 
 	activeProj := km.projectManager.GetActiveProject()
 	if activeProj == nil {
-		return ""
+		return "No project selected — press 'p' to switch projects"
 	}
 
 	taskLists := km.getTaskListsForBoard()
@@ -194,28 +194,30 @@ func (km *KahnModel) CreateTaskWithPriority(name, description string, priority d
 }
 
 func (km *KahnModel) UpdateTask(id, name, description string, priority domain.Priority, taskType domain.TaskType) error {
+	activeProj := km.GetActiveProject()
+	if activeProj == nil {
+		return fmt.Errorf("no active project")
+	}
+
 	task, err := km.taskService.UpdateTask(id, name, description, taskType, priority)
 	if err != nil {
 		return err
 	}
 
-	activeProj := km.GetActiveProject()
-	if activeProj != nil {
-		var taskStatus domain.Status
-		for i, t := range activeProj.Tasks {
-			if t.ID == id {
-				taskStatus = t.Status // Save status before update
-				activeProj.Tasks[i].Name = task.Name
-				activeProj.Tasks[i].Desc = task.Desc
-				activeProj.Tasks[i].Priority = task.Priority
-				activeProj.Tasks[i].UpdatedAt = task.UpdatedAt
-				break
-			}
+	var taskStatus domain.Status
+	for i, t := range activeProj.Tasks {
+		if t.ID == id {
+			taskStatus = t.Status // Save status before update
+			activeProj.Tasks[i].Name = task.Name
+			activeProj.Tasks[i].Desc = task.Desc
+			activeProj.Tasks[i].Priority = task.Priority
+			activeProj.Tasks[i].UpdatedAt = task.UpdatedAt
+			break
 		}
-
-		km.navState.MarkListDirty(taskStatus)
-		km.RefreshTasksWithSearch()
 	}
+
+	km.navState.MarkListDirty(taskStatus)
+	km.RefreshTasksWithSearch()
 
 	return nil
 }
@@ -237,74 +239,56 @@ func (km *KahnModel) DeleteTask(id string) error {
 	return nil
 }
 
-func (km *KahnModel) MoveTaskToNextStatus(id string) error {
+// moveTask moves a task forward or backward in status and updates in-memory state.
+// In-memory state is always updated from the returned task, even when an error occurs.
+func (km *KahnModel) moveTask(id string, forward bool) error {
 	activeProj := km.GetActiveProject()
 	if activeProj == nil {
 		return nil
 	}
 
-	// Find current status before movement for dirty flags
+	// Capture current status before movement for dirty flags
 	var oldStatus domain.Status
-	var movingToComplete bool
+	var movingToDone bool
 	for _, t := range activeProj.Tasks {
 		if t.ID == id {
 			oldStatus = t.Status
-			movingToComplete = (t.Status == domain.InProgress)
+			movingToDone = (forward && t.Status == domain.InProgress) ||
+				(!forward && t.Status == domain.NotStarted)
 			break
 		}
 	}
 
-	task, err := km.taskService.MoveTaskToNextStatus(id)
-	if err != nil {
-		return err
+	var (
+		task *domain.Task
+		err  error
+	)
+	if forward {
+		task, err = km.taskService.MoveTaskToNextStatus(id)
+	} else {
+		task, err = km.taskService.MoveTaskToPreviousStatus(id)
 	}
 
-	activeProj.UpdateTaskStatus(id, task.Status)
-	km.navState.MarkListDirty(oldStatus)
-	km.navState.MarkListDirty(task.Status)
-
-	// Refresh all columns to update visual indicators for unblocked tasks
-	if movingToComplete {
-		km.navState.MarkAllListsDirty()
+	// Update in-memory state even if unblocking failed, so UI stays consistent.
+	if task != nil {
+		activeProj.UpdateTaskStatus(id, task.Status)
+		km.navState.MarkListDirty(oldStatus)
+		km.navState.MarkListDirty(task.Status)
+		if movingToDone {
+			km.navState.MarkAllListsDirty()
+		}
+		km.RefreshTasksWithSearch()
 	}
 
-	km.RefreshTasksWithSearch()
-	return nil
+	return err
+}
+
+func (km *KahnModel) MoveTaskToNextStatus(id string) error {
+	return km.moveTask(id, true)
 }
 
 func (km *KahnModel) MoveTaskToPreviousStatus(id string) error {
-	activeProj := km.GetActiveProject()
-	if activeProj == nil {
-		return nil
-	}
-
-	// Find current status before movement for dirty flags
-	var oldStatus domain.Status
-	var movingToComplete bool
-	for _, t := range activeProj.Tasks {
-		if t.ID == id {
-			oldStatus = t.Status
-			movingToComplete = (t.Status == domain.NotStarted)
-			break
-		}
-	}
-
-	task, err := km.taskService.MoveTaskToPreviousStatus(id)
-	if err != nil {
-		return err
-	}
-
-	activeProj.UpdateTaskStatus(id, task.Status)
-	km.navState.MarkListDirty(oldStatus)
-	km.navState.MarkListDirty(task.Status)
-
-	// Refresh all columns to update visual indicators for unblocked tasks
-	if movingToComplete {
-		km.navState.MarkAllListsDirty()
-	}
-
-	km.RefreshTasksWithSearch()
-	return nil
+	return km.moveTask(id, false)
 }
 
 // GetSelectedTask returns the currently selected task for internal use
@@ -332,16 +316,6 @@ func (km *KahnModel) DeleteProject(id string) error {
 
 func (km *KahnModel) SwitchToProject(id string) error {
 	return km.projectManager.SwitchToProject(id)
-}
-
-func (km *KahnModel) GetFormError() string {
-	errorMsg, _ := km.uiStateManager.FormState().GetError()
-	return errorMsg
-}
-
-func (km *KahnModel) GetFormErrorField() string {
-	_, errorField := km.uiStateManager.FormState().GetError()
-	return errorField
 }
 
 func (km *KahnModel) ClearFormError() {
@@ -613,7 +587,7 @@ func (km *KahnModel) IsShowingProjectSwitch() bool {
 	return km.navState.IsShowingProjectSwitch()
 }
 
-func NewKahnModel(database *database.Database, version string) *KahnModel {
+func NewKahnModel(database *database.Database, version string) (*KahnModel, error) {
 	// Create delegates for different list states
 	activeDelegate := styles.NewActiveListDelegate()
 	inactiveDelegate := styles.NewInactiveListDelegate()
@@ -652,7 +626,9 @@ func NewKahnModel(database *database.Database, version string) *KahnModel {
 	uiStateManager := NewUIStateManager(formState, confirmState, navState, taskDetailState)
 
 	// Initialize projects through project manager
-	projectManager.InitializeProjects()
+	if err := projectManager.InitializeProjects(); err != nil {
+		return nil, err
+	}
 
 	// Apply list titles and styles
 	taskLists[domain.NotStarted].Title = domain.NotStarted.ToString()
@@ -681,5 +657,5 @@ func NewKahnModel(database *database.Database, version string) *KahnModel {
 		projectManager:  projectManager,
 		navState:        navState,
 		searchState:     searchState,
-	}
+	}, nil
 }

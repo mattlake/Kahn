@@ -28,7 +28,8 @@ func setupTestApp(t *testing.T) (*KahnModel, func()) {
 	require.NoError(t, err, "Failed to create test database")
 
 	// Create KahnModel
-	model := NewKahnModel(db, "test-version")
+	model, err := NewKahnModel(db, "test-version")
+	require.NoError(t, err, "NewKahnModel should not return an error")
 	require.NotNil(t, model, "NewKahnModel should not return nil")
 
 	// Cleanup function
