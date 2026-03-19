@@ -6,11 +6,11 @@ import (
 	"kahn/internal/ui/styles"
 )
 
-func convertTasksToListItems(tasks []domain.Task) []list.Item {
+func convertTasksToListItems(tasks []domain.Task, columnWidth int) []list.Item {
 	items := make([]list.Item, len(tasks))
 	for i, task := range tasks {
 
-		items[i] = styles.NewTaskWithTitle(task)
+		items[i] = styles.NewTaskWithTitle(task, columnWidth)
 	}
 	return items
 }

@@ -12,6 +12,7 @@ type NavigationState struct {
 	showProjectSwitch bool
 	activeListIndex   domain.Status
 	Tasks             []list.Model
+	columnWidth       int
 
 	dirtyFlags map[domain.Status]bool
 }
@@ -20,6 +21,7 @@ func NewNavigationState(tasks []list.Model) *NavigationState {
 	return &NavigationState{
 		Tasks:           tasks,
 		activeListIndex: domain.NotStarted,
+		columnWidth:     30, // Default width, will be updated on first resize
 	}
 }
 
@@ -112,9 +114,9 @@ func (ns *NavigationState) UpdateTaskLists(project *domain.Project, taskService 
 
 	// Convert tasks to list items and update each status list
 	// This preserves the existing filtering and UI behavior while using single DB query
-	ns.Tasks[domain.NotStarted].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.NotStarted)))
-	ns.Tasks[domain.InProgress].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.InProgress)))
-	ns.Tasks[domain.Done].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.Done)))
+	ns.Tasks[domain.NotStarted].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.NotStarted), ns.columnWidth))
+	ns.Tasks[domain.InProgress].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.InProgress), ns.columnWidth))
+	ns.Tasks[domain.Done].SetItems(convertTasksToListItems(project.GetTasksByStatus(domain.Done), ns.columnWidth))
 
 	// Update selection states after refresh
 	ns.Tasks[domain.NotStarted].SetItems(styles.UpdateTaskSelection(ns.Tasks[domain.NotStarted].Items(), notStartedIndex, ns.activeListIndex == domain.NotStarted))
@@ -157,7 +159,7 @@ func (ns *NavigationState) UpdateTaskListsWithSearch(
 	for _, status := range []domain.Status{domain.NotStarted, domain.InProgress, domain.Done} {
 		statusTasks := project.GetTasksByStatus(status)
 		filteredTasks := domain.SearchTasks(statusTasks, searchQuery)
-		ns.Tasks[status].SetItems(convertTasksToListItems(filteredTasks))
+		ns.Tasks[status].SetItems(convertTasksToListItems(filteredTasks, ns.columnWidth))
 	}
 
 	// Update selection states after refresh
@@ -244,7 +246,7 @@ func (ns *NavigationState) UpdateDirtyLists(project *domain.Project, taskService
 	// Update only dirty lists
 	for status, isDirty := range ns.dirtyFlags {
 		if isDirty {
-			ns.Tasks[status].SetItems(convertTasksToListItems(project.GetTasksByStatus(status)))
+			ns.Tasks[status].SetItems(convertTasksToListItems(project.GetTasksByStatus(status), ns.columnWidth))
 			// Update selection state for the updated list
 			ns.Tasks[status].SetItems(styles.UpdateTaskSelection(
 				ns.Tasks[status].Items(),
@@ -260,10 +262,26 @@ func (ns *NavigationState) UpdateDirtyLists(project *domain.Project, taskService
 
 func (ns *NavigationState) UpdateListSizes(width, height int) {
 	columnWidth := max(20, (width-3)/3)
+	ns.columnWidth = columnWidth
 
 	ns.Tasks[domain.NotStarted].SetSize(columnWidth, height)
 	ns.Tasks[domain.InProgress].SetSize(columnWidth, height)
 	ns.Tasks[domain.Done].SetSize(columnWidth, height)
+
+	// Re-wrap all existing items with new column width on resize
+	for status := range ns.Tasks {
+		items := ns.Tasks[status].Items()
+		updatedItems := make([]list.Item, len(items))
+		for i, item := range items {
+			if taskItem, ok := item.(styles.TaskWithTitle); ok {
+				taskItem.ColumnWidth = columnWidth
+				updatedItems[i] = taskItem
+			} else {
+				updatedItems[i] = item
+			}
+		}
+		ns.Tasks[status].SetItems(updatedItems)
+	}
 }
 
 func (ns *NavigationState) UpdateActiveList(msg tea.Msg) tea.Cmd {
